@@ -6,13 +6,24 @@ import (
 	"go/token"
 	"reflect"
 	"sort"
+	"strconv"
 )
+
+func HandleCall(pCall * ssa.Call) string {
+	if pCall.Common().Value.Name() == "len" {
+		return "len(" + HandleVarOrInst(pCall.Common().Args[0]) + ")"
+	} else {
+		return pCall.String()
+	}
+}
+
+
 
 func HandleVarOrInst(pValue ssa.Value) string {
 	if pUnOp, ok := pValue.(*ssa.UnOp); ok {
 		switch pUnOp.Op {
 		case token.MUL:
-			return "*" + HandleVarOrInst(pUnOp.X) //pUnOp.X.Name()
+			return "*(" + HandleVarOrInst(pUnOp.X) + ")" //pUnOp.X.Name()
 		}
 	} else if pConst, ok := pValue.(*ssa.Const); ok {
 		return pConst.Value.String()
@@ -20,6 +31,10 @@ func HandleVarOrInst(pValue ssa.Value) string {
 		return pAlloc.Name()
 	} else if pGlobal, ok := pValue.(*ssa.Global); ok {
 		return pGlobal.Name()
+	} else if pFunc, ok := pValue.(*ssa.Call); ok {
+		return HandleCall(pFunc)
+	} else if pField, ok := pValue.(* ssa.FieldAddr); ok {
+		return "&" + HandleVarOrInst(pField.X) + ".changes [" + strconv.Itoa(pField.Field) + "]"
 	}
 
 	fmt.Println(reflect.TypeOf(pValue))
@@ -68,6 +83,11 @@ func HandleBinOp(pBinOp * ssa.BinOp) string {
 
 
 func ConvertCondsToContraints(conds [] stCond) string {
+
+	if len(conds) == 0 {
+		return ""
+	}
+
 	vecSubContraints := [] string {}
 	for _, cond := range conds {
 		if pBinOp, ok := cond.Cond.(*ssa.BinOp); ok {
@@ -81,6 +101,8 @@ func ConvertCondsToContraints(conds [] stCond) string {
 			panic("not binop in ConvertCondsToContraints")
 		}
 	}
+
+
 
 	sort.Strings(vecSubContraints)
 	strResult := vecSubContraints[0]

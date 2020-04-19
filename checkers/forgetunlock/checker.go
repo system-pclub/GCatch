@@ -196,18 +196,13 @@ func generatePathConditions(vecPath [] * ssa.BasicBlock, pd * analysis.PostDomin
 				vecPathConds = append(vecPathConds, newCond)
 			}
 		}
-
 		index ++
 	}
-
-
 
 	return vecPathConds
 }
 
 func collectUnlockedMutex(fn * ssa.Function, pd * analysis.PostDominator) map[string] bool {
-
-	//fmt.Println("call function collectUnlockedMutex")
 
 	mapResult := make(map[string] bool)
 
@@ -261,8 +256,6 @@ func collectUnlockedMutex(fn * ssa.Function, pd * analysis.PostDominator) map[st
 			continue
 		}
 
-		//var mapUnlockingOp map[ssa.Instruction] bool
-
 		if _, ok := mapUnlockingOperation[strMutexName]; !ok {
 			continue
 		}
@@ -283,12 +276,7 @@ func collectUnlockedMutex(fn * ssa.Function, pd * analysis.PostDominator) map[st
 			bbUnlocking = ii.Block()
 		}
 
-		//fmt.Println(strMutexName)
-		//fmt.Println(strMutexName, bbLocking.Index, bbUnlocking.Index)
 
-		//if strMutexName != "s.locks[j]_rwmutexW" {
-		//	continue
-		//}
 
 		dominatorLocking := collectDominator(bbLocking)
 		dominatorUnlocking := collectDominator(bbUnlocking)
@@ -314,14 +302,24 @@ func collectUnlockedMutex(fn * ssa.Function, pd * analysis.PostDominator) map[st
 		vecCond1 := generatePathConditions(path1, pd)
 		vecCond2 := generatePathConditions(path2, pd)
 
-		if len(vecCond1) != len(vecCond2) {
+		//fn.WriteTo(os.Stdout)
+
+		if len(vecCond1) != len(vecCond2)  {
 			continue
 		}
+
+		//fmt.Println(strMutexName, len(vecCond1), len(vecCond2))
+		//fn.WriteTo(os.Stdout)
+		//printPath(path1)
+		//printPath(path2)
 
 		strConstraints1 := ConvertCondsToContraints(vecCond1)
 		strConstraints2 := ConvertCondsToContraints(vecCond2)
 
+		//fmt.Println(strConstraints1, strConstraints2)
+
 		if strConstraints1 == strConstraints2 {
+			//fmt.Println(strMutexName)
 			mapResult[strMutexName] = true
 		}
 	}
@@ -363,8 +361,8 @@ func inspectInst(inputInst ssa.Instruction, isBrutal bool, usingSolver bool, pd 
 	if util.IsFnEnd(inputInst) {
 		instPanic, ok := inputInst.(*ssa.Panic)
 		if ok {
-			panicvalue := instPanic.X
-			ii, ok := panicvalue.(ssa.Instruction)
+			panicValue := instPanic.X
+			ii, ok := panicValue.(ssa.Instruction)
 			if ok {
 				if strings.Contains(ii.String(), "select") {
 					return false
@@ -374,17 +372,17 @@ func inspectInst(inputInst ssa.Instruction, isBrutal bool, usingSolver bool, pd 
 
 		mapLiveMutex := GetLiveMutex(inputInst)
 
-
 		if len(mapLiveMutex) == 0 {
 			return false
 		}
 
-
+		//fmt.Println(inputInst.Parent().String())
 		if usingSolver {
 			mapUnlockedMutex := collectUnlockedMutex(inputInst.Parent(), pd)
 			newMapLiveMutex := map[string] bool {}
 
 			for strMutexName, _ := range mapLiveMutex {
+				//fmt.Println(strMutexName)
 				if _, ok := mapUnlockedMutex[strMutexName]; ok {
 					continue
 				}
@@ -398,6 +396,56 @@ func inspectInst(inputInst ssa.Instruction, isBrutal bool, usingSolver bool, pd 
 		vecDeferredMutex := SearchDeferredUnlock(inputInst)
 
 		if len(mapLiveMutex) > len(vecDeferredMutex) {
+			if pReturn, ok := inputInst.(*ssa.Return); ok {
+
+				for _, res := range pReturn.Results {
+					m := make(map[string] bool)
+					if pMake, ok := res.(*ssa.MakeInterface); ok {
+						util.GetTypeMethods(pMake.Type(), m)
+						res = pMake.X
+					} else if pCall, ok := res.(* ssa.Call); ok {
+						if pCall.Common().Value.Name()[:3] == "new" || pCall.Common().Value.Name()[:3] == "New" {
+							for i := 0 ; i < len(pCall.Common().Args); i ++ {
+								arg := pCall.Common().Args[i]
+								if pMake, ok := arg.(*ssa.MakeInterface); ok {
+									util.GetTypeMethods(pMake.Type(), m)
+									arg = pMake.X
+								}
+								util.GetTypeMethods(arg.Type(), m)
+							}
+						}
+					}
+
+
+
+
+					util.GetTypeMethods(res.Type(), m)
+					mapTypeMethods := util.DecoupleTypeMethods(m)
+
+
+					//util.PrintTypeMethods(mapTypeMethods)
+					//fmt.Println()
+					//fmt.Println()
+
+					for _, mapMethods := range mapTypeMethods {
+						if _, ok1 := mapMethods["Lock"]; ok1 {
+							if _, ok2 := mapMethods["Unlock"]; ok2 {
+								return false
+							}
+						}
+
+						if _, ok1 := mapMethods["RLock"]; ok1 {
+							if _, ok2 := mapMethods["RUnlock"]; ok2 {
+								return false
+							}
+						}
+					}
+
+					//os.Exit(0)
+
+				}
+			}
+
 			return true
 		}
 
@@ -430,8 +478,6 @@ func inspectFunc1(fn * ssa.Function) {
 							break
 						}
 					}
-
-					//fmt.Println(fn.Name())
 
 					if ! flag {
 						Bugs = append(Bugs, ii)
@@ -467,19 +513,28 @@ func inspectFunc(fn * ssa.Function, isMethod bool) {
 func Detect() {
 
 	Bugs = [] ssa.Instruction{}
+	util.GetStructPointerMapping()
+
 
 	for fn, _ := range ssautil.AllFunctions(config.Prog) {
 		if fn == nil {
 			continue
 		}
 
-
-
-
 		if config.IsPathIncluded(fn.String()) == false {
 			continue
 		}
 
+		//if strings.Index(fn.String(), "(*github.com/etcd-io/etcd/mvcc.storeTxnWrite).End") < 0 {
+		//	continue
+		//}
+
+
+		//if fn.Name() != "Test0" {
+		//	continue
+		//}
+
+		//fmt.Println(fn.Name())
 
 		if _, ok := AnalyzedFNs[fn.String()]; ok {
 			continue

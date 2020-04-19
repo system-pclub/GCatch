@@ -10,7 +10,18 @@ var j int
 
 type SafeCounter struct {
 	v map[string] int
+	i int
+	s string
+	f float64
 	mux sync.Mutex
+}
+
+func (c * SafeCounter) Lock() {
+	c.mux.Lock()
+}
+
+func (c * SafeCounter) Unlock() {
+	c.mux.Unlock()
 }
 
 func (c * SafeCounter) Inc(key string) {
@@ -24,6 +35,14 @@ func (c *SafeCounter) Value(key string) int {
 	// Lock so only one goroutine at a time can access the map c.v.
 	defer c.mux.Unlock()
 	return c.v[key]
+}
+
+func Test0() * SafeCounter {
+
+	c := SafeCounter{v: make(map[string]int)}
+	c.mux.Lock()
+
+	return &c
 }
 
 func Test1() {

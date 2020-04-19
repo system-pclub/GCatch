@@ -42,9 +42,9 @@ func InitGenKillMap(inputFn * ssa.Function) {
 				if instinfo.IsMutexLock(ii) {
 					strMutexName = string(instinfo.GetMutexName(ii) + "_mutex")
 				} else if instinfo.IsRwmutexLock(ii) {
-					strMutexName = string(instinfo.GetMutexName(ii) + "_rwmutex")
+					strMutexName = string(instinfo.GetMutexName(ii) + "_rwmutexW")
 				} else if instinfo.IsRwmutexRlock(ii) {
-					strMutexName = string(instinfo.GetMutexName(ii) + "_rwmutex")
+					strMutexName = string(instinfo.GetMutexName(ii) + "_rwmutexR")
 				}
 
 				mapGen[ii] = strMutexName
@@ -55,9 +55,9 @@ func InitGenKillMap(inputFn * ssa.Function) {
 				if instinfo.IsMutexUnlock(ii) {
 					strMutexName = string(instinfo.GetMutexName(ii) + "_mutex")
 				} else if instinfo.IsRwmutexUnlock(ii) {
-					strMutexName = string(instinfo.GetMutexName(ii) + "_rwmutex")
+					strMutexName = string(instinfo.GetMutexName(ii) + "_rwmutexW")
 				} else if instinfo.IsRwmutexRunlock(ii) {
-					strMutexName = string(instinfo.GetMutexName(ii) + "_rwmutex")
+					strMutexName = string(instinfo.GetMutexName(ii) + "_rwmutexR")
 				}
 				mapKill[ii] = strMutexName
 

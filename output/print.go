@@ -5,6 +5,7 @@ import (
 	"github.com/system-pclub/gochecker/config"
 	"github.com/system-pclub/gochecker/tools/go/ssa"
 	"github.com/system-pclub/gochecker/util"
+	"go/token"
 )
 
 func GetLineNum(II ssa.Instruction) int {
@@ -46,6 +47,35 @@ func GetLineNum(II ssa.Instruction) int {
 	return 0
 }
 
+
+func GetLoc(II ssa.Instruction) token.Position {
+	loc := (config.Prog.Fset).Position(II.Pos())
+
+	if loc.Line > 0 {
+		return loc
+	}
+
+	iiIndex := util.GetIIndexBB(II) - 1
+	bbIndex := II.Block().Index
+
+	for bbIndex >= 0 {
+		for iiIndex >= 0 {
+			I := II.Parent().Blocks[bbIndex].Instrs[iiIndex]
+			loc = (config.Prog.Fset).Position(I.Pos())
+			if loc.Line > 0 {
+				return loc
+			}
+
+			iiIndex --
+		}
+
+		bbIndex --
+		iiIndex = len(II.Parent().Blocks[bbIndex].Instrs) -1
+	}
+
+	return token.Position {Line: 0}
+}
+
 func PrintFnSrc(fn * ssa.Function) {
 	for _, bb := range fn.Blocks {
 		for _, ii := range bb.Instrs {
@@ -57,6 +87,16 @@ func PrintFnSrc(fn * ssa.Function) {
 			}
 		}
 	}
+}
+
+func PrintIISrc(ii ssa.Instruction) {
+	loc := GetLoc(ii)
+
+	if loc.Line != 0 {
+		fmt.Print("\tFile:", loc.Filename,"\tLine:", loc.Line)
+		fmt.Println()
+	}
+
 }
 
 
