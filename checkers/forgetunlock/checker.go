@@ -10,6 +10,7 @@ import (
 	"github.com/system-pclub/gochecker/tools/go/ssa/ssautil"
 	"github.com/system-pclub/gochecker/util"
 	"go/token"
+	"go/types"
 	"strings"
 )
 
@@ -251,6 +252,8 @@ func collectUnlockedMutex(fn * ssa.Function, pd * analysis.PostDominator) map[st
 		}
 	}
 
+	//fmt.Println(len(mapLockingOperation), len(mapUnlockingOperation))
+
 	for strMutexName, mapLockingOp := range mapLockingOperation {
 		if len(mapLockingOp) != 1 {
 			continue
@@ -276,8 +279,6 @@ func collectUnlockedMutex(fn * ssa.Function, pd * analysis.PostDominator) map[st
 			bbUnlocking = ii.Block()
 		}
 
-
-
 		dominatorLocking := collectDominator(bbLocking)
 		dominatorUnlocking := collectDominator(bbUnlocking)
 
@@ -293,11 +294,13 @@ func collectUnlockedMutex(fn * ssa.Function, pd * analysis.PostDominator) map[st
 			continue
 		}
 
-		//fmt.Println("Lowest common:", bbLowest.Index)
+		fmt.Println("Lowest common:", bbLowest.Index)
 
 		path1 := getShortestPath(bbLowest, bbLocking)
 		path2 := getShortestPath(bbLowest, bbUnlocking)
 
+		//printPath(path1)
+		//printPath(path2)
 
 		vecCond1 := generatePathConditions(path1, pd)
 		vecCond2 := generatePathConditions(path2, pd)
@@ -391,35 +394,41 @@ func inspectInst(inputInst ssa.Instruction, isBrutal bool, usingSolver bool, pd 
 			}
 
 			mapLiveMutex = newMapLiveMutex
+
 		}
 
 		vecDeferredMutex := SearchDeferredUnlock(inputInst)
 
 		if len(mapLiveMutex) > len(vecDeferredMutex) {
+
+
+
+
+			//fmt.Println(inputInst, inputInst.Block().Index)
+
+
 			if pReturn, ok := inputInst.(*ssa.Return); ok {
 
 				for _, res := range pReturn.Results {
 					m := make(map[string] bool)
+					mVisited := make(map[types.Type] bool)
 					if pMake, ok := res.(*ssa.MakeInterface); ok {
-						util.GetTypeMethods(pMake.Type(), m)
+						util.GetTypeMethods(pMake.Type(), m, mVisited)
 						res = pMake.X
 					} else if pCall, ok := res.(* ssa.Call); ok {
 						if pCall.Common().Value.Name()[:3] == "new" || pCall.Common().Value.Name()[:3] == "New" {
 							for i := 0 ; i < len(pCall.Common().Args); i ++ {
 								arg := pCall.Common().Args[i]
 								if pMake, ok := arg.(*ssa.MakeInterface); ok {
-									util.GetTypeMethods(pMake.Type(), m)
+									util.GetTypeMethods(pMake.Type(), m, mVisited)
 									arg = pMake.X
 								}
-								util.GetTypeMethods(arg.Type(), m)
+								util.GetTypeMethods(arg.Type(), m, mVisited)
 							}
 						}
 					}
 
-
-
-
-					util.GetTypeMethods(res.Type(), m)
+					util.GetTypeMethods(res.Type(), m, mVisited)
 					mapTypeMethods := util.DecoupleTypeMethods(m)
 
 
@@ -473,11 +482,21 @@ func inspectFunc1(fn * ssa.Function) {
 					flag := false
 					for _, bug := range Bugs {
 
+						if bug == ii {
+							flag = true
+							break
+						}
+
+
 						if bug.Pos() == ii.Pos() && ii.Pos() != token.NoPos {
 							flag = true
 							break
 						}
 					}
+
+					//ii.Parent().WriteTo(os.Stdout)
+
+					//fmt.Println(ii, ii.Pos(), ii.Pos())
 
 					if ! flag {
 						Bugs = append(Bugs, ii)
@@ -525,37 +544,15 @@ func Detect() {
 			continue
 		}
 
-		//if strings.Index(fn.String(), "(*github.com/etcd-io/etcd/mvcc.storeTxnWrite).End") < 0 {
+		//if fn.String() != "(*github.com/gohugoio/hugo/tpl/tplimpl.templateNamespace).Lookup" {
 		//	continue
 		//}
-
-
-		//if fn.Name() != "Test0" {
-		//	continue
-		//}
-
-		//fmt.Println(fn.Name())
 
 		if _, ok := AnalyzedFNs[fn.String()]; ok {
 			continue
 		}
 
 		AnalyzedFNs[fn.String()] = true
-
-
-		/*
-		fn.WriteTo(os.Stdout)
-
-		for _, bb := range fn.Blocks {
-			for _, ii := range bb.Instrs {
-				loc := (config.Prog.Fset).Position(ii.Pos())
-
-				fmt.Println(ii.String())
-				fmt.Println(loc.Filename, loc.Line)
-
-			}
-		}
-		 */
 
 
 		if fn.Signature.Recv() == nil {
@@ -565,6 +562,7 @@ func Detect() {
 		}
 	}
 
+	//fmt.Print("Analyzed function", len(AnalyzedFNs))
 
 	mapCombinedIndex := make(map[int] bool)
 	mapIndexGroup := make(map[int] map[int] bool)

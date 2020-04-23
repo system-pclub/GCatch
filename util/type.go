@@ -59,12 +59,18 @@ func PrintTypes(m map[types.Type] bool) {
 }
 */
 
-func GetTypeMethods(t types.Type, m map[string] bool)  {
+func GetTypeMethods(t types.Type, m map[string] bool, mVisited map[types.Type] bool)  {
+
+	if _, ok := mVisited[t]; ok {
+		return
+	}
+
+	mVisited[t] = true
 
 	if pPointer, ok := t.(* types.Pointer); ok {
-		GetTypeMethods(pPointer.Elem(), m)
+		GetTypeMethods(pPointer.Elem(), m, mVisited)
 	} else if pNamed, ok := t.(* types.Named); ok {
-		GetTypeMethods(pNamed.Underlying(), m)
+		GetTypeMethods(pNamed.Underlying(), m, mVisited)
 	} else if pStruct, ok := t.(* types.Struct); ok {
 		if pPointer, ok := mapStruct2Pointer[pStruct]; ok {
 			mset := config.Prog.MethodSets.MethodSet(pPointer)
@@ -76,23 +82,23 @@ func GetTypeMethods(t types.Type, m map[string] bool)  {
 				}
 			}
 		}
-
 		for i := 0; i < pStruct.NumFields(); i ++ {
-			GetTypeMethods(pStruct.Field(i).Type(), m)
+			GetTypeMethods(pStruct.Field(i).Type(), m, mVisited)
 		}
 	} else if pInterface, ok := t.(* types.Interface); ok {
 		for i := 0; i < pInterface.NumMethods(); i ++ {
 			m[pInterface.Method(i).FullName()] = true
 		}
 		for i := 0; i < pInterface.NumEmbeddeds(); i ++ {
-			GetTypeMethods(pInterface.EmbeddedType(i), m)
+			GetTypeMethods(pInterface.EmbeddedType(i), m, mVisited)
 		}
 
 	} else if _, ok := t.(*types.Map); ok {
 	} else if _, ok := t.(*types.Basic); ok {
 	} else if _, ok := t.(*types.Slice); ok {
 	} else if _, ok := t.(*types.Chan); ok {
-
+	} else if _, ok := t.(*types.Array); ok {
+	} else if _, ok := t.(*types.Signature); ok {
 	}else {
 		fmt.Println("not handle", reflect.TypeOf(t), t)
 		panic("in GetTypeMethods()")

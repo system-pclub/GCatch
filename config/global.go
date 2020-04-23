@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/system-pclub/gochecker/tools/go/callgraph"
 	"github.com/system-pclub/gochecker/tools/go/ssa"
 	"sync"
 )
@@ -23,3 +24,5 @@ var BugIndex int
 var BugIndexMu sync.Mutex
 
 var VecPathStats [] PathStat
+
+var CallGraph * callgraph.Graph

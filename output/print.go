@@ -91,16 +91,14 @@ func PrintFnSrc(fn * ssa.Function) {
 
 func PrintIISrc(ii ssa.Instruction) {
 	loc := GetLoc(ii)
-
 	if loc.Line != 0 {
 		fmt.Print("\tFile:", loc.Filename,"\tLine:", loc.Line)
 		fmt.Println()
 	}
-
 }
 
 
-func PrintInsts( IIs [] ssa.Instruction) {
+func PrintInsts(IIs [] ssa.Instruction) {
 
 	if len(IIs) == 0 {
 		return
@@ -163,3 +161,4 @@ outer:
 	fmt.Println(GetLineNum(IIs[len(IIs)-1]))
 	fmt.Print("\n")
 }
+

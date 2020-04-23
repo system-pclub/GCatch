@@ -3,7 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/system-pclub/gochecker/checkers/doublelock"
 	"github.com/system-pclub/gochecker/ssabuild"
+	"github.com/system-pclub/gochecker/tools/go/callgraph"
+	"github.com/system-pclub/gochecker/tools/go/mypointer"
 	"os"
 	"strings"
 	"time"
@@ -105,33 +108,12 @@ func main() {
 	//	fmt.Println( path.StrPath, path.NumLock, path.NumSend)
 	//}
 
+	//os.Exit(0)
+
 	//vecTestPackage := [] string {"github.com/etcd-io/etcd/mvcc", "github.com/etcd-io/etcd/raft"}
 
 	for index, wpath := range wPaths {
 
-
-		/*
-	for index, strPath := range vecTestPackage {
-
-		var wpath config.PkgPath
-
-		for _, p := range wPaths {
-			if strPath == p.StrPath {
-				wpath = p
-			}
-		}
-
-
-
-		if index > 6 {
-			break
-		}
-
-		fmt.Println()
-		fmt.Println()
-		fmt.Println(wpath.StrPath) */
-
-		// Step 2.4, Case 1 : built SSA successfully; run the checkers in process()
 		config.Prog, config.Pkgs, bSucc, errMsg = ssabuild.BuildWholeProgram(wpath.StrPath, false, boolShowCompileError) // Create SSA packages for the whole program including the dependencies.
 		if bSucc {
 			fmt.Println("Successful. Package NO.", index, ":", wpath.StrPath, " Num of Lock & <-:", wpath.NumLock + wpath.NumSend)
@@ -162,5 +144,28 @@ func main() {
 func detect(strCheckerName string) {
 	if strCheckerName == "unlock" {
 		forgetunlock.Detect()
+	} else if strCheckerName == "double" {
+		config.CallGraph = BuildCallGraph()
+		doublelock.Detect()
 	}
+}
+
+
+func BuildCallGraph() * callgraph.Graph {
+	cfg := & mypointer.Config{
+		OLDMains:        nil,
+		Prog:            config.Prog,
+		Reflection:      config.POINTER_CONSIDER_REFLECTION,
+		BuildCallGraph:  true,
+		Queries:         nil,
+		IndirectQueries: nil,
+		Log:             nil,
+	}
+	result, err := mypointer.Analyze(cfg, nil)
+	if err != nil {
+		fmt.Println("Error when building callgraph with nil Queries:\n", err.Error())
+		return nil
+	}
+	graph := result.CallGraph
+	return graph
 }

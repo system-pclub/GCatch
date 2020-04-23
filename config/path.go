@@ -49,6 +49,9 @@ func ListAllPkgPaths() []string {
 	strRoot := StrAbsolutePath + StrRelativePath
 	var vecPkgPaths [] string
 
+
+	//fmt.Println(strRoot)
+
 	err := filepath.Walk(strRoot, func(path string, info os.FileInfo, err error) error {
 		if ContainsAnyStr(path, VecExcludePaths) || info.IsDir() == false {
 			return nil
@@ -67,6 +70,10 @@ func ListAllPkgPaths() []string {
 			}
 		}
 		if !flag {
+			return nil
+		}
+
+		if path == strRoot {
 			return nil
 		}
 
@@ -151,6 +158,14 @@ func ListWorthyPaths() (wPaths [] PkgPath) {
 	vecPathStats := *new([]PathStat)
 
 	vecPkgPaths := ListAllPkgPaths()
+
+	//fmt.Println(len(vecPkgPaths))
+	//sort.Strings(vecPkgPaths)
+	//for _, s := range vecPkgPaths {
+	//	fmt.Println(s)
+	//}
+
+	//os.Exit(0)
 
 	for _, path := range vecPkgPaths {
 		numLock := CountOccurrence( path, ".Lock()")
