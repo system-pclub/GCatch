@@ -6,7 +6,20 @@ import (
 	"time"
 )
 
+type geometry interface {
+	area() float64
+}
 
+type rect struct {
+	width, height float64
+}
+type circle struct {
+	radius float64
+}
+
+func (r rect) area() float64 {
+	return r.width * r.height
+}
 
 var j int
 
@@ -18,7 +31,19 @@ type SafeCounter struct {
 	mux sync.Mutex
 }
 
+type SafeCounter1 struct {
+	v map[string] int
+	i int
+	s string
+	f float64
+	mux sync.Mutex
+}
 
+func (c * SafeCounter1) Inc(key string) {
+	c.mux.Lock()
+	c.v[key] ++
+	c.mux.Unlock()
+}
 
 func (c * SafeCounter) Lock() {
 	c.mux.Lock()
@@ -31,6 +56,8 @@ func (c * SafeCounter) Unlock() {
 func (c * SafeCounter) Inc(key string) {
 	c.mux.Lock()
 	c.ProtectedInc(key)
+	c1 := SafeCounter1{v: make(map[string]int)}
+	c1.Inc(key)
 	c.mux.Unlock()
 }
 
@@ -109,6 +136,10 @@ func Test2() {
 	//mux1 := sync.Mutex{}
 
 
+}
+func measure(g geometry) {
+	fmt.Println(g)
+	fmt.Println(g.area())
 }
 
 func main() {

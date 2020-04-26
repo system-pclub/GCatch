@@ -11,7 +11,7 @@ import (
 
 type PkgPath struct {
 	StrPath string
-	VecChildrenPath [] string
+	VecChildrenPath [] PkgPath //[] string
 	NumLock int
 	NumSend int
 }
@@ -177,7 +177,7 @@ func ListWorthyPaths() (wPaths [] PkgPath) {
 			numLock,
 			numSend,
 		}
-		vecPathStats = append(vecPathStats,pathStat)
+		vecPathStats = append(vecPathStats, pathStat)
 	}
 
 	sort.Slice(vecPathStats, func(i, j int) bool {
@@ -193,7 +193,16 @@ outer:
 
 		for index < len(wPaths) {
 			if strings.HasPrefix(pathStat.StrPath, wPaths[index].StrPath) { //this path is a child of an existing path in worthy_paths
-				wPaths[index].VecChildrenPath = append(wPaths[index].VecChildrenPath, pathStat.StrPath)
+				//wPaths[index].VecChildrenPath = append(wPaths[index].VecChildrenPath, pathStat.StrPath)
+				newPkgPath := PkgPath{
+					StrPath:         pathStat.StrPath,
+					VecChildrenPath: [] PkgPath {},
+					NumLock:         0,
+					NumSend:         0,
+				}
+
+				wPaths[index].VecChildrenPath = append(wPaths[index].VecChildrenPath, newPkgPath)
+
 				continue outer
 			}
 
@@ -206,13 +215,13 @@ outer:
 
 		newPkgPath := PkgPath{
 			StrPath:         pathStat.StrPath,
-			VecChildrenPath: []string{},
+			VecChildrenPath: [] PkgPath {},
 			NumLock:         0,
 			NumSend:         0,
 		}
 
 		if index < len(wPaths) {
-			newPkgPath.VecChildrenPath = append(newPkgPath.VecChildrenPath, wPaths[index].StrPath)
+			newPkgPath.VecChildrenPath = append(newPkgPath.VecChildrenPath, wPaths[index])
 			for _, str := range wPaths[index].VecChildrenPath {
 				newPkgPath.VecChildrenPath = append(newPkgPath.VecChildrenPath, str)
 			}
@@ -228,8 +237,14 @@ outer:
 		wPaths[index].StrPath = strings.ReplaceAll(wPaths[index].StrPath, StrAbsolutePath,"")
 
 		for j,_ := range wPaths[index].VecChildrenPath {
-			wPaths[index].VecChildrenPath[j] = strings.ReplaceAll(wPaths[index].VecChildrenPath[j], StrAbsolutePath,"")
+			wPaths[index].VecChildrenPath[j].NumLock= CountOccurrenceRecursive(wPaths[index].VecChildrenPath[j].StrPath, ".Lock()")
+			wPaths[index].VecChildrenPath[j].NumSend = CountOccurrenceRecursive(wPaths[index].VecChildrenPath[j].StrPath, "<-")
+			wPaths[index].VecChildrenPath[j].StrPath = strings.ReplaceAll(wPaths[index].VecChildrenPath[j].StrPath, StrAbsolutePath,"")
 		}
+
+		sort.Slice(wPaths[index].VecChildrenPath, func(i, j int) bool {
+			return ( 1 * wPaths[index].VecChildrenPath[i].NumLock + 1 * wPaths[index].VecChildrenPath[i].NumSend) > ( 1 *  wPaths[index].VecChildrenPath[j].NumLock + 1 * wPaths[index].VecChildrenPath[j].NumSend)
+		})
 	}
 
 	sort.Slice(wPaths, func(i, j int) bool {

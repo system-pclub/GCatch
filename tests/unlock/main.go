@@ -8,6 +8,9 @@ import (
 
 var j int
 
+
+
+
 type SafeCounter struct {
 	v map[string] int
 	i int
@@ -96,6 +99,8 @@ func Test2() {
 
 }
 
+
+
 func main() {
 	c := SafeCounter{v: make(map[string]int)}
 	for i := 0; i < 1000; i++ {
@@ -104,4 +109,7 @@ func main() {
 
 	time.Sleep(time.Second)
 	fmt.Println(c.Value("somekey"))
+
+	//r := rect{width: 3, height: 4}
+	//measure(r)
 }

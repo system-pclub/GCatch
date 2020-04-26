@@ -14,6 +14,9 @@ var StrGOPATH string // /home/song/work/go-workspace/code
 var StrAbsolutePath string // /home/song/work/go-workspace/code/src/
 var StrRelativePath string // github.com/etcd-io/etcd
 
+var BoolDisableFnPointer bool
+
+
 var VecExcludePaths [] string
 
 var Prog *ssa.Program

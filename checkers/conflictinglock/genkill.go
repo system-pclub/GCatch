@@ -1,4 +1,4 @@
-package doublelock
+package conflictinglock
 
 import (
 	"fmt"
@@ -10,6 +10,9 @@ var mapGen map[ssa.Instruction] * StLockingOp
 var mapKill map[ssa.Instruction] * StUnlockingOp
 var mapBefore map[ssa.Instruction] map[* StLockingOp] bool
 var mapAfter map[ssa.Instruction] map[* StLockingOp] bool
+
+
+
 
 func printMapBefore() {
 
@@ -38,6 +41,16 @@ func printMapGen() {
 
 	for ii, l := range mapGen {
 		fmt.Print(ii, " (Gen): ", l.StrName)
+		fmt.Println()
+	}
+}
+
+func printMapKill() {
+	fmt.Println()
+	fmt.Println("Print Kill Map:")
+
+	for ii, l := range mapKill {
+		fmt.Print(ii, " (Kill): ", l.StrName)
 		fmt.Println()
 	}
 }
@@ -106,26 +119,23 @@ func InitBeforeAfterMap(inputFn * ssa.Function, contextLock map[* StLockingOp] b
 	}
 }
 
-func UnionGenSet(newbefore map[* StLockingOp] bool, pLocking * StLockingOp) * StDoubleLock {
+func UnionGenSet(newbefore map[* StLockingOp] bool, pLocking * StLockingOp) [] * StLockPair {
 
-	//fmt.Println("inside union gen")
-
+	vecLockPair := make([] * StLockPair, 0)
 	for l, _ := range newbefore {
-
-		if l.Parent == pLocking.Parent { // try alias analysis here
-			bug := & StDoubleLock{
+		if l.Parent != pLocking.Parent { // try alias analysis here
+			pair := & StLockPair{
 				PLock1: l,
 				PLock2: pLocking,
+				CallChainID: 0,
 			}
 
-			//should we return here?
-			return bug
+			vecLockPair = append(vecLockPair, pair)
 		}
 	}
 
 	newbefore[pLocking] = true
-
-	return nil
+	return vecLockPair
 }
 
 func KillKillSet(newbefore map[* StLockingOp] bool, pUnlocking * StUnlockingOp) {
@@ -137,8 +147,38 @@ func KillKillSet(newbefore map[* StLockingOp] bool, pUnlocking * StUnlockingOp) 
 	}
 }
 
+func MergePairVec(v1 [] * StLockPair, v2 [] * StLockPair) [] * StLockPair {
+	vecResult := make([] * StLockPair, 0)
 
-func GenKillAnalysis(inputFn * ssa.Function, contextLock map[* StLockingOp] bool) [] * StDoubleLock {
+	for _, p := range v1 {
+		vecResult = append(vecResult, p)
+	}
+
+	for _, p1 := range v2 {
+
+		if len(vecResult) == 0 {
+			vecResult = append(vecResult, p1)
+		} else {
+			for _, p2 := range vecResult {
+				if p1.PLock1 == p2.PLock1 && p1.PLock2 == p2.PLock2 {
+					continue
+				}
+
+				vecResult = append(vecResult, p1)
+			}
+		}
+
+
+	}
+
+	fmt.Println(len(v1), len(v2), len(vecResult))
+	return vecResult
+}
+
+
+
+
+func GenKillAnalysis(inputFn * ssa.Function, contextLock map[* StLockingOp] bool) [] * StLockPair {
 
 	//fmt.Println(inputFn.Name(), len(contextLock))
 
@@ -147,12 +187,12 @@ func GenKillAnalysis(inputFn * ssa.Function, contextLock map[* StLockingOp] bool
 	mapBefore = make(map[ssa.Instruction] map[* StLockingOp] bool)
 	mapAfter = make(map[ssa.Instruction] map[* StLockingOp] bool)
 
-	bugs := make([] * StDoubleLock, 0)
+	vecLockingPair := make([] * StLockPair, 0)
 
 	InitGenKillMap(inputFn)
 
 	if len(mapGen) == 0 && len(mapKill) == 0 && len(contextLock) == 0 {
-		return bugs
+		return vecLockingPair
 	}
 
 
@@ -200,9 +240,11 @@ func GenKillAnalysis(inputFn * ssa.Function, contextLock map[* StLockingOp] bool
 		//}
 
 		if op, ok := mapGen[ii]; ok {
-			bug := UnionGenSet(newBefore, op)
-			if bug != nil {
-				bugs = append(bugs, bug)
+			vecPair := UnionGenSet(newBefore, op)
+			if len(vecPair) != 0 {
+				//bugs = append(bugs, bug)
+				fmt.Println("add")
+				vecLockingPair = MergePairVec(vecLockingPair, vecPair)
 			}
 		}
 
@@ -210,16 +252,6 @@ func GenKillAnalysis(inputFn * ssa.Function, contextLock map[* StLockingOp] bool
 			KillKillSet(newBefore, op)
 		}
 
-
-
-		//if op, ok := mapGen[ii]; ok {
-		//	newBefore[op] = true
-		//}
-
-		//if strMutexName, ok := mapKill[ii]; ok {
-		//	delete(newBefore, strMutexName)
-		//
-		//}
 
 		if !CompareTwoMaps(newBefore, mapAfter[ii]) {
 			mapAfter[ii] = newBefore
@@ -229,5 +261,5 @@ func GenKillAnalysis(inputFn * ssa.Function, contextLock map[* StLockingOp] bool
 		}
 	}
 
-	return bugs
+	return vecLockingPair
 }

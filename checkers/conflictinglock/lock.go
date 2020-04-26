@@ -1,7 +1,6 @@
-package doublelock
+package conflictinglock
 
 import (
-	"fmt"
 	"github.com/system-pclub/gochecker/config"
 	"github.com/system-pclub/gochecker/instinfo"
 	"github.com/system-pclub/gochecker/tools/go/ssa"
@@ -11,12 +10,7 @@ import (
 
 const Unknown = "Unknown"
 const Edited = "Edited"
-const M_Lock = "M_Lock"
-const M_Unlock = "M_Unlock"
-const RW_Lock = "RW_Lock"
-const RW_RLock = "RW_RLock"
-const RW_Unlock = "RW_Unlock"
-const RW_RUnlock = "RW_RUnlock"
+
 
 type StLockingOp struct {
 	StrName string
@@ -29,12 +23,6 @@ type StLockingOp struct {
 	StrFileName string
 	NumLine int
 }
-
-type StDoubleLock struct {
-	PLock1 * StLockingOp
-	PLock2 * StLockingOp
-}
-
 
 type StUnlockingOp struct {
 	StrName string
@@ -49,23 +37,28 @@ type StUnlockingOp struct {
 type StMutex struct{
 	StrName string
 	StrType string
+	StrBastStructType string
 	MapLockingOps map[ssa.Instruction] *StLockingOp
 	MapUnlockingOps map[ssa.Instruction] *StUnlockingOp
 	Pkg string // Don't use *ssa.Package here! It's not reliable
 
+
+
 	StrStatus string
 }
 
-func printLockingOps(m map[* StLockingOp] bool) {
-	for l, _ := range m {
-		fmt.Print(l.StrName)
-		fmt.Print(" ")
-	}
-
-	fmt.Println()
+type StLockPair struct {
+	PLock1 * StLockingOp
+	PLock2 * StLockingOp
+	CallChainID int
 }
 
+type stMutexPair struct {
+	PMutex1 * StMutex
+	PMutex2 * StMutex
 
+	VecLockingPair [] * StLockPair
+}
 
 func getLockingOpInfo(inputInst ssa.Instruction) (strName string, strMutexType string, strOpType string, isDefer bool, isLockingOp bool) {
 
@@ -151,6 +144,7 @@ func getLockingOpInfo(inputInst ssa.Instruction) (strName string, strMutexType s
 	return
 }
 
+
 func handleInst(inputInst ssa.Instruction) (isLockingOp bool) {
 	isLockingOp = false
 
@@ -171,11 +165,11 @@ func handleInst(inputInst ssa.Instruction) (isLockingOp bool) {
 	var pMutex * StMutex
 	strBaseType := ""
 
-	if pcall, ok := inputInst.(*ssa.Call); ok {
-		if len(pcall.Common().Args) == 0 {
-			strBaseType = pcall.Common().Signature().Recv().Type().String()//util.GetBaseType(pcall.Common().Signature().Recv())
+	if pCall, ok := inputInst.(*ssa.Call); ok {
+		if len(pCall.Common().Args) == 0 {
+			strBaseType = pCall.Common().Signature().Recv().Type().String() //util.GetBaseType(pcall.Common().Signature().Recv())
 		} else {
-			strBaseType = util.GetBaseType(pcall.Common().Args[0]).String()
+			strBaseType = util.GetBaseType(pCall.Common().Args[0]).String()
 		}
 	}
 
@@ -185,12 +179,12 @@ func handleInst(inputInst ssa.Instruction) (isLockingOp bool) {
 		pMutex = &StMutex{
 			StrName:    		strName,
 			StrType:    		strMutexType,
+			StrBastStructType:	strBaseType,
 			MapLockingOps:		map[ssa.Instruction] *StLockingOp {},
 			MapUnlockingOps:	map[ssa.Instruction] *StUnlockingOp {},
 			Pkg:				inputInst.Parent().Pkg.Pkg.Path(),
 			StrStatus:  		Edited,
 		}
-
 
 		MapMutex[inputInst.Parent().Pkg.Pkg.Path() + ": " + strName + " (" + strBaseType + ")"] = pMutex
 	}
@@ -204,18 +198,6 @@ func handleInst(inputInst ssa.Instruction) (isLockingOp bool) {
 	if strOpType == "Lock" || strOpType == "RLock" {
 
 		loc := config.Prog.Fset.Position(inputInst.Pos())
-
-		//output.PrintIISrc(inputInst)
-
-		//if pcall, ok := inputInst.(*ssa.Call); ok {
-		//	fmt.Println(pcall.Common().Args[0])
-		//	fmt.Println(util.GetBaseType(pcall.Common().Args[0]))
-		//}
-
-		//fmt.Println()
-		//fmt.Println()
-
-		//fmt.Println(util.GetBaseType())
 
 		newLocking := &StLockingOp{
 			StrName:		strName,

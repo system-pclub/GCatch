@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/system-pclub/gochecker/checkers/conflictinglock"
 	"github.com/system-pclub/gochecker/checkers/doublelock"
 	"github.com/system-pclub/gochecker/ssabuild"
 	"github.com/system-pclub/gochecker/tools/go/callgraph"
@@ -24,6 +25,7 @@ func main() {
 	pShowCompileError := flag.Bool("compile-error", false, "If fail to compile a package, show the errors of compilation")
 	pExcludePath := flag.String("exclude", "vendor", "Name of directories that you want to ignore, divided by \":\"")
 	pRobustMod := flag.Bool("r", false, "If the main package can't pass compiler, check subdirectories one by one")
+	pFnPointerAlias := flag.Bool("pointer", true, "Whether alias analysis is used to figure out function pointers")
 
 	flag.Parse()
 
@@ -33,6 +35,7 @@ func main() {
 	strExcludePath := *pExcludePath
 	boolShowCompileError := *pShowCompileError
 	boolRobustMod := *pRobustMod
+	boolFnPointerAlias := *pFnPointerAlias
 
 	go func(){
 		time.Sleep(time.Duration(config.MAX_SECOND) * time.Second)
@@ -53,7 +56,7 @@ func main() {
 	config.StrRelativePath = strRelativePath
 	config.StrAbsolutePath = strProjectPath[:numIndex+5]
 	config.StrAbsolutePath = strings.ReplaceAll(config.StrAbsolutePath, "//", "/")
-
+	config.BoolDisableFnPointer = ! boolFnPointerAlias
 
 	/*
 	fmt.Println("entrance", config.StrEntrancePath)
@@ -70,12 +73,17 @@ func main() {
 
 	if strCheckerName == "unlock" {
 		forgetunlock.Initialize()
+	} else if strCheckerName == "double" {
+		doublelock.Initialize()
+	} else if strCheckerName == "conflict" {
+
 	}
 
 	var errMsg string
 	var bSucc bool
 
 
+	/*
 	config.Prog, config.Pkgs, bSucc, errMsg = ssabuild.BuildWholeProgram(config.StrEntrancePath, false, boolShowCompileError) // Create SSA packages for the whole program including the dependencies.
 
 	if bSucc && len(config.Prog.AllPackages()) > 0 {
@@ -88,7 +96,7 @@ func main() {
 		// Step 2.1, Case 2: building SSA failed
 		fmt.Println("Failed to build the whole program. The entrance package or its dependencies have error.", errMsg)
 	}
-
+	*/
 
 	// Step 2.2 If -r is used, continue checking all child packages
 	if ! boolRobustMod {
@@ -114,6 +122,17 @@ func main() {
 
 	for index, wpath := range wPaths {
 
+		//fmt.Println(wpath.StrPath)
+		if wpath.StrPath != "github.com/pingcap/tidb/util" {
+			continue
+		}
+
+		if wpath.NumLock + wpath.NumSend == 0 {
+			break
+		}
+
+		fmt.Println(wpath.StrPath)
+
 		config.Prog, config.Pkgs, bSucc, errMsg = ssabuild.BuildWholeProgram(wpath.StrPath, false, boolShowCompileError) // Create SSA packages for the whole program including the dependencies.
 		if bSucc {
 			fmt.Println("Successful. Package NO.", index, ":", wpath.StrPath, " Num of Lock & <-:", wpath.NumLock + wpath.NumSend)
@@ -122,31 +141,44 @@ func main() {
 			// Step 2.4, Case 2 : building SSA failed; build its children packages
 			fmt.Println("Fail. Package NO.", index, ":", wpath.StrPath, " Num of Lock & <-:", wpath.NumLock + wpath.NumSend, " error:", errMsg)
 			for j, child := range wpath.VecChildrenPath {
-				config.Prog, config.Pkgs, bSucc, errMsg = ssabuild.BuildWholeProgram(child, true, boolShowCompileError) // Force the package to build, at least some dependencies of it are being built and checked
+
+				if child.NumLock + child.NumSend == 0 {
+					break
+				}
+
+				config.Prog, config.Pkgs, bSucc, errMsg = ssabuild.BuildWholeProgram(child.StrPath, true, boolShowCompileError) // Force the package to build, at least some dependencies of it are being built and checked
 				if bSucc {
-					fmt.Println("\tSuccessfully built sub-Package NO.",j,":\t",child)
+					fmt.Println("\tSuccessfully built sub-Package NO.",j,":\t",child.StrPath, " Num of Lock & <-:", child.NumLock + child.NumSend)
 					detect(strCheckerName)
 				} else if errMsg == "load_err" {
-					fmt.Println("\tFailed to build sub-Package NO.",j,":\t",child)
+					fmt.Println("\tFailed to build sub-Package NO.",j,":\t",child.StrPath, " Num of Lock & <-:", child.NumLock + child.NumSend)
 				} else if errMsg == "type_err" {
-					fmt.Println("\tPartially built sub-Package NO.",j,":\t",child)
+					fmt.Println("\tPartially built sub-Package NO.",j,":\t",child.StrPath, " Num of Lock & <-:", child.NumLock + child.NumSend)
 					detect(strCheckerName)
 
 				}
 			}
 		}
-
-
 	}
 
 }
 
 func detect(strCheckerName string) {
+
 	if strCheckerName == "unlock" {
 		forgetunlock.Detect()
 	} else if strCheckerName == "double" {
 		config.CallGraph = BuildCallGraph()
+		if config.CallGraph == nil {
+			return
+		}
 		doublelock.Detect()
+	} else if strCheckerName == "conflict" {
+		config.CallGraph = BuildCallGraph()
+		if config.CallGraph == nil {
+			return
+		}
+		conflictinglock.Detect()
 	}
 }
 

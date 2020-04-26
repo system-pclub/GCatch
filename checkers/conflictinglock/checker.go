@@ -1,19 +1,19 @@
-package doublelock
+package conflictinglock
 
 import (
 	"fmt"
 	"github.com/system-pclub/gochecker/config"
-	"github.com/system-pclub/gochecker/output"
 	"github.com/system-pclub/gochecker/tools/go/callgraph"
 	"github.com/system-pclub/gochecker/tools/go/ssa"
 	"github.com/system-pclub/gochecker/tools/go/ssa/ssautil"
 	"github.com/system-pclub/gochecker/util"
+	"strings"
 )
 
 var AnalyzedFNs map[string] bool
 var MapMutex map[string] * StMutex
 
-var vecReportedBugs [] * StDoubleLock
+
 var VecFNsWithLocking   []* ssa.Function
 
 var mapIIStLockingOp map[ssa.Instruction] * StLockingOp
@@ -21,43 +21,19 @@ var mapIIStUnlockingOp map[ssa.Instruction] * StUnlockingOp
 
 var mapCallSiteCallee map[ssa.Instruction] map[* ssa.Function] bool
 
+var mapIDCallChain map[int] [] * callgraph.Edge
 
+var numCurrentCallChainID int
 
 const MaxCallChainDepth int = 6 // Be careful: Algorithm complexity: e^n, n = C5_call_chain_layer
 const MaxInspectedFun int = 100000
 
 var numInspectedFn int
 
+var mapPairIDMutexPair map[string] * stMutexPair
 
+var reportedPairs map[string] bool
 
-func isReported(bug * StDoubleLock) bool {
-	for _, b := range vecReportedBugs {
-		if b.PLock1 == bug.PLock1 && b.PLock2 == b.PLock2 {
-			return true
-		}
-
-		/*
-		l1 := config.Prog.Fset.Position(bug.PLock1.I.Pos())
-		l2 := config.Prog.Fset.Position(b.PLock1.I.Pos())
-
-		if l2.Line > 0 && l1.Filename == l2.Filename && l1.Line == l2.Line {
-			l1 := config.Prog.Fset.Position(bug.PLock2.I.Pos())
-			l2 := config.Prog.Fset.Position(b.PLock2.I.Pos())
-
-			if l2.Line > 0 && l1.Filename == l2.Filename && l1.Line == l2.Line {
-				return true
-			}
-		}
-		 */
-		if b.PLock1.NumLine > 0 && bug.PLock1.StrFileName == b.PLock1.StrFileName && bug.PLock1.NumLine == b.PLock1.NumLine {
-			if b.PLock2.NumLine > 0 && bug.PLock2.StrFileName == b.PLock2.StrFileName && bug.PLock2.NumLine == b.PLock2.NumLine {
-				return true
-			}
-		}
-	}
-
-	return false
-}
 
 func printCallChain(callchain [] * callgraph.Edge) {
 
@@ -72,7 +48,6 @@ func printCallChain(callchain [] * callgraph.Edge) {
 				containFnPointer = true
 			}
 		}
-
 
 		if _, ok := mapFun[e.Caller.Func.String()]; !ok {
 			mapFun[e.Caller.Func.String()] = true
@@ -109,52 +84,16 @@ func printCallChain(callchain [] * callgraph.Edge) {
 			fmt.Print(" (at ", loc.Filename, ": ", loc.Line, ")")
 		}
 
-		//if index < len(callchain) - 1 {
 		fmt.Print(" -> ")
-		//}
 
 		if index == len(callchain) - 1 {
 			fmt.Print(e.Callee.Func.Name())
 		}
 	}
+
 	fmt.Println()
 }
 
-func reportDoubleLock(newbug * StDoubleLock, callchain []* callgraph.Edge) {
-	//newbug := StDoubleLock{
-	//	PLock1: lock1,
-	//	PLock2: lock2,
-	//}
-
-	if isReported(newbug) {
-		return
-	}
-
-	vecReportedBugs = append(vecReportedBugs, newbug)
-
-	config.BugIndexMu.Lock()
-	config.BugIndex ++
-	fmt.Print("----------Bug[")
-	fmt.Print(config.BugIndex)
-	fmt.Println("]----------\n\tType: Double Lock \tReason: A Mutex/RWMutex is locked twice. (Note: even double RWMutex.RLock() can produce deadlock bug)\n")
-	if len(callchain) == 0 {
-		if newbug.PLock1.I == newbug.PLock2.I {
-			fmt.Print("Same lock acquired in a loop")
-		}
-	} else {
-		printCallChain(callchain)
-	}
-
-	fmt.Println("\tLocation of the 2 lock operations:")
-
-	//newbug.PLock1.I.Parent().WriteTo(os.Stdout)
-	//newbug.PLock2.I.Parent().WriteTo(os.Stdout)
-
-
-	output.PrintIISrc(newbug.PLock1.I)
-	output.PrintIISrc(newbug.PLock2.I)
-	config.BugIndexMu.Unlock()
-}
 
 func getFunctionWithLockingOps() {
 
@@ -173,21 +112,17 @@ func getFunctionWithLockingOps() {
 
 		AnalyzedFNs[fn.String()] = true
 
-		//fmt.Println(fn.String())
 
 		hasLockingOp := handleFN(fn)
 
-		//if fn.String() == "(*google.golang.org/grpc/xds/internal/balancer/balancergroup.BalancerGroup).newSubConn" {
-		//	fmt.Println("found", hasLockingOp)
-		//}
 
 		if hasLockingOp {
 			VecFNsWithLocking = append(VecFNsWithLocking, fn)
 		}
 	}
 
-	mapIIStLockingOp = make(map[ssa.Instruction] * StLockingOp)
-	mapIIStUnlockingOp = make(map[ssa.Instruction] * StUnlockingOp)
+	//mapIIStLockingOp = make(map[ssa.Instruction] * StLockingOp)
+	//mapIIStUnlockingOp = make(map[ssa.Instruction] * StUnlockingOp)
 
 
 	for _, stMutex := range MapMutex {
@@ -202,7 +137,7 @@ func getFunctionWithLockingOps() {
 }
 
 func getCallSiteCalleeMapping() {
-	mapCallSiteCallee = make(map[ssa.Instruction] map[* ssa.Function] bool)
+	//mapCallSiteCallee = make(map[ssa.Instruction] map[* ssa.Function] bool)
 
 	for _, node := range config.CallGraph.Nodes {
 		for _, e := range node.Out {
@@ -214,28 +149,45 @@ func getCallSiteCalleeMapping() {
 			}
 		}
 	}
+}
 
-	/*
-	numSites := 0
-	numCount := 0
-	maxSite := 0
+func collectLockingPair( vecLockingPair [] * StLockPair, callchain [] * callgraph.Edge) {
 
-
-	for _, m := range mapCallSiteCallee {
-		if len(m) > 1 {
-			numCount ++
-		}
-
-		if len(m) > maxSite {
-			maxSite = len(m)
-		}
-
-		numSites += len(m)
+	if len(vecLockingPair) == 0 {
+		return
 	}
 
-	fmt.Println("# call sites: ", numSites, "# of ambigous sites: ", numCount, "max # of callees ", maxSite)
-	 */
+	tmp := make([] * callgraph.Edge, 0)
+
+	for _, c := range callchain {
+		tmp  = append(tmp, c)
+	}
+
+	mapIDCallChain[numCurrentCallChainID] = tmp
+
+	for _, p := range vecLockingPair {
+
+		p.CallChainID = numCurrentCallChainID
+
+		strMutexID1 := p.PLock1.I.Parent().Pkg.Pkg.Path() + ": " + p.PLock1.StrName + " (" + p.PLock1.Parent.StrBastStructType + ")"
+		strMutexID2 := p.PLock2.I.Parent().Pkg.Pkg.Path() + ": " + p.PLock2.StrName + " (" + p.PLock2.Parent.StrBastStructType + ")"
+
+		pairID := strMutexID1 + "\t\t" + strMutexID2
+
+		if _, ok := mapPairIDMutexPair[pairID]; !ok {
+			mapPairIDMutexPair[pairID] = &stMutexPair{
+				PMutex1:        p.PLock1.Parent,
+				PMutex2:        p.PLock2.Parent,
+				VecLockingPair: make([] * StLockPair, 0),
+			}
+		}
+
+		mapPairIDMutexPair[pairID].VecLockingPair = append(mapPairIDMutexPair[pairID].VecLockingPair, p)
+	}
+
+	numCurrentCallChainID ++
 }
+
 
 func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* StLockingOp] bool, depth int) {
 
@@ -250,7 +202,7 @@ func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* St
 		return
 	}
 
-	vecNameChain := []  string {}
+	vecNameChain := [] string {}
 
 	for index, e := range callchain {
 		vecNameChain = append(vecNameChain, e.Caller.Func.String())
@@ -261,7 +213,7 @@ func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* St
 	}
 
 	for _, fn1 := range vecNameChain {
-		vecIndex := [] int{}
+		vecIndex := []int{}
 		for i, fn2 := range vecNameChain {
 			if fn2 == fn1 {
 				vecIndex = append(vecIndex, i)
@@ -283,18 +235,14 @@ func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* St
 		}
 	}
 
-	newbugs := GenKillAnalysis(fn, context)
+	newPair := GenKillAnalysis(fn, context)
 
-	for _, bug := range newbugs {
-		reportDoubleLock(bug, callchain)
-	}
-
+	collectLockingPair(newPair, callchain)
 
 	if node, ok := config.CallGraph.Nodes[fn]; ok {
 		mapIIContextLock := make(map[* callgraph.Edge] map[* StLockingOp] bool)
 
 		for _, e := range node.Out {
-
 			if config.BoolDisableFnPointer {
 				//if mapCallSiteCallee[]
 				if ii, ok := e.Site.(ssa.Instruction); ok {
@@ -318,7 +266,6 @@ func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* St
 			} else {
 
 				contextLock := GetLiveMutex(e.Site)
-
 				if len(contextLock) == 0 {
 					continue
 				}
@@ -333,27 +280,6 @@ func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* St
 
 				mapIIContextLock[e] = contextLock
 			}
-
-
-
-			/*
-
-
-			contextLock := GetLiveMutex(e.Site)
-			if len(contextLock) == 0 {
-				continue
-			}
-
-			//fmt.Println("contextLock: ", len(contextLock))
-			if _, ok := e.Site.(*ssa.Go); ok {
-				continue
-			}
-			mapIIContextLock[e] = contextLock
-
-			 */
-			//callchain = append(callchain, e)
-			//analyzeFN(e.Callee.Func, callchain, contextLock, depth)
-			//callchain = callchain[:len(callchain)-1]
 		}
 
 		for e, contextLock := range mapIIContextLock {
@@ -366,27 +292,28 @@ func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* St
 
 func analyzeEntryFN(fn * ssa.Function) {
 
+	//if fn.Name() != "Value" {
+	//	return
+	//}
+
+	//fn.WriteTo(os.Stdout)
+
 	numInspectedFn = 0
 	depth := 0
 	callchain := make([] * callgraph.Edge, 0)
 	contextLock := make(map[* StLockingOp] bool)
 
-	newbugs := GenKillAnalysis(fn, contextLock)
+	newPair := GenKillAnalysis(fn, contextLock)
 
-	for _, bug := range newbugs {
-		reportDoubleLock(bug, callchain)
-	}
+	//fmt.Println(len(newPair))
+	collectLockingPair(newPair, callchain)
+
 
 	if node, ok := config.CallGraph.Nodes[fn]; ok {
 
 		mapIIContextLock := make(map[* callgraph.Edge] map[* StLockingOp] bool)
-
 		for _, e := range node.Out {
-
-			//fmt.Println(e.Site, e.Callee.Func.Name())
-
 			if config.BoolDisableFnPointer {
-				//if mapCallSiteCallee[]
 				if ii, ok := e.Site.(ssa.Instruction); ok {
 					if  m, ok := mapCallSiteCallee[ii]; ok {
 						if len(m) > 1 {
@@ -397,12 +324,6 @@ func analyzeEntryFN(fn * ssa.Function) {
 			}
 
 			if _, ok := e.Site.(* ssa.Defer); ok {
-				if ii, ok := e.Site.(ssa.Instruction); ok {
-					if util.IsFirstDefer(ii) {
-						continue
-					}
-				}
-
 				IIs := util.GetExitInsts(fn)
 				for _, ii := range IIs {
 					contextLock := GetLiveMutex(ii)
@@ -428,10 +349,6 @@ func analyzeEntryFN(fn * ssa.Function) {
 
 				mapIIContextLock[e] = contextLock
 			}
-
-			//callchain = append(callchain, e)
-			//analyzeFN(e.Callee.Func, callchain, contextLock, depth)
-			//callchain = callchain[:len(callchain)-1]
 		}
 
 		for e, contextLock := range mapIIContextLock {
@@ -443,7 +360,7 @@ func analyzeEntryFN(fn * ssa.Function) {
 }
 
 func Initialize() {
-	vecReportedBugs = [] * StDoubleLock{}
+	reportedPairs = make(map[string] bool)
 }
 
 
@@ -453,6 +370,17 @@ func Detect() {
 	VecFNsWithLocking =  []* ssa.Function{}
 	AnalyzedFNs = make(map[string] bool)
 
+	mapIIStLockingOp = make(map[ssa.Instruction] * StLockingOp)
+	mapIIStUnlockingOp =  make(map[ssa.Instruction] * StUnlockingOp)
+
+	mapCallSiteCallee = make(map[ssa.Instruction] map[* ssa.Function] bool)
+
+	mapIDCallChain = make(map[int] [] * callgraph.Edge)
+
+	numCurrentCallChainID = 0
+
+	mapPairIDMutexPair = make(map[string] * stMutexPair)
+
 	getFunctionWithLockingOps()
 
 
@@ -461,30 +389,19 @@ func Detect() {
 
 	}
 
-	//for strKey, _ := range MapMutex {
-	//	fmt.Println(strKey)
-	//}
-
-	/*
-	vecFun := make([] string, 0)
-
-	for _, fn := range VecFNsWithLocking {
-		//analyzeEntryFN(fn)
-		vecFun = append(vecFun, fn.String())
-	}
-
-	fmt.Println(len(vecFun))
-
-	sort.Strings(vecFun)
-
-	for _, s := range vecFun {
-		fmt.Println(s)
-	}
-	*/
-
-
 	for _, fn := range VecFNsWithLocking {
 		analyzeEntryFN(fn)
+	}
+
+	fmt.Println(mapPairIDMutexPair)
+
+	for k, _ := range mapPairIDMutexPair {
+		mutexIDs := strings.Split(k, "\t\t")
+		k2 := mutexIDs[1] + "\t\t" + mutexIDs[0]
+
+		if _, ok := mapPairIDMutexPair[k2]; ok {
+			fmt.Println("found")
+		}
 	}
 
 }

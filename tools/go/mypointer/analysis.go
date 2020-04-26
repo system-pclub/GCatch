@@ -399,7 +399,7 @@ func Analyze(config *Config, known_callgraph *callgraph.Graph) (result *Result, 
 //
 func (a *analysis) callEdge(caller *cgnode, site *callsite, calleeid nodeid) {
 	obj := a.nodes[calleeid].obj
-	if obj.flags&otFunction == 0 {
+	if obj.flags & otFunction == 0 {
 		panic(fmt.Sprintf("callEdge %s -> n%d: not a function object", site, calleeid))
 	}
 	callee := obj.cgn

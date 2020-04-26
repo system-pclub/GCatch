@@ -59,6 +59,19 @@ func GetEntryInsts(fn * ssa.Function) [] ssa.Instruction {
 	return vecResult
 }
 
+func GetExitInsts(fn * ssa.Function) [] ssa.Instruction {
+	vecResult := make([] ssa.Instruction, 0)
+	for _, bb := range fn.Blocks {
+		if len(bb.Succs) == 0 {
+			if len(bb.Instrs) > 0 {
+				vecResult = append(vecResult, bb.Instrs[len(bb.Instrs)-1])
+			}
+		}
+	}
+
+	return vecResult
+}
+
 
 func GetPrevInsts(inputInst ssa.Instruction) [] ssa.Instruction {
 

@@ -3,6 +3,8 @@ package util
 import (
 	"fmt"
 	"github.com/system-pclub/gochecker/config"
+	"github.com/system-pclub/gochecker/tools/go/ssa"
+	"go/token"
 	"go/types"
 	"reflect"
 	"strings"
@@ -24,6 +26,30 @@ func GetStructPointerMapping()  {
 	//fmt.Println("mapping size", len(mapStruct2Pointer))
 }
 
+/*
+func GetInterfaceMethods() {
+	for _, pkg := range config.Prog.AllPackages() {
+		for _, mem := range pkg.Members {
+			if fn, ok := mem.(*ssa.Function); ok {
+				//fmt.Println(fn.String())
+				if fn.Name() == "measure" {
+					fn.WriteTo(os.Stdout)
+				}
+			}
+		}
+	}
+
+
+	for _, T := range config.Prog.RuntimeTypes() {
+		mset := config.Prog.MethodSets.MethodSet(T)
+		for i, n := 0, mset.Len(); i < n; i++ {
+			//visit.function(visit.prog.MethodValue(mset.At(i)))
+			fmt.Println(config.Prog.MethodValue(mset.At(i)))
+		}
+	}
+
+}
+*/
 
 /*
 func GetFieldTypes(t  types.Type, m map[types.Type] bool) {
@@ -135,9 +161,23 @@ func PrintTypeMethods(m map[string] map[string] bool) {
 			fmt.Println(sFuncName)
 		}
 	}
-
 }
 
+func GetBaseType(v ssa.Value) types.Type {
+	if i, ok := v.(ssa.Instruction); ok {
+		if f, ok := i.(* ssa.FieldAddr); ok {
+			return GetBaseType(f.X)
+		} else if u, ok := i.(* ssa.UnOp); ok {
+			switch u.Op {
+			case token.MUL:
+				return GetBaseType(u.X)
+			}
+		}
+
+	}
+
+	return v.Type()
+}
 
 
 
