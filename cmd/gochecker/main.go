@@ -8,6 +8,7 @@ import (
 	"github.com/system-pclub/gochecker/ssabuild"
 	"github.com/system-pclub/gochecker/tools/go/callgraph"
 	"github.com/system-pclub/gochecker/tools/go/mypointer"
+	"github.com/system-pclub/gochecker/util"
 	"os"
 	"strings"
 	"time"
@@ -21,21 +22,25 @@ func main() {
 
 	pProjectPath := flag.String("path","","Full path of the target project")
 	pRelativePath := flag.String("include","","Relative path (what's after /src/) of the target project")
-	pCheckerName := flag.String("checker", "unlock", "the checker to be used")
+	pCheckerName := flag.String("checker", "channel", "the checker to be used, divided by \":\"")
 	pShowCompileError := flag.Bool("compile-error", false, "If fail to compile a package, show the errors of compilation")
 	pExcludePath := flag.String("exclude", "vendor", "Name of directories that you want to ignore, divided by \":\"")
 	pRobustMod := flag.Bool("r", false, "If the main package can't pass compiler, check subdirectories one by one")
 	pFnPointerAlias := flag.Bool("pointer", true, "Whether alias analysis is used to figure out function pointers")
+	pSkipPkg := flag.Int("skip", -1, "Skip the first N packages")
+	pExitPkg := flag.Int("exit", 99999, "Exit when meet the Nth packages")
+	pPrintMod := flag.String( "print-mod", "", "Print information like the number of channels, divided by \":\"")
 
 	flag.Parse()
 
 	strProjectPath := *pProjectPath
 	strRelativePath := *pRelativePath
-	strCheckerName := *pCheckerName
-	strExcludePath := *pExcludePath
+	mapCheckerName := util.Divide_str(*pCheckerName)
 	boolShowCompileError := *pShowCompileError
 	boolRobustMod := *pRobustMod
 	boolFnPointerAlias := *pFnPointerAlias
+	intSkipPkg := *pSkipPkg
+	intExitPkg := *pExitPkg
 
 	go func(){
 		time.Sleep(time.Duration(config.MAX_SECOND) * time.Second)
@@ -52,11 +57,12 @@ func main() {
 
 	config.StrEntrancePath = strProjectPath[numIndex+5:]
 	config.StrGOPATH = os.Getenv("GOPATH")
-	config.VecExcludePaths = config.GetExcludePaths(strExcludePath)
+	config.VecExcludePaths = util.Divide_str(*pExcludePath)
 	config.StrRelativePath = strRelativePath
 	config.StrAbsolutePath = strProjectPath[:numIndex+5]
 	config.StrAbsolutePath = strings.ReplaceAll(config.StrAbsolutePath, "//", "/")
 	config.BoolDisableFnPointer = ! boolFnPointerAlias
+	config.MapPrintMod = util.Divide_str(*pPrintMod)
 
 	/*
 	fmt.Println("entrance", config.StrEntrancePath)
@@ -71,12 +77,13 @@ func main() {
 		os.Exit(3)
 	}
 
-	if strCheckerName == "unlock" {
-		forgetunlock.Initialize()
-	} else if strCheckerName == "double" {
-		doublelock.Initialize()
-	} else if strCheckerName == "conflict" {
-
+	for strCheckerName, _ := range mapCheckerName {
+		switch strCheckerName {
+		case "unlock": forgetunlock.Initialize()
+		case "double": doublelock.Initialize()
+		case "conflict":
+		case "channel": // no need to initialize this checker
+		}
 	}
 
 	var errMsg string
@@ -123,6 +130,7 @@ func main() {
 	for index, wpath := range wPaths {
 
 		//fmt.Println(wpath.StrPath)
+		// todo: I think the code below need to be deleted
 		if wpath.StrPath != "github.com/pingcap/tidb/util" {
 			continue
 		}
@@ -131,12 +139,16 @@ func main() {
 			break
 		}
 
+		if index < intSkipPkg || index >= intExitPkg {
+			continue
+		}
+
 		fmt.Println(wpath.StrPath)
 
 		config.Prog, config.Pkgs, bSucc, errMsg = ssabuild.BuildWholeProgram(wpath.StrPath, false, boolShowCompileError) // Create SSA packages for the whole program including the dependencies.
 		if bSucc {
 			fmt.Println("Successful. Package NO.", index, ":", wpath.StrPath, " Num of Lock & <-:", wpath.NumLock + wpath.NumSend)
-			detect(strCheckerName)
+			detect(mapCheckerName)
 		} else {
 			// Step 2.4, Case 2 : building SSA failed; build its children packages
 			fmt.Println("Fail. Package NO.", index, ":", wpath.StrPath, " Num of Lock & <-:", wpath.NumLock + wpath.NumSend, " error:", errMsg)
@@ -149,12 +161,12 @@ func main() {
 				config.Prog, config.Pkgs, bSucc, errMsg = ssabuild.BuildWholeProgram(child.StrPath, true, boolShowCompileError) // Force the package to build, at least some dependencies of it are being built and checked
 				if bSucc {
 					fmt.Println("\tSuccessfully built sub-Package NO.",j,":\t",child.StrPath, " Num of Lock & <-:", child.NumLock + child.NumSend)
-					detect(strCheckerName)
+					detect(mapCheckerName)
 				} else if errMsg == "load_err" {
 					fmt.Println("\tFailed to build sub-Package NO.",j,":\t",child.StrPath, " Num of Lock & <-:", child.NumLock + child.NumSend)
 				} else if errMsg == "type_err" {
 					fmt.Println("\tPartially built sub-Package NO.",j,":\t",child.StrPath, " Num of Lock & <-:", child.NumLock + child.NumSend)
-					detect(strCheckerName)
+					detect(mapCheckerName)
 
 				}
 			}
@@ -163,22 +175,27 @@ func main() {
 
 }
 
-func detect(strCheckerName string) {
+func detect(mapCheckerName map[string]bool) {
 
-	if strCheckerName == "unlock" {
-		forgetunlock.Detect()
-	} else if strCheckerName == "double" {
+	boolNeedCallGraph := mapCheckerName["double"] || mapCheckerName["conflict"] || mapCheckerName["channel"]
+	if boolNeedCallGraph {
 		config.CallGraph = BuildCallGraph()
 		if config.CallGraph == nil {
 			return
 		}
-		doublelock.Detect()
-	} else if strCheckerName == "conflict" {
-		config.CallGraph = BuildCallGraph()
-		if config.CallGraph == nil {
-			return
+	}
+
+	for strCheckerName, _ := range mapCheckerName {
+		switch strCheckerName {
+		case "unlock":
+			forgetunlock.Detect()
+		case "double":
+			doublelock.Detect()
+		case "conflict":
+			conflictinglock.Detect()
+		case "channel":
+			// todo: add the channel checker here
 		}
-		conflictinglock.Detect()
 	}
 }
 
