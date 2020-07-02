@@ -1,7 +1,7 @@
 package mypointer
 
 import (
-	"github.com/system-pclub/gochecker/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
 	"strings"
 )
 

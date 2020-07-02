@@ -47,8 +47,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/types/objectpath"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/types/objectpath"
 )
 
 const debug = false

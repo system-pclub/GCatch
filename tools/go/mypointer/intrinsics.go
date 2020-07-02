@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"go/types"
 
-	"github.com/system-pclub/gochecker/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
 )
 
 // Instances of 'intrinsic' generate analysis constraints for calls to

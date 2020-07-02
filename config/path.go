@@ -22,20 +22,9 @@ type PathStat struct {
 	NumSend int
 }
 
-func ContainsAnyStr(str string, strVec [] string) bool {
-	flag := false
-	for _, sub := range strVec {
-		if strings.Contains(str, sub) {
-			flag = true
-			break
-		}
-	}
-	return flag
-}
-
 func IsPathIncluded(strPath string) bool {
 	if strings.Contains(strPath, StrRelativePath) &&
-		!ContainsAnyStr(strPath, VecExcludePaths) {
+		!MapExcludePaths[strPath] {
 		return true
 	}
 
@@ -53,7 +42,7 @@ func ListAllPkgPaths() []string {
 	//fmt.Println(strRoot)
 
 	err := filepath.Walk(strRoot, func(path string, info os.FileInfo, err error) error {
-		if ContainsAnyStr(path, VecExcludePaths) || info.IsDir() == false {
+		if MapExcludePaths[path] || info.IsDir() == false {
 			return nil
 		}
 

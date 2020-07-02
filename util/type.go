@@ -2,8 +2,8 @@ package util
 
 import (
 	"fmt"
-	"github.com/system-pclub/gochecker/config"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
+	"github.com/system-pclub/GCatch/config"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
 	"go/token"
 	"go/types"
 	"reflect"

@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/system-pclub/gochecker/tools/internal/lsp/debug"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/source"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/xlog"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/debug"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/source"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/xlog"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 func New() source.Cache {

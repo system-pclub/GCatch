@@ -14,7 +14,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/system-pclub/gochecker/tools/container/intsets"
+	"github.com/system-pclub/GCatch/tools/container/intsets"
 )
 
 // CanPoint reports whether the type T is pointerlike,

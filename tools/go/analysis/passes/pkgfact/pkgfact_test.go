@@ -7,8 +7,8 @@ package pkgfact_test
 import (
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis/analysistest"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/pkgfact"
+	"github.com/system-pclub/GCatch/tools/go/analysis/analysistest"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/pkgfact"
 )
 
 func Test(t *testing.T) {

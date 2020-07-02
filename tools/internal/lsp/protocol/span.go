@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"go/token"
 
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 type ColumnMapper struct {

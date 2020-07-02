@@ -47,9 +47,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/analysis/internal/analysisflags"
-	"github.com/system-pclub/gochecker/tools/go/analysis/internal/facts"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis/internal/analysisflags"
+	"github.com/system-pclub/GCatch/tools/go/analysis/internal/facts"
 )
 
 // A Config describes a compilation unit to be analyzed.

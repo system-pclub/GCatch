@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/system-pclub/gochecker/tools/go/buildutil"
+	"github.com/system-pclub/GCatch/tools/go/buildutil"
 )
 
 // We use a counting semaphore to limit

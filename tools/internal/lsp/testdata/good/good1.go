@@ -1,7 +1,7 @@
 package good //@diag("package", "", "")
 
 import (
-	"github.com/system-pclub/gochecker/tools/internal/lsp/types" //@item(types_import, "types", "\"github.com/system-pclub/gochecker/tools/internal/lsp/types\"", "package")
+	"github.com/system-pclub/GCatch/tools/internal/lsp/types" //@item(types_import, "types", "\"github.com/system-pclub/GCatch/tools/internal/lsp/types\"", "package")
 )
 
 func random() int { //@item(good_random, "random()", "int", "func")

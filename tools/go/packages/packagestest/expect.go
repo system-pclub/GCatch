@@ -11,9 +11,9 @@ import (
 	"reflect"
 	"regexp"
 
-	"github.com/system-pclub/gochecker/tools/go/expect"
-	"github.com/system-pclub/gochecker/tools/go/packages"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/go/expect"
+	"github.com/system-pclub/GCatch/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 const (

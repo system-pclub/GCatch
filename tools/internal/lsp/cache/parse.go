@@ -16,7 +16,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 func parseFile(fset *token.FileSet, filename string, src []byte) (*ast.File, error) {

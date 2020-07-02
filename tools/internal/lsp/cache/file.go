@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/internal/lsp/source"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/source"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 // viewFile extends source.File with helper methods for the view package.

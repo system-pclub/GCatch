@@ -15,7 +15,7 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/system-pclub/gochecker/tools/go/types/typeutil"
+	"github.com/system-pclub/GCatch/tools/go/types/typeutil"
 )
 
 // relName returns the name of v relative to i.

@@ -35,7 +35,7 @@
 // The CFG does not record conditions associated with conditional branch
 // edges, nor the short-circuit semantics of the && and || operators,
 // nor abnormal control flow caused by panic.  If you need this
-// information, use github.com/system-pclub/gochecker/tools/go/ssa instead.
+// information, use github.com/system-pclub/GCatch/tools/go/ssa instead.
 //
 package cfg
 

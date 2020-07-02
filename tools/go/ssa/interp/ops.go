@@ -15,7 +15,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/system-pclub/gochecker/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
 )
 
 // If the target program panics, the interpreter panics with this type.

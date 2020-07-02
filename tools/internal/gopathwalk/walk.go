@@ -17,7 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/internal/fastwalk"
+	"github.com/system-pclub/GCatch/tools/internal/fastwalk"
 )
 
 // Options controls the behavior of a Walk call.

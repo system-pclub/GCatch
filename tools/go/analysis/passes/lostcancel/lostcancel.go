@@ -11,11 +11,11 @@ import (
 	"go/ast"
 	"go/types"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/ctrlflow"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/inspect"
-	"github.com/system-pclub/gochecker/tools/go/ast/inspector"
-	"github.com/system-pclub/gochecker/tools/go/cfg"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/ctrlflow"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/inspect"
+	"github.com/system-pclub/GCatch/tools/go/ast/inspector"
+	"github.com/system-pclub/GCatch/tools/go/cfg"
 )
 
 const Doc = `check cancel func returned by context.WithCancel is called

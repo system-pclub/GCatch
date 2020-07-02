@@ -7,8 +7,8 @@ package composite_test
 import (
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis/analysistest"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/composite"
+	"github.com/system-pclub/GCatch/tools/go/analysis/analysistest"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/composite"
 )
 
 func Test(t *testing.T) {

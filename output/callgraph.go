@@ -2,8 +2,8 @@ package output
 
 import (
 	"fmt"
-	"github.com/system-pclub/gochecker/config"
-	"github.com/system-pclub/gochecker/tools/go/callgraph"
+	"github.com/system-pclub/GCatch/config"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
 )
 
 func PrintCallGraph(graph * callgraph.Graph) {

@@ -12,13 +12,13 @@
 // problems for developer tools that use it, since they must be able to
 // consume the outputs of the gc compiler both before and after a Go
 // update such as from Go 1.7 to Go 1.8.  Because this package lives in
-// github.com/system-pclub/gochecker/tools, sites can update their version of this repo some
+// github.com/system-pclub/GCatch/tools, sites can update their version of this repo some
 // time before the Go 1.8 release and rebuild and redeploy their
 // developer tools, which will then be able to consume both Go 1.7 and
 // Go 1.8 export data files, so they will work before and after the
 // Go update. (See discussion at https://golang.org/issue/15651.)
 //
-package gcexportdata // import "github.com/system-pclub/gochecker/tools/go/gcexportdata"
+package gcexportdata // import "github.com/system-pclub/GCatch/tools/go/gcexportdata"
 
 import (
 	"bufio"
@@ -29,7 +29,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/system-pclub/gochecker/tools/go/internal/gcimporter"
+	"github.com/system-pclub/GCatch/tools/go/internal/gcimporter"
 )
 
 // Find returns the name of an object (.o) or archive (.a) file

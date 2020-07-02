@@ -32,7 +32,7 @@ in the call graph; they are treated like built-in operators of the
 language.
 
 */
-package callgraph // import "github.com/system-pclub/gochecker/tools/go/callgraph"
+package callgraph // import "github.com/system-pclub/GCatch/tools/go/callgraph"
 
 // TODO(adonovan): add a function to eliminate wrappers from the
 // callgraph, preserving topology.
@@ -43,7 +43,7 @@ import (
 	"fmt"
 	"go/token"
 
-	"github.com/system-pclub/gochecker/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
 )
 
 // A Graph represents a call graph.

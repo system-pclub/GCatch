@@ -14,10 +14,10 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/system-pclub/gochecker/tools/go/packages"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/debug"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/source"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/debug"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/source"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 type view struct {

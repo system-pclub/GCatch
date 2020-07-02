@@ -26,9 +26,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/system-pclub/gochecker/tools/go/ast/astutil"
-	"github.com/system-pclub/gochecker/tools/go/packages"
-	"github.com/system-pclub/gochecker/tools/internal/gopathwalk"
+	"github.com/system-pclub/GCatch/tools/go/ast/astutil"
+	"github.com/system-pclub/GCatch/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/internal/gopathwalk"
 )
 
 // importToGroup is a list of functions which map from an import path to

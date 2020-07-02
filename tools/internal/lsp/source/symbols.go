@@ -12,7 +12,7 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 type SymbolKind int

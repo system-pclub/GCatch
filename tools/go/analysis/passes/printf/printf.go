@@ -19,11 +19,11 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/inspect"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/internal/analysisutil"
-	"github.com/system-pclub/gochecker/tools/go/ast/inspector"
-	"github.com/system-pclub/gochecker/tools/go/types/typeutil"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/inspect"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/internal/analysisutil"
+	"github.com/system-pclub/GCatch/tools/go/ast/inspector"
+	"github.com/system-pclub/GCatch/tools/go/types/typeutil"
 )
 
 func init() {

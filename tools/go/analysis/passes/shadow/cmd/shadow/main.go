@@ -2,8 +2,8 @@
 package main
 
 import (
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/shadow"
-	"github.com/system-pclub/gochecker/tools/go/analysis/singlechecker"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/shadow"
+	"github.com/system-pclub/GCatch/tools/go/analysis/singlechecker"
 )
 
 func main() { singlechecker.Main(shadow.Analyzer) }

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/packages/packagestest"
+	"github.com/system-pclub/GCatch/tools/go/packages/packagestest"
 )
 
 var testDebug = flag.Bool("debug", false, "enable debug output")

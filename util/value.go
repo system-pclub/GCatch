@@ -1,7 +1,7 @@
 package util
 
 import "strings"
-import "github.com/system-pclub/gochecker/tools/go/ssa"
+import "github.com/system-pclub/GCatch/tools/go/ssa"
 
 func GetValueName(v ssa.Value) string {
 	var strFnName string

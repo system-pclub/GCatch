@@ -14,7 +14,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/internal/jsonrpc2"
+	"github.com/system-pclub/GCatch/tools/internal/jsonrpc2"
 )
 
 var logRPC = flag.Bool("logrpc", false, "Enable jsonrpc2 communication logging")

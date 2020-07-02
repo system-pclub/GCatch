@@ -11,9 +11,9 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/system-pclub/gochecker/tools/go/ast/astutil"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/snippet"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/go/ast/astutil"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/snippet"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 type CompletionItem struct {

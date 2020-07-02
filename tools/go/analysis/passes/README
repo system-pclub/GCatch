@@ -1,7 +1,7 @@
 
 This directory does not contain a Go package,
 but acts as a container for various analyses
-that implement the github.com/system-pclub/gochecker/tools/go/analysis
+that implement the github.com/system-pclub/GCatch/tools/go/analysis
 API and may be imported into an analysis tool.
 
 By convention, each package foo provides the analysis,

@@ -74,7 +74,7 @@ The vet command, shown below, is an example of a driver that runs
 multiple analyzers. It is based on the multichecker package
 (see the "Standalone commands" section for details).
 
-	$ go build github.com/system-pclub/gochecker/tools/go/analysis/cmd/vet
+	$ go build github.com/system-pclub/GCatch/tools/go/analysis/cmd/vet
 	$ ./vet help
 	vet is a tool for static analysis of Go programs.
 
@@ -179,7 +179,7 @@ available in this map. Each Analyzer must return a value of the type
 described in its Analyzer.ResultType field.
 For example, the "ctrlflow" analyzer returns a *ctrlflow.CFGs, which
 provides a control-flow graph for each function in the package (see
-github.com/system-pclub/gochecker/tools/go/cfg); the "inspect" analyzer returns a value that
+github.com/system-pclub/GCatch/tools/go/cfg); the "inspect" analyzer returns a value that
 enables other Analyzers to traverse the syntax trees of the package more
 efficiently; and the "buildssa" analyzer constructs an SSA-form
 intermediate representation.
@@ -321,8 +321,8 @@ entirety as:
 	package main
 
 	import (
-		"github.com/system-pclub/gochecker/tools/go/analysis/passes/findcall"
-		"github.com/system-pclub/gochecker/tools/go/analysis/singlechecker"
+		"github.com/system-pclub/GCatch/tools/go/analysis/passes/findcall"
+		"github.com/system-pclub/GCatch/tools/go/analysis/singlechecker"
 	)
 
 	func main() { singlechecker.Main(findcall.Analyzer) }

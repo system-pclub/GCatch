@@ -10,9 +10,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/internal/lsp/protocol"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/source"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/protocol"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/source"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 func (s *Server) completion(ctx context.Context, params *protocol.CompletionParams) (*protocol.CompletionList, error) {

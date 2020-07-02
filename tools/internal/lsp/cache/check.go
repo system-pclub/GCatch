@@ -12,9 +12,9 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/packages"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 type importer struct {

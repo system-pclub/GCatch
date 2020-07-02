@@ -13,13 +13,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/packages/packagestest"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/cache"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/diff"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/source"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/tests"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/xlog"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/go/packages/packagestest"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/cache"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/diff"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/source"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/tests"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/xlog"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 func TestSource(t *testing.T) {

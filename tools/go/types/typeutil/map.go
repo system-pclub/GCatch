@@ -4,7 +4,7 @@
 
 // Package typeutil defines various utilities for types, such as Map,
 // a mapping from types.Type to interface{} values.
-package typeutil // import "github.com/system-pclub/gochecker/tools/go/types/typeutil"
+package typeutil // import "github.com/system-pclub/GCatch/tools/go/types/typeutil"
 
 import (
 	"bytes"

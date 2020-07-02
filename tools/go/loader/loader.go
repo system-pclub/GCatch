@@ -21,8 +21,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/system-pclub/gochecker/tools/go/ast/astutil"
-	"github.com/system-pclub/gochecker/tools/go/internal/cgo"
+	"github.com/system-pclub/GCatch/tools/go/ast/astutil"
+	"github.com/system-pclub/GCatch/tools/go/internal/cgo"
 )
 
 var ignoreVendor build.ImportMode

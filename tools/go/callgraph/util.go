@@ -4,7 +4,7 @@
 
 package callgraph
 
-import "github.com/system-pclub/gochecker/tools/go/ssa"
+import "github.com/system-pclub/GCatch/tools/go/ssa"
 
 // This file provides various utilities over call graphs, such as
 // visitation and path search.

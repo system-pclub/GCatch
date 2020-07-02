@@ -7,8 +7,8 @@ package unreachable_test
 import (
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis/analysistest"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/unreachable"
+	"github.com/system-pclub/GCatch/tools/go/analysis/analysistest"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/unreachable"
 )
 
 func Test(t *testing.T) {

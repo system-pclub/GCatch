@@ -15,7 +15,7 @@ import (
 	"go/types"
 	"sync"
 
-	"github.com/system-pclub/gochecker/tools/go/types/typeutil"
+	"github.com/system-pclub/GCatch/tools/go/types/typeutil"
 )
 
 // A Program is a partial or complete Go program converted to SSA form.

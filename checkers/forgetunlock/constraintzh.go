@@ -1,8 +1,8 @@
 package forgetunlock
 
 import (
-	"github.com/system-pclub/gochecker/tools/go/ssa"
-	"github.com/system-pclub/gochecker/util"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/util"
 	"go/token"
 	"strconv"
 	"strings"

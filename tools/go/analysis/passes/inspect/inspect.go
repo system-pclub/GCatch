@@ -3,15 +3,15 @@
 // license that can be found in the LICENSE file.
 
 // Package inspect defines an Analyzer that provides an AST inspector
-// (github.com/system-pclub/gochecker/tools/go/ast/inspect.Inspect) for the syntax trees of a
+// (github.com/system-pclub/GCatch/tools/go/ast/inspect.Inspect) for the syntax trees of a
 // package. It is only a building block for other analyzers.
 //
 // Example of use in another analysis:
 //
 //	import (
-//		"github.com/system-pclub/gochecker/tools/go/analysis"
-//		"github.com/system-pclub/gochecker/tools/go/analysis/passes/inspect"
-//		"github.com/system-pclub/gochecker/tools/go/ast/inspector"
+//		"github.com/system-pclub/GCatch/tools/go/analysis"
+//		"github.com/system-pclub/GCatch/tools/go/analysis/passes/inspect"
+//		"github.com/system-pclub/GCatch/tools/go/ast/inspector"
 //	)
 //
 //	var Analyzer = &analysis.Analyzer{
@@ -32,8 +32,8 @@ package inspect
 import (
 	"reflect"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/ast/inspector"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/ast/inspector"
 )
 
 var Analyzer = &analysis.Analyzer{

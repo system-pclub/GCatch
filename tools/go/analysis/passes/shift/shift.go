@@ -15,10 +15,10 @@ import (
 	"go/constant"
 	"go/token"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/inspect"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/internal/analysisutil"
-	"github.com/system-pclub/gochecker/tools/go/ast/inspector"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/inspect"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/internal/analysisutil"
+	"github.com/system-pclub/GCatch/tools/go/ast/inspector"
 )
 
 var Analyzer = &analysis.Analyzer{

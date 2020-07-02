@@ -11,15 +11,15 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/system-pclub/gochecker/tools/go/loader"
-	"github.com/system-pclub/gochecker/tools/go/packages"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/loader"
+	"github.com/system-pclub/GCatch/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
 )
 
 // Packages creates an SSA program for a set of packages.
 //
 // The packages must have been loaded from source syntax using the
-// github.com/system-pclub/gochecker/prepare/packages.Load function in LoadSyntax or
+// github.com/system-pclub/GCatch/prepare/packages.Load function in LoadSyntax or
 // LoadAllSyntax mode.
 //
 // Packages creates an SSA package for each well-typed package in the
@@ -42,7 +42,7 @@ func Packages(initial []*packages.Package, mode ssa.BuilderMode) (*ssa.Program, 
 // their dependencies.
 //
 // The packages must have been loaded from source syntax using the
-// github.com/system-pclub/gochecker/prepare/packages.Load function in LoadAllSyntax mode.
+// github.com/system-pclub/GCatch/prepare/packages.Load function in LoadAllSyntax mode.
 //
 // AllPackages creates an SSA package for each well-typed package in the
 // initial list, plus all their dependencies. The resulting list of
@@ -101,7 +101,7 @@ func doPackages(initial []*packages.Package, mode ssa.BuilderMode, deps bool) (*
 //
 // The mode parameter controls diagnostics and checking during SSA construction.
 //
-// Deprecated: use github.com/system-pclub/gochecker/prepare/packages and the Packages
+// Deprecated: use github.com/system-pclub/GCatch/prepare/packages and the Packages
 // function instead; see ssa.ExampleLoadPackages.
 //
 func CreateProgram(lprog *loader.Program, mode ssa.BuilderMode) *ssa.Program {

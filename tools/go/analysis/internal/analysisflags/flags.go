@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
 )
 
 // flags common to all {single,multi,unit}checkers.

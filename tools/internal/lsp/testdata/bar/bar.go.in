@@ -3,7 +3,7 @@
 package bar
 
 import (
-	"github.com/system-pclub/gochecker/tools/internal/lsp/foo" //@item(foo, "foo", "\"github.com/system-pclub/gochecker/tools/internal/lsp/foo\"", "package")
+	"github.com/system-pclub/GCatch/tools/internal/lsp/foo" //@item(foo, "foo", "\"github.com/system-pclub/GCatch/tools/internal/lsp/foo\"", "package")
 )
 
 func helper(i foo.IntFoo) {} //@item(helper, "helper(i foo.IntFoo)", "", "func")

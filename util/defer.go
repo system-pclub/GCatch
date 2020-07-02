@@ -1,6 +1,6 @@
 package util
 
-import "github.com/system-pclub/gochecker/tools/go/ssa"
+import "github.com/system-pclub/GCatch/tools/go/ssa"
 
 func IsFirstDefer(ii ssa.Instruction) bool {
 

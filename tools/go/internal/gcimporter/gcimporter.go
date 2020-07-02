@@ -9,7 +9,7 @@
 // Package gcimporter provides various functions for reading
 // gc-generated object files that can be used to implement the
 // Importer interface defined by the Go 1.5 standard library package.
-package gcimporter // import "github.com/system-pclub/gochecker/tools/go/internal/gcimporter"
+package gcimporter // import "github.com/system-pclub/GCatch/tools/go/internal/gcimporter"
 
 import (
 	"bufio"

@@ -70,7 +70,7 @@ according to the conventions of the underlying build system.
 See the Example function for typical usage.
 
 */
-package packages // import "github.com/system-pclub/gochecker/tools/go/packages"
+package packages // import "github.com/system-pclub/GCatch/tools/go/packages"
 
 /*
 
@@ -78,7 +78,7 @@ Motivation and design considerations
 
 The new package's design solves problems addressed by two existing
 packages: go/build, which locates and describes packages, and
-github.com/system-pclub/gochecker/tools/go/loader, which loads, parses and type-checks them.
+github.com/system-pclub/GCatch/tools/go/loader, which loads, parses and type-checks them.
 The go/build.Package structure encodes too much of the 'go build' way
 of organizing projects, leaving us in need of a data type that describes a
 package of Go source code independent of the underlying build system.

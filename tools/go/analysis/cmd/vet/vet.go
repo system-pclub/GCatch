@@ -3,8 +3,8 @@
 // license that can be found in the LICENSE file.
 
 // The vet command is a static checker for Go programs. It has pluggable
-// analyzers defined using the github.com/system-pclub/gochecker/tools/go/analysis API, and
-// using the github.com/system-pclub/gochecker/tools/go/packages API to load packages in any
+// analyzers defined using the github.com/system-pclub/GCatch/tools/go/analysis API, and
+// using the github.com/system-pclub/GCatch/tools/go/packages API to load packages in any
 // build system.
 //
 // Each analyzer flag name is preceded by the analyzer name: -NAME.flag.
@@ -14,32 +14,32 @@
 package main
 
 import (
-	"github.com/system-pclub/gochecker/tools/go/analysis/multichecker"
+	"github.com/system-pclub/GCatch/tools/go/analysis/multichecker"
 
 	// analysis plug-ins
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/asmdecl"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/assign"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/atomic"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/atomicalign"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/bools"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/buildtag"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/cgocall"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/composite"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/copylock"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/errorsas"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/httpresponse"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/loopclosure"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/lostcancel"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/nilfunc"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/printf"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/shift"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/stdmethods"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/structtag"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/tests"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/unmarshal"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/unreachable"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/unsafeptr"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/unusedresult"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/asmdecl"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/assign"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/atomic"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/atomicalign"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/bools"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/buildtag"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/cgocall"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/composite"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/copylock"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/errorsas"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/httpresponse"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/loopclosure"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/lostcancel"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/nilfunc"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/printf"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/shift"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/stdmethods"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/structtag"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/tests"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/unmarshal"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/unreachable"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/unsafeptr"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/unusedresult"
 )
 
 func main() {

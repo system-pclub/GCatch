@@ -20,11 +20,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/callgraph"
-	"github.com/system-pclub/gochecker/tools/go/callgraph/rta"
-	"github.com/system-pclub/gochecker/tools/go/loader"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
-	"github.com/system-pclub/gochecker/tools/go/ssa/ssautil"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
+	"github.com/system-pclub/GCatch/tools/go/callgraph/rta"
+	"github.com/system-pclub/GCatch/tools/go/loader"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa/ssautil"
 )
 
 var inputs = []string{

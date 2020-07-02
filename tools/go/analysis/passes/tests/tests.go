@@ -13,7 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
 )
 
 const Doc = `check for common mistaken usages of tests and examples

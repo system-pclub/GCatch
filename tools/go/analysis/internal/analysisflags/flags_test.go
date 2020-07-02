@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/analysis/internal/analysisflags"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis/internal/analysisflags"
 )
 
 func main() {

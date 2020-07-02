@@ -2,9 +2,9 @@ package ssabuild
 
 import (
 	"fmt"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
-	"github.com/system-pclub/gochecker/tools/go/ssa/ssautil"
-	"github.com/system-pclub/gochecker/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa/ssautil"
+	"github.com/system-pclub/GCatch/tools/go/packages"
 )
 
 func BuildWholeProgram(strPath string, boolForce bool, boolShowError bool) (*ssa.Program, []*ssa.Package, bool, string) {

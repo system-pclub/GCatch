@@ -1,9 +1,9 @@
 package forgetunlock
 
 import (
-	"github.com/system-pclub/gochecker/instinfo"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
-	"github.com/system-pclub/gochecker/util"
+	"github.com/system-pclub/GCatch/instinfo"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/util"
 )
 
 var mapGen map[ssa.Instruction] string

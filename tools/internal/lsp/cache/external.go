@@ -7,8 +7,8 @@ package cache
 import (
 	"io/ioutil"
 
-	"github.com/system-pclub/gochecker/tools/internal/lsp/source"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/source"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 // nativeFileSystem implements FileSystem reading from the normal os file system.

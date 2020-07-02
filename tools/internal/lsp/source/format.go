@@ -11,11 +11,11 @@ import (
 	"fmt"
 	"go/format"
 
-	"github.com/system-pclub/gochecker/tools/go/ast/astutil"
-	"github.com/system-pclub/gochecker/tools/go/packages"
-	"github.com/system-pclub/gochecker/tools/imports"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/diff"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/go/ast/astutil"
+	"github.com/system-pclub/GCatch/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/imports"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/diff"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 // Format formats a file with a given range.

@@ -21,9 +21,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/system-pclub/gochecker/tools/go/internal/packagesdriver"
-	"github.com/system-pclub/gochecker/tools/internal/gopathwalk"
-	"github.com/system-pclub/gochecker/tools/internal/semver"
+	"github.com/system-pclub/GCatch/tools/go/internal/packagesdriver"
+	"github.com/system-pclub/GCatch/tools/internal/gopathwalk"
+	"github.com/system-pclub/GCatch/tools/internal/semver"
 )
 
 // debug controls verbose logging.

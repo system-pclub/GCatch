@@ -14,10 +14,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/internal/lsp/cmd"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/tests"
-	"github.com/system-pclub/gochecker/tools/internal/span"
-	"github.com/system-pclub/gochecker/tools/internal/tool"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/cmd"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/tests"
+	"github.com/system-pclub/GCatch/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/tool"
 )
 
 const (

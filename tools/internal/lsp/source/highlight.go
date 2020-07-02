@@ -9,8 +9,8 @@ import (
 	"go/ast"
 	"go/token"
 
-	"github.com/system-pclub/gochecker/tools/go/ast/astutil"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/go/ast/astutil"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 func Highlight(ctx context.Context, f GoFile, pos token.Pos) []span.Span {

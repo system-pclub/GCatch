@@ -13,8 +13,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/internal/lsp/browser"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/debug"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/browser"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/debug"
 )
 
 // version implements the version command.

@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/system-pclub/gochecker/tools/go/callgraph"
-	"github.com/system-pclub/gochecker/tools/go/loader"
-	"github.com/system-pclub/gochecker/tools/go/pointer"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
-	"github.com/system-pclub/gochecker/tools/go/ssa/ssautil"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
+	"github.com/system-pclub/GCatch/tools/go/loader"
+	"github.com/system-pclub/GCatch/tools/go/pointer"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa/ssautil"
 )
 
 // This program demonstrates how to use the pointer analysis to

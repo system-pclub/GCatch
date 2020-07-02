@@ -23,10 +23,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/go/ast/astutil"
+	"github.com/system-pclub/GCatch/tools/go/ast/astutil"
 )
 
-// Options is github.com/system-pclub/gochecker/tools/imports.Options with extra internal-only options.
+// Options is github.com/system-pclub/GCatch/tools/imports.Options with extra internal-only options.
 type Options struct {
 	Env *ProcessEnv // The environment to use. Note: this contains the cached module and filesystem state.
 
@@ -40,7 +40,7 @@ type Options struct {
 	FormatOnly bool // Disable the insertion and deletion of imports
 }
 
-// Process implements github.com/system-pclub/gochecker/tools/imports.Process with explicit context in env.
+// Process implements github.com/system-pclub/GCatch/tools/imports.Process with explicit context in env.
 func Process(filename string, src []byte, opt *Options) ([]byte, error) {
 	if src == nil {
 		b, err := ioutil.ReadFile(filename)

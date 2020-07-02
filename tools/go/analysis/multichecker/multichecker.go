@@ -15,10 +15,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/analysis/internal/analysisflags"
-	"github.com/system-pclub/gochecker/tools/go/analysis/internal/checker"
-	"github.com/system-pclub/gochecker/tools/go/analysis/unitchecker"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis/internal/analysisflags"
+	"github.com/system-pclub/GCatch/tools/go/analysis/internal/checker"
+	"github.com/system-pclub/GCatch/tools/go/analysis/unitchecker"
 )
 
 func Main(analyzers ...*analysis.Analyzer) {

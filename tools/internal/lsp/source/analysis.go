@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	"github.com/system-pclub/gochecker/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
 )
 
 func analyze(ctx context.Context, v View, pkgs []Package, analyzers []*analysis.Analyzer) ([]*Action, error) {

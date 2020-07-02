@@ -15,8 +15,8 @@ import (
 	"go/token"
 	"go/types"
 
-	"github.com/system-pclub/gochecker/tools/go/callgraph"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
 )
 
 var (

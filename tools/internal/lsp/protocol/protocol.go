@@ -7,8 +7,8 @@ package protocol
 import (
 	"context"
 
-	"github.com/system-pclub/gochecker/tools/internal/jsonrpc2"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/xlog"
+	"github.com/system-pclub/GCatch/tools/internal/jsonrpc2"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/xlog"
 )
 
 const defaultMessageBufferSize = 20

@@ -12,9 +12,9 @@ package mypointer
 
 import (
 	"fmt"
-	"github.com/system-pclub/gochecker/tools/go/callgraph"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
-	"github.com/system-pclub/gochecker/tools/go/ssa/ssautil"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa/ssautil"
 	"go/token"
 	"go/types"
 	"strconv"

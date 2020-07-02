@@ -11,11 +11,11 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/packages"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/diff"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/xlog"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/diff"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/xlog"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 // FileContents is returned from FileSystem implementation to represent the

@@ -15,7 +15,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/system-pclub/gochecker/tools/go/types/typeutil"
+	"github.com/system-pclub/GCatch/tools/go/types/typeutil"
 )
 
 // NewProgram returns a new SSA Program.

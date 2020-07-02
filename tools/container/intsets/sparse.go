@@ -11,7 +11,7 @@
 // map type.  The IsEmpty, Min, Max, Clear and TakeMin operations
 // require constant time.
 //
-package intsets // import "github.com/system-pclub/gochecker/tools/container/intsets"
+package intsets // import "github.com/system-pclub/GCatch/tools/container/intsets"
 
 // TODO(adonovan):
 // - Add InsertAll(...int), RemoveAll(...int)

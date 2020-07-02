@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/buildutil"
+	"github.com/system-pclub/GCatch/tools/go/buildutil"
 )
 
 func TestParseOverlayArchive(t *testing.T) {

@@ -19,13 +19,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/system-pclub/gochecker/tools/internal/jsonrpc2"
-	"github.com/system-pclub/gochecker/tools/internal/lsp"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/cache"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/protocol"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/source"
-	"github.com/system-pclub/gochecker/tools/internal/span"
-	"github.com/system-pclub/gochecker/tools/internal/tool"
+	"github.com/system-pclub/GCatch/tools/internal/jsonrpc2"
+	"github.com/system-pclub/GCatch/tools/internal/lsp"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/cache"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/protocol"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/source"
+	"github.com/system-pclub/GCatch/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/tool"
 )
 
 // Application is the main application as passed to tool.Main

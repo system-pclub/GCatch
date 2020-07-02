@@ -16,8 +16,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/system-pclub/gochecker/tools/go/gcexportdata"
-	"github.com/system-pclub/gochecker/tools/go/types/typeutil"
+	"github.com/system-pclub/GCatch/tools/go/gcexportdata"
+	"github.com/system-pclub/GCatch/tools/go/types/typeutil"
 )
 
 var packageFlag = flag.String("package", "", "alternative package to print")

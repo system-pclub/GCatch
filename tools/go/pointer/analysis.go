@@ -17,9 +17,9 @@ import (
 	"runtime/debug"
 	"sort"
 
-	"github.com/system-pclub/gochecker/tools/go/callgraph"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
-	"github.com/system-pclub/gochecker/tools/go/types/typeutil"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/types/typeutil"
 )
 
 const (

@@ -17,9 +17,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/buildutil"
-	"github.com/system-pclub/gochecker/tools/go/internal/gcimporter"
-	"github.com/system-pclub/gochecker/tools/go/loader"
+	"github.com/system-pclub/GCatch/tools/go/buildutil"
+	"github.com/system-pclub/GCatch/tools/go/internal/gcimporter"
+	"github.com/system-pclub/GCatch/tools/go/loader"
 )
 
 func TestBExportData_stdlib(t *testing.T) {

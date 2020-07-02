@@ -11,10 +11,10 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/callgraph"
-	"github.com/system-pclub/gochecker/tools/go/callgraph/static"
-	"github.com/system-pclub/gochecker/tools/go/loader"
-	"github.com/system-pclub/gochecker/tools/go/ssa/ssautil"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
+	"github.com/system-pclub/GCatch/tools/go/callgraph/static"
+	"github.com/system-pclub/GCatch/tools/go/loader"
+	"github.com/system-pclub/GCatch/tools/go/ssa/ssautil"
 )
 
 const input = `package P

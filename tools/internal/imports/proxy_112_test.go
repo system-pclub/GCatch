@@ -8,7 +8,7 @@ package imports
 
 import "path/filepath"
 
-// TODO: use proxy functionality in github.com/system-pclub/gochecker/tools/go/packages/packagestest
+// TODO: use proxy functionality in github.com/system-pclub/GCatch/tools/go/packages/packagestest
 // instead of copying it here.
 
 func proxyDirToURL(dir string) string {

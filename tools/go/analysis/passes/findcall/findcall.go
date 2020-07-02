@@ -12,7 +12,7 @@ import (
 	"go/ast"
 	"go/types"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
 )
 
 const Doc = `find calls to a particular function

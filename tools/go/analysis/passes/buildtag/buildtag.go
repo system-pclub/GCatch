@@ -12,8 +12,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/internal/analysisutil"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/internal/analysisutil"
 )
 
 var Analyzer = &analysis.Analyzer{

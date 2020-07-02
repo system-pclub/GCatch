@@ -16,7 +16,7 @@
 //
 // 	import (
 // 		"example.org/findbadness"
-// 		"github.com/system-pclub/gochecker/tools/go/analysis/singlechecker"
+// 		"github.com/system-pclub/GCatch/tools/go/analysis/singlechecker"
 // 	)
 //
 // 	func main() { singlechecker.Main(findbadness.Analyzer) }
@@ -30,10 +30,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/analysis/internal/analysisflags"
-	"github.com/system-pclub/gochecker/tools/go/analysis/internal/checker"
-	"github.com/system-pclub/gochecker/tools/go/analysis/unitchecker"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis/internal/analysisflags"
+	"github.com/system-pclub/GCatch/tools/go/analysis/internal/checker"
+	"github.com/system-pclub/GCatch/tools/go/analysis/unitchecker"
 )
 
 // Main is the main function for a checker command for a single analysis.

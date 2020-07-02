@@ -10,10 +10,10 @@ import (
 	"go/token"
 	"io"
 
-	"github.com/system-pclub/gochecker/tools/container/intsets"
-	"github.com/system-pclub/gochecker/tools/go/callgraph"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
-	"github.com/system-pclub/gochecker/tools/go/types/typeutil"
+	"github.com/system-pclub/GCatch/tools/container/intsets"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/types/typeutil"
 )
 
 // A Config formulates a pointer analysis problem for Analyze. It is

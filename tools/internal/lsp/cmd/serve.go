@@ -17,10 +17,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/system-pclub/gochecker/tools/internal/jsonrpc2"
-	"github.com/system-pclub/gochecker/tools/internal/lsp"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/debug"
-	"github.com/system-pclub/gochecker/tools/internal/tool"
+	"github.com/system-pclub/GCatch/tools/internal/jsonrpc2"
+	"github.com/system-pclub/GCatch/tools/internal/lsp"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/debug"
+	"github.com/system-pclub/GCatch/tools/internal/tool"
 )
 
 // Serve is a struct that exposes the configurable parts of the LSP server as

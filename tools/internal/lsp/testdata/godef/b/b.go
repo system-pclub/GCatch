@@ -1,8 +1,8 @@
 package b
 
 import (
-	myFoo "github.com/system-pclub/gochecker/tools/internal/lsp/foo" //@godef("foo", PackageFoo),godef("myFoo", PackageFoo)
-	"github.com/system-pclub/gochecker/tools/internal/lsp/godef/a"   //@mark(AImport, "\"")
+	myFoo "github.com/system-pclub/GCatch/tools/internal/lsp/foo" //@godef("foo", PackageFoo),godef("myFoo", PackageFoo)
+	"github.com/system-pclub/GCatch/tools/internal/lsp/godef/a"   //@mark(AImport, "\"")
 )
 
 type S1 struct { //@S1

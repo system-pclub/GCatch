@@ -3,7 +3,7 @@ package b
 import (
 	"fmt"
 
-	"github.com/system-pclub/gochecker/tools/internal/lsp/godef/a"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/godef/a"
 )
 
 func useThings() {

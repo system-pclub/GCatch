@@ -14,7 +14,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/system-pclub/gochecker/tools/go/ast/astutil"
+	"github.com/system-pclub/GCatch/tools/go/ast/astutil"
 )
 
 //// AST utilities

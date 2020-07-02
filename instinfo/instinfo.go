@@ -1,6 +1,6 @@
 package instinfo
 
-import "github.com/system-pclub/gochecker/tools/go/ssa"
+import "github.com/system-pclub/GCatch/tools/go/ssa"
 
 func IsDefer( inst ssa.Instruction) bool {
 	_, ok := inst.(*ssa.Defer)

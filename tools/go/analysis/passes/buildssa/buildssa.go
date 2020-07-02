@@ -15,8 +15,8 @@ import (
 	"go/types"
 	"reflect"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
 )
 
 var Analyzer = &analysis.Analyzer{

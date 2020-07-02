@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // Package astutil contains common utilities for working with the Go AST.
-package astutil // import "github.com/system-pclub/gochecker/tools/go/ast/astutil"
+package astutil // import "github.com/system-pclub/GCatch/tools/go/ast/astutil"
 
 import (
 	"fmt"
@@ -192,7 +192,7 @@ func AddNamedImport(fset *token.FileSet, f *ast.File, name, path string) (added 
 
 func isThirdParty(importPath string) bool {
 	// Third party package import path usually contains "." (".com", ".org", ...)
-	// This logic is taken from github.com/system-pclub/gochecker/tools/imports package.
+	// This logic is taken from github.com/system-pclub/GCatch/tools/imports package.
 	return strings.Contains(importPath, ".")
 }
 

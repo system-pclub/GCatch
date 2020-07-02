@@ -2,7 +2,7 @@ package analysis
 
 import (
 	"fmt"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
 )
 
 type PostDominator struct {

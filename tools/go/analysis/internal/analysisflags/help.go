@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
 )
 
 const help = `PROGNAME is a tool for static analysis of Go programs.

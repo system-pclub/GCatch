@@ -8,8 +8,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/system-pclub/gochecker/tools/internal/lsp/protocol"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/protocol"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 func (s *Server) changeFolders(ctx context.Context, event protocol.WorkspaceFoldersChangeEvent) error {

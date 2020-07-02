@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // The gopackages command is a diagnostic tool that demonstrates
-// how to use github.com/system-pclub/gochecker/tools/go/packages to load, parse,
+// how to use github.com/system-pclub/GCatch/tools/go/packages to load, parse,
 // type-check, and print one or more Go packages.
 // Its precise output is unspecified and may change.
 package main
@@ -18,9 +18,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/go/packages"
-	"github.com/system-pclub/gochecker/tools/go/types/typeutil"
-	"github.com/system-pclub/gochecker/tools/internal/tool"
+	"github.com/system-pclub/GCatch/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/go/types/typeutil"
+	"github.com/system-pclub/GCatch/tools/internal/tool"
 )
 
 func main() {

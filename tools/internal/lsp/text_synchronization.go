@@ -8,9 +8,9 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/system-pclub/gochecker/tools/internal/jsonrpc2"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/protocol"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/jsonrpc2"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/protocol"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 func (s *Server) didOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {

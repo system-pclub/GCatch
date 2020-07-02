@@ -13,9 +13,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/packages/packagestest"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/cmd"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/tests"
+	"github.com/system-pclub/GCatch/tools/go/packages/packagestest"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/cmd"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/tests"
 )
 
 var isRace = false

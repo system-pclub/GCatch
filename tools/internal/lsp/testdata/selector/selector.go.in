@@ -3,7 +3,7 @@
 package selector
 
 import (
-	"github.com/system-pclub/gochecker/tools/internal/lsp/bar"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/bar"
 )
 
 type S struct {

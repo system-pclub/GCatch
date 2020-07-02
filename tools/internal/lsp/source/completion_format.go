@@ -13,7 +13,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/internal/lsp/snippet"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/snippet"
 )
 
 // formatCompletion creates a completion item for a given types.Object.

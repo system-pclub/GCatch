@@ -9,9 +9,9 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/analysis/multichecker"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/findcall"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis/multichecker"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/findcall"
 )
 
 func main() {

@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/system-pclub/gochecker/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/go/packages"
 )
 
 // Modules is the exporter that produces module layouts.

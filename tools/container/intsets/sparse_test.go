@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/container/intsets"
+	"github.com/system-pclub/GCatch/tools/container/intsets"
 )
 
 func TestBasics(t *testing.T) {

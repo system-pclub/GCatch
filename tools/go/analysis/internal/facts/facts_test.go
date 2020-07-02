@@ -12,9 +12,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis/analysistest"
-	"github.com/system-pclub/gochecker/tools/go/analysis/internal/facts"
-	"github.com/system-pclub/gochecker/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/go/analysis/analysistest"
+	"github.com/system-pclub/GCatch/tools/go/analysis/internal/facts"
+	"github.com/system-pclub/GCatch/tools/go/packages"
 )
 
 type myFact struct {

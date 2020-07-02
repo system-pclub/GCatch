@@ -2,7 +2,7 @@ package callgraph
 
 import (
 	"fmt"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
 	"strconv"
 	"strings"
 )

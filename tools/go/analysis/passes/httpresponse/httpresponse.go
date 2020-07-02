@@ -10,9 +10,9 @@ import (
 	"go/ast"
 	"go/types"
 
-	"github.com/system-pclub/gochecker/tools/go/analysis"
-	"github.com/system-pclub/gochecker/tools/go/analysis/passes/inspect"
-	"github.com/system-pclub/gochecker/tools/go/ast/inspector"
+	"github.com/system-pclub/GCatch/tools/go/analysis"
+	"github.com/system-pclub/GCatch/tools/go/analysis/passes/inspect"
+	"github.com/system-pclub/GCatch/tools/go/ast/inspector"
 )
 
 const Doc = `check for mistakes using HTTP responses

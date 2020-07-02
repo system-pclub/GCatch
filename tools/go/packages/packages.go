@@ -22,7 +22,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/system-pclub/gochecker/tools/go/gcexportdata"
+	"github.com/system-pclub/GCatch/tools/go/gcexportdata"
 )
 
 // A LoadMode controls the amount of detail to return when loading.
@@ -717,7 +717,7 @@ func (ld *loader) loadRecursive_other(lpkg *loaderPackage) {
 // after immediate dependencies are loaded.
 // Precondition: ld.Mode & NeedTypes.
 func (ld *loader) loadPackage_ast(lpkg *loaderPackage) {
-	if lpkg.PkgPath == "unsafe" || lpkg.PkgPath == "github.com/system-pclub/gochecker/testdata/SyncPrimitive/Mutex/DependNone" { ///DELETE
+	if lpkg.PkgPath == "unsafe" || lpkg.PkgPath == "github.com/system-pclub/GCatch/testdata/SyncPrimitive/Mutex/DependNone" { ///DELETE
 		// Fill in the blanks to avoid surprises.
 		lpkg.Types = types.Unsafe
 		lpkg.Fset = ld.Fset
@@ -812,7 +812,7 @@ func (ld *loader) loadPackage_ast(lpkg *loaderPackage) {
 // Precondition: ld.Mode & NeedTypes.
 func (ld *loader) loadPackage_other(lpkg *loaderPackage) {
 
-	if lpkg.PkgPath == "unsafe" || lpkg.PkgPath == "github.com/system-pclub/gochecker/testdata/SyncPrimitive/Mutex/DependNone"  { ///DELETE
+	if lpkg.PkgPath == "unsafe" || lpkg.PkgPath == "github.com/system-pclub/GCatch/testdata/SyncPrimitive/Mutex/DependNone"  { ///DELETE
 		// Fill in the blanks to avoid surprises.
 		lpkg.Types = types.Unsafe
 		lpkg.Fset = ld.Fset

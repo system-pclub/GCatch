@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"go/ast"
 
-	"github.com/system-pclub/gochecker/tools/internal/lsp/snippet"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/snippet"
 )
 
 // structFieldSnippets calculates the plain and placeholder snippets for struct literal field names.

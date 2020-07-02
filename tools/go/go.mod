@@ -1,4 +1,4 @@
-module github.com/system-pclub/gochecker/tools
+module github.com/system-pclub/GCatch/tools
 
 go 1.11
 

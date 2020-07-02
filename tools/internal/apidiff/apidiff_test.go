@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/go/packages"
 )
 
 func TestChanges(t *testing.T) {
@@ -134,7 +134,7 @@ func load(importPath, goPath string) (*packages.Package, error) {
 }
 
 func TestExportedFields(t *testing.T) {
-	pkg, err := load("github.com/system-pclub/gochecker/tools/internal/apidiff/testdata/exported_fields", "")
+	pkg, err := load("github.com/system-pclub/GCatch/tools/internal/apidiff/testdata/exported_fields", "")
 	if err != nil {
 		t.Fatal(err)
 	}

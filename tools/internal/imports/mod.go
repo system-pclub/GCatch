@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/system-pclub/gochecker/tools/internal/gopathwalk"
-	"github.com/system-pclub/gochecker/tools/internal/module"
+	"github.com/system-pclub/GCatch/tools/internal/gopathwalk"
+	"github.com/system-pclub/GCatch/tools/internal/module"
 )
 
 // moduleResolver implements resolver for modules using the go command as little

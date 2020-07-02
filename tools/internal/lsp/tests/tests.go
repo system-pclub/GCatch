@@ -16,11 +16,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/go/packages"
-	"github.com/system-pclub/gochecker/tools/go/packages/packagestest"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/source"
-	"github.com/system-pclub/gochecker/tools/internal/span"
-	"github.com/system-pclub/gochecker/tools/internal/txtar"
+	"github.com/system-pclub/GCatch/tools/go/packages"
+	"github.com/system-pclub/GCatch/tools/go/packages/packagestest"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/source"
+	"github.com/system-pclub/GCatch/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/txtar"
 )
 
 // We hardcode the expected number of test cases to ensure that all tests
@@ -43,7 +43,7 @@ const (
 	overlayFileSuffix = ".overlay"
 	goldenFileSuffix  = ".golden"
 	inFileSuffix      = ".in"
-	testModule        = "github.com/system-pclub/gochecker/tools/internal/lsp"
+	testModule        = "github.com/system-pclub/GCatch/tools/internal/lsp"
 )
 
 var updateGolden = flag.Bool("golden", false, "Update golden files")

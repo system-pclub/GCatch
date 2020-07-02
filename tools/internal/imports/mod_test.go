@@ -14,8 +14,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/internal/module"
-	"github.com/system-pclub/gochecker/tools/internal/txtar"
+	"github.com/system-pclub/GCatch/tools/internal/module"
+	"github.com/system-pclub/GCatch/tools/internal/txtar"
 )
 
 // Tests that we handle a nested module. This is different from other tests

@@ -3,9 +3,9 @@
 package baz
 
 import (
-	"github.com/system-pclub/gochecker/tools/internal/lsp/bar"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/bar"
 
-	f "github.com/system-pclub/gochecker/tools/internal/lsp/foo"
+	f "github.com/system-pclub/GCatch/tools/internal/lsp/foo"
 )
 
 func Baz() {

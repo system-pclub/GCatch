@@ -12,10 +12,10 @@ import (
 	"os"
 	"strings"
 
-	guru "github.com/system-pclub/gochecker/tools/cmd/guru/serial"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/protocol"
-	"github.com/system-pclub/gochecker/tools/internal/span"
-	"github.com/system-pclub/gochecker/tools/internal/tool"
+	guru "github.com/system-pclub/GCatch/tools/cmd/guru/serial"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/protocol"
+	"github.com/system-pclub/GCatch/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/tool"
 )
 
 // A Definition is the result of a 'definition' query.

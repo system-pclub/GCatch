@@ -8,7 +8,7 @@ import (
 	"go/ast"
 	"go/types"
 
-	"github.com/system-pclub/gochecker/tools/go/ast/astutil"
+	"github.com/system-pclub/GCatch/tools/go/ast/astutil"
 )
 
 // Callee returns the named target of a function call, if any:

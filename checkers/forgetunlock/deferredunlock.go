@@ -1,8 +1,8 @@
 package forgetunlock
 
 import (
-	"github.com/system-pclub/gochecker/tools/go/ssa"
-	"github.com/system-pclub/gochecker/instinfo"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/instinfo"
 )
 
 func SearchDeferredUnlock(inputInst ssa.Instruction) [] string {

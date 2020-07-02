@@ -2,12 +2,12 @@ package doublelock
 
 import (
 	"fmt"
-	"github.com/system-pclub/gochecker/config"
-	"github.com/system-pclub/gochecker/output"
-	"github.com/system-pclub/gochecker/tools/go/callgraph"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
-	"github.com/system-pclub/gochecker/tools/go/ssa/ssautil"
-	"github.com/system-pclub/gochecker/util"
+	"github.com/system-pclub/GCatch/config"
+	"github.com/system-pclub/GCatch/output"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa/ssautil"
+	"github.com/system-pclub/GCatch/util"
 )
 
 var AnalyzedFNs map[string] bool

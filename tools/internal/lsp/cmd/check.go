@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 // check implements the check verb for gopls.

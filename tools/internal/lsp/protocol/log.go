@@ -3,7 +3,7 @@ package protocol
 import (
 	"context"
 
-	"github.com/system-pclub/gochecker/tools/internal/lsp/xlog"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/xlog"
 )
 
 // logSink implements xlog.Sink in terms of the LogMessage call to a client.

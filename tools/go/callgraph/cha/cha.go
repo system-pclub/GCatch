@@ -21,15 +21,15 @@
 // and all concrete types are put into interfaces, it is sound to run on
 // partial programs, such as libraries without a main or test function.
 //
-package cha // import "github.com/system-pclub/gochecker/tools/go/callgraph/cha"
+package cha // import "github.com/system-pclub/GCatch/tools/go/callgraph/cha"
 
 import (
 	"go/types"
 
-	"github.com/system-pclub/gochecker/tools/go/callgraph"
-	"github.com/system-pclub/gochecker/tools/go/ssa"
-	"github.com/system-pclub/gochecker/tools/go/ssa/ssautil"
-	"github.com/system-pclub/gochecker/tools/go/types/typeutil"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa/ssautil"
+	"github.com/system-pclub/GCatch/tools/go/types/typeutil"
 )
 
 // CallGraph computes the call graph of the specified program using the

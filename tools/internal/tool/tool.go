@@ -19,7 +19,7 @@ import (
 )
 
 // This file is a very opinionated harness for writing your main function.
-// The original version of the file is in github.com/system-pclub/gochecker/tools/internal/tool.
+// The original version of the file is in github.com/system-pclub/GCatch/tools/internal/tool.
 //
 // It adds a method to the Application type
 //     Main(name, usage string, args []string)

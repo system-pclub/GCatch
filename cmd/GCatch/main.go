@@ -3,18 +3,18 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/system-pclub/gochecker/checkers/conflictinglock"
-	"github.com/system-pclub/gochecker/checkers/doublelock"
-	"github.com/system-pclub/gochecker/ssabuild"
-	"github.com/system-pclub/gochecker/tools/go/callgraph"
-	"github.com/system-pclub/gochecker/tools/go/mypointer"
-	"github.com/system-pclub/gochecker/util"
+	"github.com/system-pclub/GCatch/checkers/conflictinglock"
+	"github.com/system-pclub/GCatch/checkers/doublelock"
+	"github.com/system-pclub/GCatch/ssabuild"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
+	"github.com/system-pclub/GCatch/tools/go/mypointer"
+	"github.com/system-pclub/GCatch/util"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/system-pclub/gochecker/checkers/forgetunlock"
-	"github.com/system-pclub/gochecker/config"
+	"github.com/system-pclub/GCatch/checkers/forgetunlock"
+	"github.com/system-pclub/GCatch/config"
 )
 
 
@@ -35,7 +35,7 @@ func main() {
 
 	strProjectPath := *pProjectPath
 	strRelativePath := *pRelativePath
-	mapCheckerName := util.Divide_str(*pCheckerName)
+	mapCheckerName := util.SplitStr2Map(*pCheckerName, ":")
 	boolShowCompileError := *pShowCompileError
 	boolRobustMod := *pRobustMod
 	boolFnPointerAlias := *pFnPointerAlias
@@ -57,12 +57,12 @@ func main() {
 
 	config.StrEntrancePath = strProjectPath[numIndex+5:]
 	config.StrGOPATH = os.Getenv("GOPATH")
-	config.VecExcludePaths = util.Divide_str(*pExcludePath)
+	config.MapExcludePaths = util.SplitStr2Map(*pExcludePath, ":")
 	config.StrRelativePath = strRelativePath
 	config.StrAbsolutePath = strProjectPath[:numIndex+5]
 	config.StrAbsolutePath = strings.ReplaceAll(config.StrAbsolutePath, "//", "/")
 	config.BoolDisableFnPointer = ! boolFnPointerAlias
-	config.MapPrintMod = util.Divide_str(*pPrintMod)
+	config.MapPrintMod = util.SplitStr2Map(*pPrintMod, ":")
 
 	/*
 	fmt.Println("entrance", config.StrEntrancePath)
@@ -130,10 +130,6 @@ func main() {
 	for index, wpath := range wPaths {
 
 		//fmt.Println(wpath.StrPath)
-		// todo: I think the code below need to be deleted
-		if wpath.StrPath != "github.com/pingcap/tidb/util" {
-			continue
-		}
 
 		if wpath.NumLock + wpath.NumSend == 0 {
 			break

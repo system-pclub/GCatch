@@ -18,7 +18,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/internal/fastwalk"
+	"github.com/system-pclub/GCatch/tools/internal/fastwalk"
 )
 
 func formatFileModes(m map[string]os.FileMode) string {

@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/go/internal/gccgoimporter"
+	"github.com/system-pclub/GCatch/tools/go/internal/gccgoimporter"
 )
 
 // CompilerInfo executes the specified gccgo compiler and returns

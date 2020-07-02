@@ -11,11 +11,11 @@ import (
 	"os"
 	"path"
 
-	"github.com/system-pclub/gochecker/tools/internal/jsonrpc2"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/debug"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/protocol"
-	"github.com/system-pclub/gochecker/tools/internal/lsp/source"
-	"github.com/system-pclub/gochecker/tools/internal/span"
+	"github.com/system-pclub/GCatch/tools/internal/jsonrpc2"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/debug"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/protocol"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/source"
+	"github.com/system-pclub/GCatch/tools/internal/span"
 )
 
 func (s *Server) initialize(ctx context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {

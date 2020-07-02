@@ -10,7 +10,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/system-pclub/gochecker/tools/go/ssa"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
 )
 
 // A Label is an entity that may be pointed to by a pointer, map,

@@ -1,7 +1,7 @@
 package badstmt
 
 import (
-	"github.com/system-pclub/gochecker/tools/internal/lsp/foo"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/foo"
 )
 
 func _() {

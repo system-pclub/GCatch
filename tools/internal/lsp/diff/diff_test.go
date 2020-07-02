@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/system-pclub/gochecker/tools/internal/lsp/diff"
+	"github.com/system-pclub/GCatch/tools/internal/lsp/diff"
 )
 
 const (
