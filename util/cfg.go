@@ -44,6 +44,7 @@ func IsFnEnd(ii ssa.Instruction) bool {
 	return false
 }
 
+// according to the annotation of ssa.Function, a function only has one normal entry BB and one optional recover BB. So this function returns at most 2 inst
 func GetEntryInsts(fn * ssa.Function) [] ssa.Instruction {
 
 	vecResult := make([] ssa.Instruction, 0)

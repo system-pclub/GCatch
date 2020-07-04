@@ -1,11 +1,13 @@
 package output
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/system-pclub/GCatch/config"
 	"github.com/system-pclub/GCatch/tools/go/ssa"
 	"github.com/system-pclub/GCatch/util"
 	"go/token"
+	"os"
 )
 
 func GetLineNum(II ssa.Instruction) int {
@@ -92,7 +94,7 @@ func PrintFnSrc(fn * ssa.Function) {
 func PrintIISrc(ii ssa.Instruction) {
 	loc := GetLoc(ii)
 	if loc.Line != 0 {
-		fmt.Print("\tFile:", loc.Filename,"\tLine:", loc.Line)
+		fmt.Print("\tFile: ", loc.Filename,":", loc.Line) // print in this way will produce a link to file
 		fmt.Println()
 	}
 }
@@ -160,5 +162,14 @@ outer:
 
 	fmt.Println(GetLineNum(IIs[len(IIs)-1]))
 	fmt.Print("\n")
+}
+
+func WaitForInput() {
+	buf := bufio.NewReader(os.Stdin)
+	fmt.Print("\nPlease press Enter to continue")
+	_, err := buf.ReadBytes('\n')
+	if err != nil {
+		fmt.Println("Error of input:", err)
+	}
 }
 

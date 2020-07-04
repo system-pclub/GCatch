@@ -9,6 +9,7 @@ import (
 	"github.com/system-pclub/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/tools/go/mypointer"
 	"github.com/system-pclub/GCatch/util"
+	"github.com/system-pclub/GCatch/util/genKill"
 	"os"
 	"strings"
 	"time"
@@ -173,6 +174,8 @@ func main() {
 
 func detect(mapCheckerName map[string]bool) {
 
+	config.Inst2Defers, config.Defer2Insts = genKill.ComputeDeferMap()
+
 	boolNeedCallGraph := mapCheckerName["double"] || mapCheckerName["conflict"] || mapCheckerName["channel"]
 	if boolNeedCallGraph {
 		config.CallGraph = BuildCallGraph()
@@ -207,6 +210,10 @@ func BuildCallGraph() * callgraph.Graph {
 		Log:             nil,
 	}
 	result, err := mypointer.Analyze(cfg, nil)
+	defer func() {
+		cfg = nil
+		result = nil
+	}()
 	if err != nil {
 		fmt.Println("Error when building callgraph with nil Queries:\n", err.Error())
 		return nil
