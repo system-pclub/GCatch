@@ -32,3 +32,4 @@ var VecPathStats [] PathStat
 var CallGraph * callgraph.Graph
 var Inst2Defers map[ssa.Instruction][]*ssa.Defer
 var Defer2Insts map[*ssa.Defer][]ssa.Instruction
+var Inst2CallSite map[ssa.CallInstruction]map[*callgraph.Edge]bool
