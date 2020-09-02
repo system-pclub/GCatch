@@ -7,7 +7,7 @@ import "github.com/system-pclub/GCatch/tools/go/ssa"
 // Define Channel
 type Channel struct {
 	Name string
-	Make_inst *ssa.MakeChan
+	MakeInst *ssa.MakeChan
 	Make *ChMake
 	Pkg string
 	Buffer int
@@ -48,7 +48,7 @@ type ChSend struct {
 	Name           string
 	CaseIndex      int // If Inst is *ssa.Send, CaseIndex = -1; else CaseIndex is the index of case of *ssa.Select
 	IsCaseBlocking bool
-	Whole_line     string // Used for debug
+	WholeLine     string // Used for debug
 	Status         string
 
 	ChOp // this can be *ssa.Send or *ssa.Select
@@ -57,9 +57,9 @@ type ChSend struct {
 // 		Define operation ChRecv, a concrete implementation of ChanOp
 type ChRecv struct {
 	Name string
-	Case_index int // If Inst is *ssa.UnOp, CaseIndex = -1; else CaseIndex is the index of case of *ssa.Select
-	Is_case_blocking bool
-	Whole_line string // Used for debug
+	CaseIndex int // If Inst is *ssa.UnOp, CaseIndex = -1; else CaseIndex is the index of case of *ssa.Select
+	IsCaseBlocking bool
+	WholeLine string // Used for debug
 	Status string
 
 	ChOp // inst can be *ssa.UnOp or *ssa.Select
@@ -68,19 +68,21 @@ type ChRecv struct {
 // 		Define operation ChClose, a concrete implementation of ChanOp
 type ChClose struct {
 	Name string
-	Is_defer bool
-	Whole_line string
+	IsDefer bool
+	WholeLine string
 	Status string // Used for debug
 
 	ChOp // inst can be *ssa.Call or *ssa.Defer
 }
 
 // A map from inst to its corresponding LockerOp
-var mapInst2ChanOp map[ssa.Instruction]map[ChanOp]bool
+var MapInst2ChanOp map[ssa.Instruction]map[ChanOp]bool
 
 func ClearChanOpMap() {
-	mapInst2ChanOp = make(map[ssa.Instruction]map[ChanOp]bool)
+	MapInst2ChanOp = make(map[ssa.Instruction]map[ChanOp]bool)
 }
+
+const DynamicSize = -999 // If a channel's buffer size can't be computed statically, we give DynamicSize to the Buffer field
 
 // Define some special channels and its operations
 var ChanTimer Channel
