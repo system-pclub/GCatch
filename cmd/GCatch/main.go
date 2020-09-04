@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/system-pclub/GCatch/analysis/pointer"
+	"github.com/system-pclub/GCatch/checkers/bmoc"
 	"github.com/system-pclub/GCatch/checkers/conflictinglock"
 	"github.com/system-pclub/GCatch/checkers/doublelock"
 	"github.com/system-pclub/GCatch/ssabuild"
@@ -194,8 +194,7 @@ func detect(mapCheckerName map[string]bool) {
 		case "conflict":
 			conflictinglock.Detect()
 		case "channel":
-			stPtrResult, vecStOpValue := pointer.AnalyzeAllSyncOp()
-			_, _ = stPtrResult, vecStOpValue // TODO: next step is to withdraw sync primitives from these two variables
+			bmoc.Detect()
 		}
 	}
 }
