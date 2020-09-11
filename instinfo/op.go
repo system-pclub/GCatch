@@ -33,6 +33,7 @@ type StOpValue struct {
 }
 
 const Lock, Unlock = "Lock", "Unlock"
+const RWMutex, Mutex = "RWMutex", "Mutex"
 const Send, Recv, Close, MakeChan = "Send", "Recv", "Close", "MakeChan"
 
 func ScanInstFindLockerValue(inst ssa.Instruction) (v ssa.Value, comment string) {

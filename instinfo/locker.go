@@ -79,8 +79,8 @@ func (u *UnlockOp) Prim() *Locker {
 }
 
 // A map from inst to its corresponding LockerOp
-var mapInst2LockerOp map[ssa.Instruction]LockerOp
+var MapInst2LockerOp map[ssa.Instruction]LockerOp
 
 func ClearLockerOpMap() {
-	mapInst2LockerOp = make(map[ssa.Instruction]LockerOp)
+	MapInst2LockerOp = make(map[ssa.Instruction]LockerOp)
 }
