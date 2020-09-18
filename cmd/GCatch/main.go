@@ -119,16 +119,6 @@ func main() {
 	// Step 2.3: List paths of packages that contain "Lock" or "<-" in source code, and rank the paths with the number of "Lock" or "<-"
 	wPaths := config.ListWorthyPaths()
 
-
-
-	//for _, path := range wPaths {
-	//	fmt.Println( path.StrPath, path.NumLock, path.NumSend)
-	//}
-
-	//os.Exit(0)
-
-	//vecTestPackage := [] string {"github.com/etcd-io/etcd/mvcc", "github.com/etcd-io/etcd/raft"}
-
 	for index, wpath := range wPaths {
 
 		//fmt.Println(wpath.StrPath)

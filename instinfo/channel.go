@@ -19,6 +19,21 @@ type Channel struct {
 	Status string
 }
 
+func (ch *Channel) AllOps() []ChanOp {
+	result := []ChanOp{}
+	result = append(result, ch.Make)
+	for _, send := range ch.Sends {
+		result = append(result, send)
+	}
+	for _, recv := range ch.Recvs {
+		result = append(result, recv)
+	}
+	for _, c := range ch.Closes {
+		result = append(result, c)
+	}
+	return result
+}
+
 // Define interface ChanOp, and its implementation ChOp, which is inherited by all concrete implementations
 type ChanOp interface {
 	Prim() *Channel
@@ -129,3 +144,4 @@ func AddNotDependClose(inst ssa.Instruction) *ChClose {
 	ChanNotDepend.Closes = append(ChanNotDepend.Closes, newClose)
 	return newClose
 }
+

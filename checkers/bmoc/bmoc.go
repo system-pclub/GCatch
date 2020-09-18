@@ -8,8 +8,8 @@ import (
 func Detect() {
 	stPtrResult, vecStOpValue := pointer.AnalyzeAllSyncOp()
 	vecChannel := pointer.WithdrawAllChan(stPtrResult, vecStOpValue)
-	pointer.WithdrawAllTraditionals(stPtrResult, vecStOpValue)
+	vecLocker := pointer.WithdrawAllTraditionals(stPtrResult, vecStOpValue)
 
-	mapDependency := syncgraph.GenDMap(vecChannel)
+	mapDependency := syncgraph.GenDMap(vecChannel, vecLocker)
 	_ = mapDependency // Use dependency map and vecChannel to build syncGraph
 }

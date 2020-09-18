@@ -3,12 +3,15 @@ package syncgraph
 import (
 	"github.com/system-pclub/GCatch/config"
 	"github.com/system-pclub/GCatch/instinfo"
+	"github.com/system-pclub/GCatch/path"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/tools/go/ssa"
 	"github.com/system-pclub/GCatch/tools/go/ssa/ssautil"
+	"github.com/system-pclub/GCatch/util"
 )
 
 type DPrim struct {
-	Primitive interface{} // *instinfo.Channel/ *locker.Locker
+	Primitive interface{} // *instinfo.Channel or *instinfo.Locker
 	Out []*DEdge
 	In []*DEdge
 	Circular_depend []*DEdge
@@ -21,7 +24,7 @@ type DEdge struct {
 	Callee *DPrim
 }
 
-func GenDMap(vecChan []*instinfo.Channel) (DMap map[interface{}]*DPrim) {
+func GenDMap(vecChan []*instinfo.Channel, vecLocker []*instinfo.Locker) (DMap map[interface{}]*DPrim) {
 	DMap = make(map[interface{}]*DPrim)
 
 	// Store primitives that have blocking operation in a function
@@ -79,7 +82,74 @@ func GenDMap(vecChan []*instinfo.Channel) (DMap map[interface{}]*DPrim) {
 		}
 	}
 
-	// TODO: Update the Fn2Prims map recursively: A calls B, then A inherits B's primitives
+	// Update the Fn2Prims map: A calls B, then A inherits B's primitives
+	// Current implementation is conservative: only when the len(potention_Bs) == 1, will A inherits B's primitives
+	intCountRecursive := 0
+	boolDMapUpdated := true
+	for boolDMapUpdated && intCountRecursive < config.MAX_LCA_LAYER {
+		boolDMapUpdated = false
+		intCountRecursive++
+
+		for a, prims_map := range Fn2Prims {
+			a_node := config.CallGraph.Nodes[a]
+			if a_node == nil {
+				continue
+			}
+
+			intNumOfOldPrims := len(prims_map)
+
+			callsite2callees := make(map[ssa.CallInstruction][]*callgraph.Node)
+			for _, out := range a_node.Out {
+				boolCalleeExist := false
+				for _, exist_callee := range callsite2callees[out.Site] {
+					if exist_callee == out.Callee {
+						boolCalleeExist = true
+					}
+				}
+				if boolCalleeExist == false {
+					callsite2callees[out.Site] = append(callsite2callees[out.Site], out.Callee)
+				}
+			}
+
+			for _, callees := range callsite2callees {
+				if len(callees) == 1 {
+					mapCalleePrims := Fn2Prims[callees[0].Func]
+					for prim, _ := range mapCalleePrims {
+						prims_map[prim] = struct{}{}
+					}
+				}
+			}
+
+			intNumOfNewPrims := len(prims_map)
+			if intNumOfNewPrims != intNumOfOldPrims {
+				boolDMapUpdated = true
+			}
+
+			callsite2callees = nil
+		}
+	}
+
+	for _, ch := range vecChan {
+		prim, exist := DMap[ch]
+		if exist == false {
+			prim = &DPrim{
+				Primitive: ch,
+			}
+			DMap[ch] = prim
+		}
+
+		vecAllOpInst := []ssa.Instruction{}
+		for _, op := range ch.AllOps() {
+			vecAllOpInst = append(vecAllOpInst, op.Instr())
+		}
+		mapLCA2Chains, err := path.FindLCA(util.VecFnForVecInst(vecAllOpInst), config.MAX_LCA_LAYER)
+		if err != nil {
+			continue
+		}
+
+		// TODO: continue this part after I write the code for FindLCA
+		_ = mapLCA2Chains
+	}
 
 
 	return

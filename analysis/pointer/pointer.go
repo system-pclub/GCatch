@@ -264,7 +264,7 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 	return
 }
 
-func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StOpValue) {
+func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StOpValue) (result []*instinfo.Locker) {
 	vecStTradOpAndValue := []*instinfo.StOpValue{}
 	for _, stOpValue := range vecStOpValue {
 		switch stOpValue.Comment {
@@ -326,6 +326,7 @@ func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*inst
 					newLock.IsDefer = true
 				}
 				newLocker.Locks = append(newLocker.Locks, newLock)
+				instinfo.MapInst2LockerOp[newLock.Inst] = newLock
 
 			case instinfo.Unlock:
 				newUnlock := &instinfo.UnlockOp{
@@ -339,16 +340,12 @@ func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*inst
 					newUnlock.IsDefer = true
 				}
 				newLocker.Unlocks = append(newLocker.Unlocks, newUnlock)
+				instinfo.MapInst2LockerOp[newUnlock.Inst] = newUnlock
 			default:
 			}
 		}
 
-		for _, lock := range newLocker.Locks {
-			instinfo.MapInst2LockerOp[lock.Inst] = lock
-		}
-		for _, unlock := range newLocker.Unlocks {
-			instinfo.MapInst2LockerOp[unlock.Inst] = unlock
-		}
+		result = append(result, newLocker)
 	}
 
 	return
