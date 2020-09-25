@@ -10,3 +10,18 @@ func IsInstInVec(inst ssa.Instruction, vec []ssa.Instruction) bool {
 	}
 	return false
 }
+
+func VecFnForVecInst(vecInst []ssa.Instruction) []*ssa.Function {
+	result := []*ssa.Function{}
+
+	mapFn := make(map[*ssa.Function]struct{})
+	for _,inst := range vecInst {
+		mapFn[inst.Parent()] = struct{}{}
+	}
+
+	for fn,_ := range mapFn {
+		result = append(result, fn)
+	}
+
+	return result
+}

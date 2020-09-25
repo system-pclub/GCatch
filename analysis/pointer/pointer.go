@@ -263,3 +263,90 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 
 	return
 }
+
+func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StOpValue) (result []*instinfo.Locker) {
+	vecStTradOpAndValue := []*instinfo.StOpValue{}
+	for _, stOpValue := range vecStOpValue {
+		switch stOpValue.Comment {
+		case instinfo.Lock, instinfo.Unlock:
+			vecStTradOpAndValue = append(vecStTradOpAndValue, stOpValue)
+
+		// If we need to handle RWMutex/Waitgroup/Cond, add cases here
+
+		default:
+
+		}
+	}
+
+	label2LockerOp := mergeAlias(vecStTradOpAndValue, stPtrResult)
+	for label, lockerOps := range label2LockerOp {
+		if label.Value() == nil {
+			fmt.Println("Warning in WithdrawAllTraditionals: label of locker has nil value:",label.Value())
+			fmt.Println("First 3 Ops, if any:")
+			count := 0
+			for _,op := range lockerOps {
+				if count > 2 {
+					continue
+				}
+				count++
+				output.PrintIISrc(op.Inst)
+			}
+			continue
+		}
+		var strlockerType string
+		if strings.Contains(label.Value().Type().String(),"RWMutex") {
+			strlockerType = instinfo.RWMutex
+		} else {
+			strlockerType = instinfo.Mutex
+		}
+		newLocker := &instinfo.Locker{
+			Name:    "",
+			Type:    strlockerType,
+			Locks:   nil,
+			Unlocks: nil,
+			Pkg:     "",
+			Status:  "",
+			Value:   label.Value(),
+		}
+		strFnLabel := label.Value().Parent()
+		if strFnLabel != nil && strFnLabel.Pkg != nil {
+			newLocker.Pkg = strFnLabel.Pkg.Pkg.String()
+		}
+		for _, lockerOp := range lockerOps {
+			switch lockerOp.Comment {
+			case instinfo.Lock:
+				newLock := &instinfo.LockOp{
+					Name:    "",
+					Inst:    lockerOp.Inst,
+					IsRLock: false,
+					IsDefer: false,
+					Parent:  newLocker,
+				}
+				if _, ok := lockerOp.Inst.(*ssa.Defer); ok {
+					newLock.IsDefer = true
+				}
+				newLocker.Locks = append(newLocker.Locks, newLock)
+				instinfo.MapInst2LockerOp[newLock.Inst] = newLock
+
+			case instinfo.Unlock:
+				newUnlock := &instinfo.UnlockOp{
+					Name:      "",
+					Inst:      lockerOp.Inst,
+					IsRUnlock: false,
+					IsDefer:   false,
+					Parent:    newLocker,
+				}
+				if _, ok := lockerOp.Inst.(*ssa.Defer); ok {
+					newUnlock.IsDefer = true
+				}
+				newLocker.Unlocks = append(newLocker.Unlocks, newUnlock)
+				instinfo.MapInst2LockerOp[newUnlock.Inst] = newUnlock
+			default:
+			}
+		}
+
+		result = append(result, newLocker)
+	}
+
+	return
+}

@@ -1,0 +1,449 @@
+package path
+
+import (
+	"fmt"
+	"github.com/system-pclub/GCatch/config"
+	"github.com/system-pclub/GCatch/tools/go/callgraph"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"strconv"
+)
+
+var LcaErrReachedMax = fmt.Errorf("Reached max layer number")
+var LcaErrNilNode = fmt.Errorf("Node in callgraph for target function is nil")
+var ErrNotComplete = fmt.Errorf("Incomplete callchains")
+var ErrFindNone = fmt.Errorf("Found none")
+var ErrNilNode = fmt.Errorf("Nil node in callgraph")
+
+type EdgeChain struct {
+	Chain []*callgraph.Edge
+	Start *callgraph.Node
+}
+
+func boolEdgeChainInSlice(e *EdgeChain, slice []*EdgeChain) bool {
+	for _, old := range slice {
+		if old.Equal(e) {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *EdgeChain) Equal(q *EdgeChain) bool {
+	if e.Start != q.Start {
+		return false
+	}
+	if len(e.Chain) != len(q.Chain) {
+		return false
+	}
+	for i, oneEdge := range e.Chain {
+		if oneEdge != q.Chain[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// If e.Chain is ABC, q.Chain is A or AB or ABC, return true
+func (e *EdgeChain) Contains(q *EdgeChain) bool {
+	if e.Start != q.Start {
+		return false
+	}
+	if len(e.Chain) < len(q.Chain) {
+		return false
+	}
+	for i := 0; i < len(q.Chain); i++ {
+		if e.Chain[i] != q.Chain[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// if chain is A-B-C, and lca is B, then return A-B
+func cutChain(chain *EdgeChain, lca *ssa.Function) (newChain *EdgeChain) {
+	newVecEdge := []*callgraph.Edge{}
+	for _, edge := range chain.Chain {
+		if edge.Callee.Func == lca {
+			break
+		}
+		newVecEdge = append(newVecEdge, edge)
+	}
+	newChain = &EdgeChain{
+		Chain: newVecEdge,
+		Start: chain.Start,
+	}
+	return
+}
+
+// Find the lowest common ancestors for target functions.
+// Note 1: we can't use some classic algorithms because in callgraph one child may have multiple parents, and there may be circles in the callgraph
+// Note 2: result is a map from one LCA to the targets it covers. It is possible that we can't find one LCA that covers every target
+func FindLCA(vecTargetFn []*ssa.Function, intMaxLayer int) (map[*ssa.Function][]*EdgeChain, error) {
+
+	// A map from each node to the number of chains according to the last map. If only have chains ABC and BCDE, then B:2, E:1
+	mapNode2NumChain := make(map[*callgraph.Node]int)
+
+	// A map from chain's hash to chain
+	mapEncode2Chain := make(map[string]*EdgeChain)
+
+	type workspace struct {
+		mapChain2Ancestors map[string][]*callgraph.Node // a map from active chains to ancestor nodes of it. Chain ABCD: A,B,C,D
+	}
+
+	// A map from each target to workspace. Used to detect circles
+	mapTargetFn2workspace := make(map[*ssa.Function]*workspace)
+
+	// initialize workspace for each target
+	for _, fn := range vecTargetFn {
+		newWorkspace := &workspace{
+			mapChain2Ancestors: make(map[string][]*callgraph.Node),
+		}
+		mapTargetFn2workspace[fn] = newWorkspace
+
+		node := config.CallGraph.Nodes[fn]
+		if node == nil || fn == nil {
+			return nil, LcaErrNilNode
+		}
+
+		initChain := &EdgeChain{
+			Chain: nil,
+			Start: node,
+		}
+		encode := encodeChain(initChain, mapEncode2Chain)
+		newWorkspace.mapChain2Ancestors[encode] = []*callgraph.Node{node}
+		mapNode2NumChain[node] = 1
+	}
+
+	countDepth := 0
+
+	// The main loop. A breadth first search
+	for {
+		mapTarget2OldChains := make(map[*ssa.Function][]*EdgeChain)
+		for target, workspace := range mapTargetFn2workspace {
+			for encode,_ := range workspace.mapChain2Ancestors {
+				chain := mapEncode2Chain[encode]
+				mapTarget2OldChains[target] = append(mapTarget2OldChains[target], chain)
+			}
+		}
+
+		// See if we can find the lowest common ancestor
+		intActiveChains := 0
+		for _,workspace := range mapTargetFn2workspace {
+			intActiveChains += len(workspace.mapChain2Ancestors)
+		}
+
+		for node, intNumChains := range mapNode2NumChain {
+			if intNumChains == intActiveChains {
+				// Now we find one LCA that can cover every target
+				oneLca := node.Func
+				result := make(map[*ssa.Function][]*EdgeChain)
+				vecEdgePaths := []*EdgeChain{}
+
+				for _,workspace := range mapTargetFn2workspace {
+					for encode,_ := range workspace.mapChain2Ancestors {
+						chain := mapEncode2Chain[encode]
+						chain = cutChain(chain, oneLca)
+						reversedChain := reverseChain(chain)
+						if boolEdgeChainInSlice(reversedChain, vecEdgePaths) == false {
+							vecEdgePaths = append(vecEdgePaths, reversedChain)
+						}
+					}
+				}
+
+				result[oneLca] = vecEdgePaths
+				return result, nil
+			}
+		}
+
+		// See if recursive number is reached
+		if countDepth > intMaxLayer {
+			// recursive number is reached. Now we return a map with multiple LCAs, each LCA can cover different vecTargetFn
+			result := make(map[*ssa.Function][]*EdgeChain)
+
+			// A big map of all mapChain2Ancestors
+			mapOfMapChain2ancestors := make(map[string][]*callgraph.Node)
+			chain2target := make(map[string]*ssa.Function)
+			for target, workspace := range mapTargetFn2workspace {
+				for encode, chain := range workspace.mapChain2Ancestors {
+					mapOfMapChain2ancestors[encode] = chain
+					chain2target[encode] = target
+				}
+			}
+
+			for len(mapOfMapChain2ancestors) > 0 {
+
+				// find a node that can cover the max number of chains
+				// first, list all nodes that can cover the max number of chains
+				champions := []*callgraph.Node{}
+				var intGreatestNumOfChains int
+				for node, intNumOfChains := range mapNode2NumChain {
+					if intNumOfChains > intGreatestNumOfChains {
+						champions = []*callgraph.Node{node }
+						intGreatestNumOfChains = intNumOfChains
+					} else if intNumOfChains == intGreatestNumOfChains {
+						champions = append(champions, node)
+						intGreatestNumOfChains = intNumOfChains
+					}
+				}
+
+				var currentChampion *callgraph.Node
+				for _, this := range champions {
+					callees := []*callgraph.Node{}
+					for _, out := range this.Out {
+						callees = append(callees, out.Callee) // callees may have duplicated nodes, and even this itself
+					}
+
+					// if this has a callee in champions, remove this
+					boolHasCallee := false
+				otherLoop:
+					for _, other := range champions {
+						if other == this {
+							continue
+						}
+						for _, callee := range callees {
+							if callee == other {
+								boolHasCallee = true
+								break otherLoop
+							}
+						}
+					}
+					if boolHasCallee == false {
+						currentChampion = this
+						break
+					}
+				}
+				if currentChampion == nil {
+					currentChampion = champions[0] // if nil, choose the first one
+				}
+
+				// list all chains that has currentChampion as an ancestor
+				vecCoveredEdgeChains := []*EdgeChain{}
+				for encode, ancestors := range mapOfMapChain2ancestors {
+					boolHasChampion := false
+					for _, ancestor := range ancestors {
+						if ancestor == currentChampion {
+							boolHasChampion = true
+							break
+						}
+					}
+					if boolHasChampion {
+						// num--
+						for _,ancestor := range ancestors {
+							if mapNode2NumChain[ancestor] == 0 {
+								fmt.Print()
+							}
+							mapNode2NumChain[ancestor] -= 1
+						}
+						// add to slice
+						chain := mapEncode2Chain[encode]
+						reversedChain := reverseChain(chain) // chain is from callee to caller. reverse it
+
+						var coveredEdgeChain *EdgeChain
+						// case 1: reversedChain.Chain is nil, and Start is champion
+						if len(reversedChain.Chain) == 0 && reversedChain.Start == currentChampion {
+							coveredEdgeChain = &EdgeChain{
+								Chain: nil,
+								Start: currentChampion,
+							}
+						} else {
+							// case 2: reversedChain.Chain has champion as caller or callee
+							indexChampionAsCaller := -1
+							indexChampionAsCallee := -1
+							for i, edge := range reversedChain.Chain {
+								if edge.Caller == currentChampion {
+									indexChampionAsCaller = i
+								}
+								if edge.Callee == currentChampion {
+									indexChampionAsCallee = i
+								}
+							}
+
+							if indexChampionAsCaller > -1 { // case 2.1: as caller
+								coveredPath := []*callgraph.Edge{}
+								for i, edge := range reversedChain.Chain {
+									if i < indexChampionAsCaller {
+										continue
+									} else {
+										coveredPath = append(coveredPath, edge)
+									}
+								}
+								coveredEdgeChain = &EdgeChain{
+									Chain: coveredPath,
+									Start: currentChampion,
+								}
+							} else if indexChampionAsCallee > -1 { // case 2.2: as callee, meaning champion is the last function
+								coveredEdgeChain = &EdgeChain{
+									Chain: nil,
+									Start: currentChampion,
+								}
+							} else {
+								fmt.Println("Fatal in FindLCA: champion is not in reversedChain")
+								panic(1)
+							}
+						}
+						if boolEdgeChainInSlice(coveredEdgeChain, vecCoveredEdgeChains) == false {
+							vecCoveredEdgeChains = append(vecCoveredEdgeChains, coveredEdgeChain)
+						}
+
+						// delete this chain from big map
+						delete(mapOfMapChain2ancestors, encode)
+					}
+				}
+
+				if mapNode2NumChain[currentChampion] != 0 {
+					err := fmt.Errorf("Warning in FindLCA: a node's number of chains is not 0 after we find " +
+						"all chains containing it:", mapNode2NumChain[currentChampion])
+					return nil, err
+				}
+
+				result[currentChampion.Func] = vecCoveredEdgeChains
+			}
+
+			return result, LcaErrReachedMax
+		}
+
+		countDepth++
+
+		// For each workspace
+		for _,workspace := range mapTargetFn2workspace {
+
+			// Update all active chains
+			// We can't directly use a "for range workspace.mapChain2Ancestors", because we want a breadth-first search, but
+			// the new values added to map in one search may be visited before other values in the same depth
+			vecChainEncode := []string{}
+			vecVecAncester := [][]*callgraph.Node{}
+			for encode, ancestors := range workspace.mapChain2Ancestors {
+				vecChainEncode = append(vecChainEncode, encode)
+				vecVecAncester = append(vecVecAncester, ancestors)
+			}
+			for i := 0; i < len(vecChainEncode); i++ {
+				encode := vecChainEncode[i]
+				ancestors := vecVecAncester[i]
+
+				chain := mapEncode2Chain[encode]
+				var lastNode *callgraph.Node // This is actually callee
+				if len(chain.Chain) == 0 {
+					lastNode = chain.Start
+				} else {
+					lastNode = chain.Chain[len(chain.Chain) - 1].Caller
+				}
+
+				if len(lastNode.In) == 0 { // skip if the lastNode has no caller
+					continue
+				}
+
+				// delete the current chain
+				delete(workspace.mapChain2Ancestors, encode)
+				for _,ancestor := range ancestors {
+					mapNode2NumChain[ancestor] -= 1
+				}
+
+				// for each caller, create a new chain for it
+				for _,in := range lastNode.In {
+
+					boolInExist := false
+					for _, existing_edge := range chain.Chain {
+						if existing_edge == in {
+							boolInExist = true
+							break
+						}
+					}
+					if boolInExist { // Avoid loop in callgraph
+						continue
+					}
+
+					newChain := &EdgeChain{
+						Chain: append(CopyEdgeSlice(chain.Chain), in),
+						Start: chain.Start,
+					}
+					newEncode := encodeChain(newChain, mapEncode2Chain)
+					newAncestors := append(CopyNodeSlice(ancestors),in.Caller)
+					workspace.mapChain2Ancestors[newEncode] = newAncestors
+					for _, ancestor := range newAncestors {
+						mapNode2NumChain[ancestor] += 1
+					}
+				}
+			}
+
+			// check if the map from encode to ancestors is correct
+			correct := true
+			printWarning := func() {
+				correct = false
+				//fmt.Println("Warning in FindLCA: mapChain2Ancestors is not correct")
+			}
+			for encode, ancestors := range workspace.mapChain2Ancestors {
+				path := mapEncode2Chain[encode]
+				if len(path.Chain) == 0 {
+					if len(ancestors) != 1 || ancestors[0] != path.Start {
+						printWarning()
+					}
+				} else {
+					if len(path.Chain) + 1 != len(ancestors) {
+						printWarning()
+					}
+					for i, edge := range path.Chain {
+						if edge.Callee != ancestors[i] {
+							printWarning()
+						}
+						if i == len(path.Chain) - 1 {
+							if edge.Caller != ancestors[i+1] {
+								printWarning()
+							}
+						}
+					}
+				}
+			}
+			if correct == false {
+				return nil, fmt.Errorf("mapChain2Ancestors is not correct")
+			}
+		}
+	}
+}
+
+func encodeChain(chain *EdgeChain, encode2chain map[string]*EdgeChain) string {
+	str := ""
+	str += chain.Start.Func.String() + " "
+	for _,edge := range chain.Chain {
+		boolNilSite := edge.Site == nil
+		if boolNilSite {
+			str += "NilSite" + fmt.Sprintf("%p", edge) + edge.Caller.String() + " "
+		} else {
+			str += strconv.Itoa(int(edge.Site.Pos())) + edge.Caller.String() + " "
+		}
+	}
+	encode2chain[str] = chain
+	return str
+}
+
+func reverseChain(old *EdgeChain) *EdgeChain {
+	reversedEdgeSlice := []*callgraph.Edge{}
+	for i := len(old.Chain) - 1; i >= 0; i-- {
+		reversedEdgeSlice = append(reversedEdgeSlice, old.Chain[i])
+	}
+	var start *callgraph.Node
+	if len(old.Chain) == 0 {
+		start = old.Start
+	} else {
+		start = reversedEdgeSlice[0].Caller
+	}
+	return &EdgeChain{
+		Chain: reversedEdgeSlice,
+		Start: start,
+	}
+}
+
+func CopyEdgeSlice(old []*callgraph.Edge) []*callgraph.Edge {
+	result := []*callgraph.Edge{}
+	for _, o := range old {
+		result = append(result, o)
+	}
+	return result
+}
+
+func CopyNodeSlice(old []*callgraph.Node) []*callgraph.Node {
+	result := []*callgraph.Node{}
+	for _, o := range old {
+		result = append(result, o)
+	}
+	return result
+}
