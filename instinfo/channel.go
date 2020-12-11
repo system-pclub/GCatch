@@ -1,6 +1,12 @@
 package instinfo
 
-import "github.com/system-pclub/GCatch/tools/go/ssa"
+import (
+	"fmt"
+	"github.com/system-pclub/GCatch/config"
+	"github.com/system-pclub/GCatch/output"
+	"github.com/system-pclub/GCatch/tools/go/ssa"
+	"strconv"
+)
 
 // This file defines primitive channel and its operations
 
@@ -145,3 +151,39 @@ func AddNotDependClose(inst ssa.Instruction) *ChClose {
 	return newClose
 }
 
+func (ch *Channel) DebugPrintChan() {
+
+	fmt.Println("------Chan:", ch.Name,"\tIn", ch.Pkg)
+	fmt.Println("---Buffer:", ch.Buffer)
+
+	if ch.MakeInst != nil {
+		m_p := (config.Prog.Fset).Position(ch.MakeInst.Pos())
+		fmt.Println("---Make:", ch.MakeInst,"\tat:",m_p.Filename+":"+strconv.Itoa(m_p.Line))
+	}
+
+	fmt.Println("---Send:", len(ch.Sends))
+	for i, send := range ch.Sends {
+		p := (config.Prog.Fset).Position(send.Inst.Pos())
+		fmt.Print("--",i,":",p.Filename+":"+strconv.Itoa(p.Line))
+		output.PrintIISrc(send.Inst)
+		fmt.Println()
+		fmt.Println(" In case:",send.CaseIndex," Select_blocking:", send.IsCaseBlocking)
+
+	}
+	fmt.Println("---Recv:", len(ch.Recvs))
+	for i, recv := range ch.Recvs {
+		p := (config.Prog.Fset).Position(recv.Inst.Pos())
+		fmt.Println("--",i,":",p.Filename+":"+strconv.Itoa(p.Line))
+		output.PrintIISrc(recv.Inst)
+		fmt.Println()
+		fmt.Println(" In case:",recv.CaseIndex," Select_blocking:", recv.IsCaseBlocking)
+	}
+	fmt.Println("---Close:", len(ch.Closes))
+	for i, aClose := range ch.Closes {
+		p := (config.Prog.Fset).Position(aClose.Inst.Pos())
+		fmt.Println("--",i,":",p.Filename+":"+strconv.Itoa(p.Line)," In defer:", aClose.IsDefer)
+		output.PrintIISrc(aClose.Inst)
+		fmt.Println()
+	}
+	fmt.Print()
+}
