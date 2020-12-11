@@ -1,5 +1,8 @@
 package syncgraph
 
+// Define the types and their methods used to build a graph that contains all the information we need
+// to generate Z3 constraints, including CFG, callgraph, alias information
+
 import (
 	"fmt"
 	"github.com/system-pclub/GCatch/config"
@@ -7,23 +10,6 @@ import (
 	"github.com/system-pclub/GCatch/path"
 	"github.com/system-pclub/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/tools/go/ssa"
-)
-
-// Define the types and their methods used to build a graph that contains all the information we need
-// to generate Z3 constraints, including CFG, callgraph, alias information
-
-package syncgraph
-
-import (
-"fmt"
-"git.gradebot.org/zxl381/goconcurrencychecker/global"
-"git.gradebot.org/zxl381/goconcurrencychecker/path"
-"git.gradebot.org/zxl381/goconcurrencychecker/primitive/channel"
-"git.gradebot.org/zxl381/goconcurrencychecker/primitive/cond"
-"git.gradebot.org/zxl381/goconcurrencychecker/primitive/locker"
-"git.gradebot.org/zxl381/goconcurrencychecker/primitive/waitgroup"
-"git.gradebot.org/zxl381/goconcurrencychecker/tools/go/callgraph"
-"git.gradebot.org/zxl381/goconcurrencychecker/tools/go/ssa"
 )
 
 type Node interface{
@@ -291,9 +277,17 @@ type SyncGraph struct {
 	Worklist      []*Unfinish
 
 	// Enumerate path
-	Tuples []*tuple
-	Enumerate_cfg *EnumeCfg
+	PathCombinations []*pathCombination
+	Enumerate_cfg    *EnumeConfigure
 }
+
+type Status struct {
+	Str string // Str can be In_progress or Done. Only used to decide backedge for local nodes
+	Visited int
+}
+
+const In_progress = "In_progress"
+const Done = "Done"
 
 type NodeEdge struct {
 	Prev       Node
@@ -333,18 +327,18 @@ type Unfinish struct {
 func NewGraph(task *Task) *SyncGraph{
 	newGraph := &SyncGraph{
 		Main_Goroutine: nil,
-		Head_Goroutines: []*Goroutine{},
-		Goroutines:     []*Goroutine{},
-		Task:           task,
-		Inst_Ctx2Node:  make(map[InstCtxKey]Node),
-		Select2Case:    make(map[*Select][]*SelectCase),
-		Node_status:    make(map[Node]*Status),
-		Inst_Ctx2Defer: make(map[InstCtxKey][]Node),
-		Prim2Sync_op:   make(map[interface{}][]SyncOp),
-		Worklist:       nil,
-		Visited:        []*path.EdgeChain{},
-		Tuples:         nil,
-		Enumerate_cfg:  nil,
+		Head_Goroutines:  []*Goroutine{},
+		Goroutines:       []*Goroutine{},
+		Task:             task,
+		Inst_Ctx2Node:    make(map[InstCtxKey]Node),
+		Select2Case:      make(map[*Select][]*SelectCase),
+		Node_status:      make(map[Node]*Status),
+		Inst_Ctx2Defer:   make(map[InstCtxKey][]Node),
+		Prim2Sync_op:     make(map[interface{}][]SyncOp),
+		Worklist:         nil,
+		Visited:          []*path.EdgeChain{},
+		PathCombinations: nil,
+		Enumerate_cfg:    nil,
 	}
 
 	return newGraph
