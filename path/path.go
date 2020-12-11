@@ -3,6 +3,7 @@ package path
 import (
 	"fmt"
 	"github.com/system-pclub/GCatch/config"
+	"github.com/system-pclub/GCatch/output"
 	"github.com/system-pclub/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/tools/go/ssa"
 	"strconv"
@@ -446,4 +447,100 @@ func CopyNodeSlice(old []*callgraph.Node) []*callgraph.Node {
 		result = append(result, o)
 	}
 	return result
+}
+
+// Every Select is only used in Extract. Among all Extract, only one Extract's Index is 0 (0 means obtaining the case index)
+// This Extract will be used by N BinOp(where OP is ==), N is the number of cases (default is not counted)
+// If the case is not empty, the next inst will be If; if the case is empty, the next inst can be anything
+// If Select has case 0,1,2,(default), then BinOp.Y will be 0,1,2. Find the BinOp.Y == 2. If the next inst is If,
+// default is If.Else. If the next is not If, meaning default and the last case are going to the same place
+func FindSelectNexts(s *ssa.Select) (map[int]ssa.Instruction, error) {
+	var e *ssa.Extract
+	for _,r := range *(s.Referrers()) {
+		if rAsExtract,ok := r.(*ssa.Extract); ok {
+			if rAsExtract.Index == 0 {
+				e = rAsExtract
+				break
+			}
+		}
+	}
+
+	if e == nil {// This should never happen
+		output.PrintIISrc(s)
+		return nil, fmt.Errorf("Warning in find_select_nexts: no Extract found" )
+	}
+
+	mapIndex2binop := make(map[int]*ssa.BinOp)
+	for _,r := range *(e.Referrers()) {
+		binop,ok := r.(*ssa.BinOp)
+		if !ok {// This should never happen
+			output.PrintIISrc(s)
+			output.PrintIISrc(binop)
+			return nil, fmt.Errorf("Warning in find_select_nexts: one of Extract.Referrer is not BinOp" )
+		}
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("Warning in find_select_nexts: BinOp.Y can't be converted into int")
+				output.PrintIISrc(s)
+				output.PrintIISrc(binop)
+			}
+		}()
+		intCaseIndex := int(binop.Y.(*ssa.Const).Int64()) // This should never panic
+		mapIndex2binop[intCaseIndex] = binop
+	}
+
+	result := make(map[int]ssa.Instruction)
+	for index, binop := range mapIndex2binop {
+		referrers := *binop.Referrers()
+		if len(referrers) == 1 { // 1 referrer. This must be If. If.Then is the case. When index is the
+			// last index of all cases, and default exists, then If.Else is the default
+			inst_if,ok := referrers[0].(*ssa.If)
+			if !ok { // This should never happen
+				output.PrintIISrc(s)
+				output.PrintIISrc(referrers[0])
+				return nil, fmt.Errorf("Warning in find_select_nexts: binop's one and only referrer is not If")
+			}
+			thenBB, elseBB := inst_if.Block().Succs[0], inst_if.Block().Succs[1]
+			thenInst, elseInst := thenBB.Instrs[0], elseBB.Instrs[0]
+			result[index] = thenInst
+
+			if s.Blocking == false { // Has default
+				if index == len(mapIndex2binop) - 1 { // This is the last case
+					result[-1] = elseInst
+				}
+			}
+
+		} else if len(referrers) == 0 { //No referrer. Meaning there is no If. This is an empty case
+			result[index] = nextInst(binop)
+			if s.Blocking == false { // Has default
+				if index == len(mapIndex2binop) - 1 { // This is the last case
+					result[-1] = nextInst(binop)
+				}
+			}
+		} else { // This should never happen
+			output.PrintIISrc(s)
+			for _,r := range referrers {
+				output.PrintIISrc(r)
+			}
+			return nil, fmt.Errorf("Warning in find_select_nexts: binop has multiple referrers")
+		}
+	}
+
+	return result,nil
+}
+
+// nextInst mustn't be called upon jump/if/return/panic, which have no or multiple nextInst
+func nextInst(inst ssa.Instruction) ssa.Instruction {
+	bb := inst.Block()
+	insts := bb.Instrs
+	for i,other := range insts {
+		if other == inst {
+			if len(insts) == i + 1 {
+				return nil
+			} else {
+				return insts[i+1]
+			}
+		}
+	}
+	return nil
 }
