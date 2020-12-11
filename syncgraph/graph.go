@@ -262,23 +262,23 @@ type InstCtxKey struct { // Key that considers both ssa.Instruction and Ctx
 
 type SyncGraph struct {
 	// Prepare
-	Main_Goroutine  *Goroutine // Main_Goroutine is the Goroutine that is both a head and it contains the MakeChan operation
-	Head_Goroutines []*Goroutine // Head_Goroutines are the starting Goroutines that don't have creator in the graph
+	MainGoroutine  *Goroutine   // MainGoroutine is the Goroutine that is both a head and it contains the MakeChan operation
+	HeadGoroutines []*Goroutine // HeadGoroutines are the starting Goroutines that don't have creator in the graph
 	Goroutines     []*Goroutine
-	Task *Task
+	Task           *Task
 
 	// Build
-	Inst_Ctx2Node  map[InstCtxKey]Node // Two kinds of Node is not in this map: SelectCase, rundefer's Nodes
-	Select2Case    map[*Select][]*SelectCase
-	Inst_Ctx2Defer map[InstCtxKey][]Node
-	Node_status    map[Node]*Status
-	Prim2Sync_op   map[interface{}][]SyncOp
-	Visited []*path.EdgeChain
-	Worklist      []*Unfinish
+	MapInstCtxKey2Node  map[InstCtxKey]Node // Two kinds of Node is not in this map: SelectCase, rundefer's Nodes
+	Select2Case         map[*Select][]*SelectCase
+	MapInstCtxKey2Defer map[InstCtxKey][]Node
+	NodeStatus          map[Node]*Status
+	MapPrim2VecSyncOp   map[interface{}][]SyncOp
+	Visited             []*path.EdgeChain
+	Worklist            []*Unfinish
 
 	// Enumerate path
 	PathCombinations []*pathCombination
-	Enumerate_cfg    *EnumeConfigure
+	EnumerateCfg     *EnumeConfigure
 }
 
 type Status struct {
@@ -326,19 +326,19 @@ type Unfinish struct {
 
 func NewGraph(task *Task) *SyncGraph{
 	newGraph := &SyncGraph{
-		Main_Goroutine: nil,
-		Head_Goroutines:  []*Goroutine{},
-		Goroutines:       []*Goroutine{},
-		Task:             task,
-		Inst_Ctx2Node:    make(map[InstCtxKey]Node),
-		Select2Case:      make(map[*Select][]*SelectCase),
-		Node_status:      make(map[Node]*Status),
-		Inst_Ctx2Defer:   make(map[InstCtxKey][]Node),
-		Prim2Sync_op:     make(map[interface{}][]SyncOp),
-		Worklist:         nil,
-		Visited:          []*path.EdgeChain{},
-		PathCombinations: nil,
-		Enumerate_cfg:    nil,
+		MainGoroutine:       nil,
+		HeadGoroutines:      []*Goroutine{},
+		Goroutines:          []*Goroutine{},
+		Task:                task,
+		MapInstCtxKey2Node:  make(map[InstCtxKey]Node),
+		Select2Case:         make(map[*Select][]*SelectCase),
+		NodeStatus:          make(map[Node]*Status),
+		MapInstCtxKey2Defer: make(map[InstCtxKey][]Node),
+		MapPrim2VecSyncOp:   make(map[interface{}][]SyncOp),
+		Worklist:            nil,
+		Visited:             []*path.EdgeChain{},
+		PathCombinations:    nil,
+		EnumerateCfg:        nil,
 	}
 
 	return newGraph
