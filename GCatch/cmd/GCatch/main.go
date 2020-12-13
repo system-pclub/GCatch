@@ -65,6 +65,7 @@ func main() {
 	config.StrAbsolutePath = strings.ReplaceAll(config.StrAbsolutePath, "//", "/")
 	config.BoolDisableFnPointer = ! boolFnPointerAlias
 	config.MapPrintMod = util.SplitStr2Map(*pPrintMod, ":")
+	config.MapHashOfCheckedCh = make(map[string]struct{})
 
 	/*
 	fmt.Println("entrance", config.StrEntrancePath)

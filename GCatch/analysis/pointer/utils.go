@@ -49,22 +49,22 @@ func boolIsInTime(v ssa.Value) bool {
 
 func recordChInstToMap(chPrim *instinfo.Channel) {
 	if chPrim.MakeInst != nil {
-		instinfo.MapInst2ChanOp[chPrim.MakeInst] = map[instinfo.ChanOp]bool{chPrim.Make: true,}
+		instinfo.MapInst2ChanOp[chPrim.MakeInst] = []instinfo.ChanOp{chPrim.Make}
 	}
 
 	for _, send := range chPrim.Sends {
 		if send.Inst != nil {
-			instinfo.MapInst2ChanOp[send.Inst] = map[instinfo.ChanOp]bool{send: true,}
+			instinfo.MapInst2ChanOp[send.Inst] = []instinfo.ChanOp{send}
 		}
 	}
 	for _, recv := range chPrim.Recvs {
 		if recv.Inst != nil {
-			instinfo.MapInst2ChanOp[recv.Inst] = map[instinfo.ChanOp]bool{recv: true,}
+			instinfo.MapInst2ChanOp[recv.Inst] = []instinfo.ChanOp{recv}
 		}
 	}
 	for _, c := range chPrim.Closes {
 		if c != nil {
-			instinfo.MapInst2ChanOp[c.Inst] = map[instinfo.ChanOp]bool{c: true,}
+			instinfo.MapInst2ChanOp[c.Inst] = []instinfo.ChanOp{c}
 		}
 	}
 
