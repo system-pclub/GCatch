@@ -6,7 +6,7 @@ A static checker that takes Golang source code as input and detects concurrency 
 
 2. How to run GCatch?
 
-- Open terminal, and use the following commands:
+- Open terminal, and use the following commands to install GCatch:
   - mkdir newdir
   - cd newdir
   - export GOPATH=`pwd`
@@ -14,8 +14,19 @@ A static checker that takes Golang source code as input and detects concurrency 
   - git clone git@github.com:system-pclub/GCatch.git
   - cd ./GCatch/GCatch/cmd/GCatch
   - go install
+
+  
+- Then use the following commands to install Z3, if it hasn't been installed
+  - cd $GOPATH/src/github.com/system-pclub/GCatch/GCatch/tools/z3
+  - python scripts/mk_make.py
+  - cd build
+  - make
+  - sudo make install
+  - // If you want Z3 to be installed to a non-default location, please check https://github.com/Z3Prover/z3/blob/master/README.md and https://github.com/aclements/go-z3
+
+- The following commands are used to run GCatch:
   - cd $GOPATH/bin
-  - export GOPATH=/GOPATH/of/the/project/to/be/scanned
+  - export GOPATH=/GOPATH/of/the/application/to/be/scanned
   - ./GCatch $PARAMETERS
 
 - Required $PARAMETERS:
@@ -78,6 +89,6 @@ If I want to check bugs in the grpc in testdata, I will run the following comman
 
 10. tests contains some functions used to test if traditional checkers work well
 
-11. tools are copied from golang.org/x/tools, so we maintain our own copy of golang.org/x/tools. tools/go/mypointer is the pointer analysis we hacked. We did this because the original pointer analysis can only start from the main() function of a program
+11. tools are copied vendor packages like golang.org/x/tools, because we want to maintain our own copies of them.
 
 12. util contains some functions used by all other packages
