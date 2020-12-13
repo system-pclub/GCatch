@@ -97,10 +97,10 @@ type ChClose struct {
 }
 
 // A map from inst to its corresponding LockerOp
-var MapInst2ChanOp map[ssa.Instruction]map[ChanOp]bool
+var MapInst2ChanOp map[ssa.Instruction][]ChanOp
 
 func ClearChanOpMap() {
-	MapInst2ChanOp = make(map[ssa.Instruction]map[ChanOp]bool)
+	MapInst2ChanOp = make(map[ssa.Instruction][]ChanOp)
 }
 
 const DynamicSize = -999 // If a channel's buffer size can't be computed statically, we give DynamicSize to the Buffer field
