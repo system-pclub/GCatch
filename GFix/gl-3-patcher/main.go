@@ -292,8 +292,8 @@ func main() {
 	}
 	patchedCode := retbuf.String()
 
-	//fmt.Println(patchedCode)
-	patchOnFile(filename, patchedCode)
+	fmt.Println(patchedCode)
+	//patchOnFile(filename, patchedCode)
 	// Print the AST.
 	//ast.Print(fset, f)
 }

@@ -126,8 +126,8 @@ func main() {
 	}
 	patchedCode := retbuf.String()
 
-	//fmt.Println(patchedCode)
-	patch(filename, patchedCode)
+	fmt.Println(patchedCode)
+	//patch(filename, patchedCode)
 	// Print the AST.
 	//ast.Print(fset, f)
 }
