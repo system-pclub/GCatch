@@ -100,6 +100,10 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 
 	for len(newGraph.Worklist) > 0 {
 
+		if ch.MakeInst.Parent().Name() == "TestPipeListener" {
+			fmt.Print()
+		}
+
 		var doThis *Unfinish
 
 		// if another Unfinish.Site is the same as a handled one, do this; this is for a problem in my implementation of defer.
@@ -199,6 +203,9 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 	}
 
 	// check if task is fulfilled
+	if ch.MakeInst.Parent().Name() == "TestPipeListener" {
+		fmt.Print()
+	}
 	newGraph.Task.Update()
 	if newGraph.Task.BoolFinished {
 		//fmt.Println("A graph is finished")
@@ -621,6 +628,10 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		return newGo
 
 	case *ssa.Select:
+		///DELETE
+		if inst.Block().Index == 4 && inst.Parent().Name() == "TestPipeListener" {
+			fmt.Print()
+		}
 		newSelect := &Select{
 			Inst:           inst,
 			Cases:          make(map[int]*SelectCase),
@@ -958,4 +969,319 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 
 		return newNormal
 	}
+}
+
+// In previous step, the graph is built. However, all nodes of interface SyncOp have two maps not filled.
+// This step fills these maps. Note that send and recv on the same thread will also be in MapSyncOp
+func (g *SyncGraph) fillSyncOp() {
+	for prim, nodes := range g.MapPrim2VecSyncOp {
+		if isSpecialPrim(prim) { // Some special primitive that do not need to sync with others, like time or context channels
+			continue
+		}
+		for i, node := range nodes {
+			aType := opType(node)
+			for j, other := range nodes {
+				if i == j {
+					continue
+				}
+				bType := opType(other)
+				// node and other are SyncOp of the same primitive
+				node.MapAliasOp()[other] = true
+
+				if twoTypesCanSync(aType, bType) {
+					node.MapSyncOp()[other] = true
+				}
+			}
+		}
+	}
+}
+
+func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todoInsts []ssa.CallInstruction) Node {
+	vecNewNodes := []Node{}
+
+	for _, anInst := range todoInsts {
+		// Case1: close(ch)
+		if instinfo.IsChanClose(anInst) {
+			var chOp instinfo.ChanOp
+			vecChOps,ok := instinfo.MapInst2ChanOp[anInst] // because this is close, vecChOps can at most have 1 element
+			if !ok {
+				fmt.Println("Warning in ProcessInstGetNode: can't find op for a close(chan)")
+				output.PrintIISrc(anInst)
+				//chOp = instinfo.Anytime_close(anInst)
+				newNormal, newStatus := newNormal(inst,ctx)
+
+				newNormal.Next = ProcessInstGetNode(nextInst(inst), ctx)
+				newStatus.Str = Done
+
+				return newNormal
+			} else {
+				if len(vecChOps) > 1 { // when channel can be overwritten, vecChOps can have multiple elements
+					//debugPrintMultiChAlias(inst,vecChOps,"receive")
+				}
+				chOp = vecChOps[0]
+			}
+
+			ch := chOp.(*instinfo.ChClose).Parent
+
+			// If this close is in task, update the task
+			updateTaskOp(chOp,ch,ctx, anInst)
+
+			newChOp := &ChanOp{
+				Channel: ch,
+				Op:      chOp,
+				Next:    nil,
+				syncNode:    syncNode{
+					Prim:                  ch,
+					BoolIsAllAliasInGraph: ctx.Graph.Task.IsPrimATarget(ch),
+					AliasOp:               make(map[SyncOp]bool),
+					SyncOp:                make(map[SyncOp]bool),
+					node:                  node{
+						Instr: anInst,
+						Ctx:   ctx,
+					},
+				},
+			}
+			ctx.Graph.MapPrim2VecSyncOp[ch] = append(ctx.Graph.MapPrim2VecSyncOp[ch], newChOp)
+
+			if flagRundefer {
+				storeGraphInfoForDefer(inst,ctx, newChOp) // Note: use inst (which is *ssa.RunDefers/Panic/Call to Fatal...) as key
+			} else {
+				storeGraphInfo(anInst,ctx, newChOp)
+			}
+
+			vecNewNodes = append(vecNewNodes, newChOp)
+
+			continue
+		}
+
+		// Case2: Traditional Sync Op
+		lockerOp, isLockerOp := instinfo.MapInst2LockerOp[anInst]
+		switch {
+		case isLockerOp:
+			var locker_prim *instinfo.Locker
+			switch concrete := lockerOp.(type) {
+			case *instinfo.LockOp:
+				locker_prim = concrete.Parent
+			case *instinfo.UnlockOp:
+				locker_prim = concrete.Parent
+			}
+
+			updateTaskOp(lockerOp,locker_prim,ctx, anInst)
+
+			new_locker_op := &LockerOp{
+				Locker: locker_prim,
+				Op:     lockerOp,
+				Next:   nil,
+				syncNode: syncNode{
+					Prim:                  locker_prim,
+					BoolIsAllAliasInGraph: ctx.Graph.Task.IsPrimATarget(locker_prim),
+					AliasOp:               make(map[SyncOp]bool),
+					SyncOp:                make(map[SyncOp]bool),
+					node:                  node{
+						Instr: anInst,
+						Ctx:   ctx,
+					},
+				},
+			}
+			ctx.Graph.MapPrim2VecSyncOp[locker_prim] = append(ctx.Graph.MapPrim2VecSyncOp[locker_prim], new_locker_op)
+
+			if flagRundefer {
+				storeGraphInfoForDefer(inst,ctx,new_locker_op) // Note: use inst (which is *ssa.RunDefers/Panic/Call to Fatal...) as key
+			} else {
+				storeGraphInfo(anInst,ctx,new_locker_op)
+			}
+
+			vecNewNodes = append(vecNewNodes, new_locker_op)
+
+			continue
+
+		}
+
+		// Case 3: calling t.Fatal/Fatalf/Failnow
+		if isKillThread(anInst) {
+			newKill := &Kill{
+				Inst:        anInst,
+				BoolIsPanic: false,
+				BoolIsFatal: true,
+				node:     node{
+					Instr: anInst,
+					Ctx:   ctx,
+				},
+			}
+			if flagRundefer {
+				storeGraphInfoForDefer(inst,ctx, newKill) // Note: use inst (which is *ssa.RunDefers/Panic/Call to Fatal...) as key
+			} else {
+				storeGraphInfo(anInst,ctx, newKill)
+			}
+			vecNewNodes = append(vecNewNodes, newKill)
+
+			continue
+		}
+
+		// Case 4: call another function
+		newCall := &Call{
+			Inst:      anInst,
+			Calling:   make(map[*callgraph.Edge]Node),
+			NextLocal: nil,
+			node:       node{
+				Instr: anInst,
+				Ctx:   ctx,
+			},
+		}
+
+		if flagRundefer {
+			storeGraphInfoForDefer(inst,ctx, newCall) // Note: use inst (which is *ssa.RunDefers/Panic/Call to Fatal...) as key
+		} else {
+			storeGraphInfo(anInst,ctx, newCall)
+		}
+
+		// An inst may have multiple call edges if calling interface method
+		vecAllEdges,ok := config.Inst2CallSite[anInst]
+		if ok {
+			for edge, _ := range vecAllEdges {
+				callee := edge.Callee.Func
+				if callee == nil || len(callee.Blocks) == 0 || len(callee.Blocks[0].Instrs) == 0 {
+					continue
+				}
+
+				newCall.Calling[edge] = nil
+
+				newEdgeChain := &path.EdgeChain{
+					Chain:  append(path.CopyEdgeSlice(ctx.CallChain.Chain), edge),
+					Start: ctx.CallChain.Start,
+				}
+
+				newCtx := &CallCtx{
+					CallChain: newEdgeChain,
+					Goroutine: ctx.Goroutine,
+					CallSite:  newCall,
+					Graph:     ctx.Graph,
+				}
+
+				newUnfinish := &Unfinish{
+					UnfinishedFn: anInst.Parent(),
+					Unfinished:   newCall,
+					IsGo:         false,
+					Site:         edge,
+					Dir:          true,
+					Ctx:          newCtx,
+				}
+
+				ctx.Graph.Worklist = append(ctx.Graph.Worklist, newUnfinish)
+			}
+		} else {
+			value := anInst.Common().Value
+			if _,ok := value.(*ssa.Builtin); ok {
+				// It is natural if a Builtin can't be found
+			} else {
+				//fmt.Println("Warning in ProcessInstGetNode: Call: can't find Sites of inst by global.Inst2CallSite")
+				//output.Print_inst_and_location(anInst)
+			}
+		}
+
+		vecNewNodes = append(vecNewNodes, newCall)
+	}
+
+	for i, node_ := range vecNewNodes {
+		flagLast := false
+		if i == len(vecNewNodes) - 1 { // The last node
+			flagLast = true
+		}
+		switch concrete := node_.(type) {
+		case *NormalInst:
+			if flagLast {
+				if flagRundefer {
+					concrete.Next = &End{
+						Inst:   concrete.Inst,
+						Reason: EndDefer,
+						node:   node{
+							Instr: concrete.Inst,
+							Ctx:   ctx,
+						},
+					}
+				} else {
+					concrete.Next = ProcessInstGetNode(nextInst(inst),ctx)
+				}
+			} else {
+				concrete.Next = vecNewNodes[i+1]
+			}
+		case *ChanOp:
+			if flagLast {
+				if flagRundefer {
+					concrete.Next = &End{
+						Inst:   concrete.Instr,
+						Reason: EndDefer,
+						node:   node{
+							Instr: concrete.Instr,
+							Ctx:   ctx,
+						},
+					}
+				} else {
+					concrete.Next = ProcessInstGetNode(nextInst(inst),ctx)
+				}
+			} else {
+				concrete.Next = vecNewNodes[i+1]
+			}
+		case *LockerOp:
+			if flagLast {
+				if flagRundefer {
+					concrete.Next = &End{
+						Inst:   concrete.Instr,
+						Reason: EndDefer,
+						node:   node{
+							Instr: concrete.Instr,
+							Ctx:   ctx,
+						},
+					}
+				} else {
+					concrete.Next = ProcessInstGetNode(nextInst(inst),ctx)
+				}
+			} else {
+				concrete.Next = vecNewNodes[i+1]
+			}
+		case *Call:
+			if flagLast {
+				if flagRundefer {
+					concrete.NextLocal = &End{
+						Inst:   concrete.Inst,
+						Reason: EndDefer,
+						node:   node{
+							Instr: concrete.Inst,
+							Ctx:   ctx,
+						},
+					}
+				} else {
+					concrete.NextLocal = ProcessInstGetNode(nextInst(inst),ctx)
+				}
+			} else {
+				concrete.NextLocal = vecNewNodes[i+1]
+			}
+		case *Kill:
+
+			if flagRundefer == false {
+				defers, ok := config.Inst2Defers[inst]
+				if !ok {
+					concrete.Next = nil
+				} else {
+					var deferTodoInsts []ssa.CallInstruction
+					deferTodoInsts = *new([]ssa.CallInstruction)
+					for _, aDefer := range defers {
+						deferTodoInsts = append(deferTodoInsts, aDefer)
+					}
+					first_node := handleTodoInsts(inst, ctx, true, deferTodoInsts)
+
+					concrete.Next = first_node
+				}
+			}
+
+			status := ctx.Graph.NodeStatus[node_]
+			status.Str = Done
+
+			break // No need to process next inst
+		}
+		status := ctx.Graph.NodeStatus[node_]
+		status.Str = Done
+	}
+
+	return vecNewNodes[0]
 }

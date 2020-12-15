@@ -84,3 +84,7 @@ var MapInst2LockerOp map[ssa.Instruction]LockerOp
 func ClearLockerOpMap() {
 	MapInst2LockerOp = make(map[ssa.Instruction]LockerOp)
 }
+
+func init() {
+	MapInst2LockerOp = make(map[ssa.Instruction]LockerOp)
+}

@@ -38,12 +38,9 @@ func GenDMap(vecChan []*instinfo.Channel, vecLocker []*instinfo.Locker) (DMap ma
 		}
 		for _, bb := range fn.Blocks {
 			for _, inst := range bb.Instrs {
-				mapChOp, ok := instinfo.MapInst2ChanOp[inst]
+				vecChOp, ok := instinfo.MapInst2ChanOp[inst]
 				if ok {
-					for chOp, boolExist := range mapChOp {
-						if boolExist == false {
-							continue
-						}
+					for _, chOp := range vecChOp {
 						isBlocking := false
 						switch chOp.(type) {
 						case *instinfo.ChSend, *instinfo.ChRecv:
@@ -140,6 +137,9 @@ func GenDMap(vecChan []*instinfo.Channel, vecLocker []*instinfo.Locker) (DMap ma
 
 		vecAllOpInst := []ssa.Instruction{}
 		for _, op := range ch.AllOps() {
+			if op == nil {
+				continue
+			}
 			vecAllOpInst = append(vecAllOpInst, op.Instr())
 		}
 		mapLCA2Chains, err := path.FindLCA(util.VecFnForVecInst(vecAllOpInst), config.MAX_LCA_LAYER)

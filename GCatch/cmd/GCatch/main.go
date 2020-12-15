@@ -51,7 +51,7 @@ func main() {
 	}()
 
 
-	numIndex := strings.Index(strProjectPath, "/src/")
+	numIndex := strings.LastIndex(strProjectPath, "/src/")
 	if numIndex < 0 {
 		fmt.Println("The target project is not in a GOPATH, because its path doesn't contain \"/src/\"")
 		os.Exit(2)
@@ -93,20 +93,18 @@ func main() {
 	var bSucc bool
 
 
-	/*
 	config.Prog, config.Pkgs, bSucc, errMsg = ssabuild.BuildWholeProgram(config.StrEntrancePath, false, boolShowCompileError) // Create SSA packages for the whole program including the dependencies.
 
 	if bSucc && len(config.Prog.AllPackages()) > 0 {
 		// Step 2.1, Case 1: built SSA successfully, run the checkers in process()
 		fmt.Println("Successfully built whole program. Now running checkers")
 
-		detect(strCheckerName)
+		detect(mapCheckerName)
 
 	} else {
 		// Step 2.1, Case 2: building SSA failed
 		fmt.Println("Failed to build the whole program. The entrance package or its dependencies have error.", errMsg)
 	}
-	*/
 
 	// Step 2.2 If -r is used, continue checking all child packages
 	if ! boolRobustMod {
@@ -168,7 +166,7 @@ func detect(mapCheckerName map[string]bool) {
 
 	config.Inst2Defers, config.Defer2Insts = genKill.ComputeDeferMap()
 
-	boolNeedCallGraph := mapCheckerName["double"] || mapCheckerName["conflict"] || mapCheckerName["channel"]
+	boolNeedCallGraph := mapCheckerName["double"] || mapCheckerName["conflict"] || mapCheckerName["BMOC"]
 	if boolNeedCallGraph {
 		config.CallGraph = BuildCallGraph()
 		if config.CallGraph == nil {
@@ -184,7 +182,7 @@ func detect(mapCheckerName map[string]bool) {
 			doublelock.Detect()
 		case "conflict":
 			conflictinglock.Detect()
-		case "channel":
+		case "BMOC":
 			bmoc.Detect()
 		}
 	}
