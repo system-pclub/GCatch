@@ -8,7 +8,7 @@ In `examples/src` directory, there are examples for GL-1, GL-2 and GL-3 respecti
 
 1. `dispatcher`: The tool to determine if the program could be patched by GL-1, GL-2, GL-3 or none. How to use could be found in `examples/run.sh`. 
 Parameters: `-buggyfilepath=/absolute/path/to/the/buggyfile.go` `-path=/path/to/the/go/project` `-makelineno=line_number_of_the_make_channel_operation` `-oplineno=line_number_of_the_blocking_operation` `-include=/other/necessary/paths/to/compile/the/project`
-The output starting with `[DISPATCH]` indicates the program could be patched by GL-1 to GL-3 if it is 1, 2 or 3. Zero indicates it could not be patched.
+The output starting with `[DISPATCH]` indicates the program could be patched by GL-1 to GL-3 if it is 1, 2 or 3. Zero indicates it could not be patched. `[PATCH]` indicates the line number(s) for the patcher.
 
 2. `gl-1-patcher`: The patcher for GL-1. Usage: `./bin/gl1_patch /path/to/buggy_file.go line_of_make_chan_to_patch`.
 3. `gl-2-patcher`: The patcher for GL-2. Usage: `./bin/gl2_patch /path/to/buggy_file.go line_to_insert_defer line_1_to_remove line_2_to_remove ...`.
