@@ -164,7 +164,7 @@ func insertBeforeLineNo(lineno int, stmts []ast.Stmt, fset *token.FileSet, f *as
 		}
 		if fset.Position(body.Lbrace).Line <= lineno && lineno <= fset.Position(body.Rbrace).Line {
 			for i, stmt := range body.List {
-				println(fset.Position(stmt.Pos()).Line)
+				//println(fset.Position(stmt.Pos()).Line)
 				currentLineNo := fset.Position(stmt.Pos()).Line
 				if currentLineNo >= lineno {
 					if currentLineNo < minLineNo {

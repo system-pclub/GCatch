@@ -46,10 +46,12 @@ func findMakeChanByLineNo(program *ssa.Program, filename string, makelineno int)
 }
 
 func isTheSameReceiver(fn1 *ssa.Function, fn2 *ssa.Function) bool {
-	return fn1.Signature.Recv() == fn2.Signature.Recv()
+	fmt.Printf("[DEBUG] check if %p == %p or %p == %p \n", *fn1, *fn2, fn1.Signature.Recv(), fn2.Signature.Recv())
+	return fn1 == fn2 || fn1.Signature.Recv() == fn2.Signature.Recv()
 }
 
 func findChanOpsByLineNo(program *ssa.Program, filename string, oplineno int, receiverFunc *ssa.Function) (ssa.Instruction, int) {
+	println("[DEBUG] findChanOpsByLineNo")
 	var opinst ssa.Instruction
 	var gltype int
 	_ = gltype
@@ -59,7 +61,7 @@ func findChanOpsByLineNo(program *ssa.Program, filename string, oplineno int, re
 			for _, ins := range bb.Instrs {
 				position := fset.Position(ins.Pos())
 				if position.Filename == filename {
-					if position.Line == oplineno && receiverFunc != nil && isTheSameReceiver(receiverFunc, ins.Parent()) {
+					if position.Line == oplineno && receiverFunc != nil {//&& isTheSameReceiver(receiverFunc, ins.Parent()) {
 						//println()
 						fmt.Print("[DEBUG] found op line no: ", ins)
 						fmt.Printf(" %p in function %s %p\n", ins, fn.Name(), fn)
@@ -146,6 +148,7 @@ func findRecv(ch channel, oplineno int, path string) *ch_receive {
 			}
 		}
 	}
+	fmt.Println("[DEBUG] ch.make_inst.Parent() == ", ch.make_inst.Parent())
 	inst, gltype := findChanOpsByLineNo(global.Prog, path, oplineno, ch.make_inst.Parent()) //TODO: sometimes it returns a close or send
 	if gltype == 2 {
 		ret := ch_receive{
