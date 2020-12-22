@@ -66,7 +66,7 @@ func AnalyzeAllSyncOp() (*mypointer.Result, []*instinfo.StOpValue) {
 		IndirectQueries: nil,
 		Log:             nil,
 	}
-	stPtrResult, err := mypointer.Analyze(cfg, config.CallGraph)
+	stPtrResult, err := mypointer.Analyze(cfg, nil)
 	if err != nil {
 		fmt.Println("Error when querying all channel values:\n",err.Error())
 		return nil, nil
@@ -128,6 +128,7 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 			result = append(result, chPrim)
 		}
 
+
 		for _, chOp := range ch_ops {
 			switch chOp.Comment {
 			case instinfo.MakeChan:
@@ -136,6 +137,10 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 						Parent: chPrim,
 						Inst:   chOp.Inst,
 					},
+				}
+				///DELETE
+				if chOp.Inst.Parent().Name() == "TestPipeListener" {
+					fmt.Print()
 				}
 
 				chPrim.Make = new_make

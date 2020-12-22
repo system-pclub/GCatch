@@ -631,22 +631,7 @@ func (a *analysis) genStaticCall(caller *cgnode, site *callsite, call *ssa.CallC
 	args := call.Args
 	if sig.Recv() != nil {
 		sz := a.sizeof(sig.Recv().Type())
-		caller_arg := args[0]
-		if caller.fn.Name() == "Method1" {
-			for _,bb := range caller.fn.Blocks {
-				for i,inst := range bb.Instrs {
-					if i == 5 {
-						caller_arg = inst.(ssa.Value)
-						break
-					}
-				}
-			}
-		}
-		if caller_arg == args[0] {
-			a.copy(params, a.valueNode(caller_arg), sz)
-		} else {
-			a.copy(params, a.valueNode(caller_arg), sz)
-		}
+		a.copy(params, a.valueNode(args[0]), sz)
 		params += nodeid(sz)
 		args = args[1:]
 	}
@@ -1199,7 +1184,7 @@ func (a *analysis) genRootCalls() *cgnode {
 			}
 		}
 
-		targets := a.addOneNode(fn.Signature, "myroot.targets", nil)
+		targets := a.addOneNode(fn.Signature, "root.targets", nil)
 		site := &callsite{targets: targets}
 		root.sites = append(root.sites, site)
 

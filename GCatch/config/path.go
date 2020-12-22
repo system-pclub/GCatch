@@ -42,6 +42,9 @@ func ListAllPkgPaths() []string {
 	//fmt.Println(strRoot)
 
 	err := filepath.Walk(strRoot, func(path string, info os.FileInfo, err error) error {
+		if info == nil {
+			return nil
+		}
 		if MapExcludePaths[path] || info.IsDir() == false {
 			return nil
 		}

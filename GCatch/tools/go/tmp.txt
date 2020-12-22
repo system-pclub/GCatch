@@ -1,0 +1,392 @@
+diff mypointer/analysis.go pointer/analysis.go
+5c5
+< package mypointer
+---
+> package pointer
+11,13d10
+< 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
+< 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+< 	"github.com/system-pclub/GCatch/GCatch/tools/go/types/typeutil"
+19a17
+> 	"runtime/debug"
+20a19,22
+> 
+> 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
+> 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+> 	"github.com/system-pclub/GCatch/GCatch/tools/go/types/typeutil"
+211,214d212
+< ///MYCODE
+< var Known_callgraph *callgraph.Graph
+< var Recv_to_methods_map map[string][]*callgraph.Node
+< 
+221,243c219,220
+< func Analyze(config *Config, known_callgraph *callgraph.Graph) (result *Result, err error) {
+< 	///MYCODE
+< 	// Do some preparation
+< 	Known_callgraph = known_callgraph
+< 	if Known_callgraph != nil { // This is the second run of pointer analysis. We know the callgraph
+< 		Recv_to_methods_map = make(map[string][]*callgraph.Node)
+< 		for _, node := range Known_callgraph.Nodes {
+< 			if node.Func == nil {
+< 				continue
+< 			}
+< 			recv := node.Func.Signature.Recv()
+< 			if recv == nil {
+< 				continue
+< 			}
+< 			recv_type := recv.Type().String()
+< 			methods := Recv_to_methods_map[recv_type]
+< 			_ = methods
+< 			Recv_to_methods_map[recv_type] = append(Recv_to_methods_map[recv_type], node)
+< 		}
+< 	}
+< 
+< 
+< 	if config.Prog == nil {
+---
+> func Analyze(config *Config) (result *Result, err error) {
+> 	if config.Mains == nil {
+249,250c226,227
+< 			//fmt.Fprintln(os.Stderr, "Internal panic in pointer analysis:")
+< 			//debug.PrintStack()
+---
+> 			fmt.Fprintln(os.Stderr, "Internal panic in pointer analysis:")
+> 			debug.PrintStack()
+382,392d358
+< 	///MYCODE
+< 	// Delete my synthesized <root> function, which calls all the functions
+< 	if a.config.BuildCallGraph {
+< 		for _,node := range a.result.CallGraph.Nodes {
+< 			if node.Func.Name() == "<root>" {
+< 				a.result.CallGraph.DeleteNode(node)
+< 				break
+< 			}
+< 		}
+< 	}
+< 
+401c367
+< 	if obj.flags & otFunction == 0 {
+---
+> 	if obj.flags&otFunction == 0 {
+diff mypointer/api.go pointer/api.go
+5c5
+< package mypointer
+---
+> package pointer
+32,34c32
+< 	OLDMains []*ssa.Package
+< 
+< 	Prog *ssa.Program
+---
+> 	Mains []*ssa.Package
+151,155c149,150
+< 	//for _, main := range c.Mains {
+< 	//	return main.Prog
+< 	//}
+< 	if c.Prog != nil {
+< 		return c.Prog
+---
+> 	for _, main := range c.Mains {
+> 		return main.Prog
+269,275d263
+< func (x PointsToSet) Equals(y PointsToSet) bool {
+< 	if x.pts == nil || y.pts == nil {
+< 		return false
+< 	}
+< 	return x.pts.Sparse.Equals(&y.pts.Sparse)
+< }
+< 
+292,297d279
+< }
+< 
+< // Equals reports whether the receiver pointer has equal points-to set of
+< // the argument pointer.
+< func (p Pointer) Equals(q Pointer) bool {
+< 	return p.PointsTo().Equals(q.PointsTo())
+diff mypointer/callgraph.go pointer/callgraph.go
+5c5
+< package mypointer
+---
+> package pointer
+diff mypointer/constraint.go pointer/constraint.go
+5c5
+< package mypointer
+---
+> package pointer
+diff mypointer/doc.go pointer/doc.go
+610c610
+< package mypointer
+---
+> package pointer // import "github.com/system-pclub/GCatch/GCatch/tools/go/pointer"
+Only in pointer/: example_test.go
+diff mypointer/gen.go pointer/gen.go
+5c5
+< package mypointer
+---
+> package pointer
+15,17d14
+< 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
+< 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+< 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa/ssautil"
+20,22c17,19
+< 	"strconv"
+< 	"strings"
+< 	"unicode"
+---
+> 
+> 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
+> 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+230d226
+< 
+566,568d561
+< 	if is_in_sensitive_list(fn) {
+< 		return true
+< 	}
+634,649c627
+< 		caller_arg := args[0]
+< 		if caller.fn.Name() == "Method1" {
+< 			for _,bb := range caller.fn.Blocks {
+< 				for i,inst := range bb.Instrs {
+< 					if i == 5 {
+< 						caller_arg = inst.(ssa.Value)
+< 						break
+< 					}
+< 				}
+< 			}
+< 		}
+< 		if caller_arg == args[0] {
+< 			a.copy(params, a.valueNode(caller_arg), sz)
+< 		} else {
+< 			a.copy(params, a.valueNode(caller_arg), sz)
+< 		}
+---
+> 		a.copy(params, a.valueNode(args[0]), sz)
+861,865d838
+< 		case *ssa.Extract:
+< 			obj = a.nextNode()
+< 			a.addNodes(v.Type(), "Extract")
+< 			a.endObject(obj,cgn,v)
+< 
+1005d977
+< 
+1160,1199c1132,1136
+< 	///MYCODE
+< 	// The following anotated code need an entry point. However, we can just scan all functions that have no caller
+< 
+< 	////For each main package, call main.init(), main.main().
+< 	//for _, mainPkg := range a.config.OLDMains {
+< 	//	main := mainPkg.Func("main")
+< 	//	if main == nil {
+< 	//		panic(fmt.Sprintf("%s has no main function", mainPkg))
+< 	//	}
+< 	//
+< 	//	targets := a.addOneNode(main.Signature, "root.targets", nil)
+< 	//	site := &callsite{targets: targets}
+< 	//	root.sites = append(root.sites, site)
+< 	//	for _, fn := range [2]*ssa.Function{mainPkg.Func("init"), main} {
+< 	//		if a.log != nil {
+< 	//			fmt.Fprintf(a.log, "\troot call to %s:\n", fn)
+< 	//		}
+< 	//		a.copy(targets, a.valueNode(fn), 1)
+< 	//	}
+< 	//}
+< 
+< 	// Start with all functions that don't have caller
+< 	for fn, _ := range ssautil.AllFunctions(a.prog) {
+< 		if fn == nil {
+< 			continue
+< 		}
+< 
+< 		if index := strings.Index(fn.Name(),"init#"); index > -1 {
+< 			name_after := fn.Name()[index+5:]
+< 			_,err := strconv.Atoi(name_after)
+< 			if err == nil { // successfully converted, meaning the function name is like init#123
+< 				continue
+< 			}
+< 		}
+< 
+< 		if Known_callgraph != nil { // This is the second time to run pointer analysis
+< 			node := Known_callgraph.Nodes[fn]
+< 			if len(node.In) != 0 {
+< 				continue
+< 			}
+---
+> 	// For each main package, call main.init(), main.main().
+> 	for _, mainPkg := range a.config.Mains {
+> 		main := mainPkg.Func("main")
+> 		if main == nil {
+> 			panic(fmt.Sprintf("%s has no main function", mainPkg))
+1202c1139
+< 		targets := a.addOneNode(fn.Signature, "myroot.targets", nil)
+---
+> 		targets := a.addOneNode(main.Signature, "root.targets", nil)
+1205,1207c1142,1146
+< 
+< 		if a.log != nil {
+< 			fmt.Fprintf(a.log, "\troot call to %s:\n", fn)
+---
+> 		for _, fn := range [2]*ssa.Function{mainPkg.Func("init"), main} {
+> 			if a.log != nil {
+> 				fmt.Fprintf(a.log, "\troot call to %s:\n", fn)
+> 			}
+> 			a.copy(targets, a.valueNode(fn), 1)
+1209,1210d1147
+< 		a.copy(targets, a.valueNode(fn), 1)
+< 
+1308,1355d1244
+< 	///MYCODE
+< 	// If we have the Known_callgraph and Recv_to_methods_map
+< 	// If this function is a non-synthetic non-anonymous exported (starting with an Uppercase letter) method
+< 	if Known_callgraph != nil && Recv_to_methods_map != nil {
+< 		if fn.Signature.Recv() == nil || fn.Synthetic != "" || strings.Contains(fn.String(),"$") {
+< 			goto Normal
+< 		}
+< 		is_exported := false // In Go, a function whose name starts with an Uppercase is exported
+< 		for _,r := range fn.Name() {
+< 			if unicode.IsUpper(r) {
+< 				is_exported = true
+< 			} else {
+< 				is_exported = false
+< 			}
+< 			break
+< 		}
+< 		if is_exported == false {
+< 			goto Normal
+< 		}
+< 		method := Known_callgraph.Nodes[fn]
+< 		if method == nil {
+< 			goto Normal
+< 		}
+< 
+< 
+< 		// Now record all other non-synthetic methods non-anonymous methods that have no caller
+< 		no_caller_methods := []*callgraph.Node{}
+< 		recv := fn.Params[0]
+< 		all_methods := Recv_to_methods_map[recv.Type().String()]
+< 		for _, other_method := range all_methods {
+< 			if other_method == method || other_method.Func.Synthetic != "" || strings.Contains(other_method.Func.String(),"$") {
+< 				continue
+< 			}
+< 			if len(other_method.In) > 0 {
+< 				continue
+< 			}
+< 
+< 			no_caller_methods = append(no_caller_methods,other_method)
+< 		}
+< 		// As if fn will call all functions in no_caller_methods
+< 		for _, other_method := range no_caller_methods {
+< 			a.genFakeCall(fn,other_method.Func)
+< 		}
+< 
+< 	}
+< 
+< 	Normal:
+< 
+1360,1402d1248
+< // genFakeCall generates constraints for a fake call between caller and callee.
+< func (a *analysis) genFakeCall(caller,callee *ssa.Function) {
+< 
+< 	// Ascertain the context (contour/cgnode) for a particular call.
+< 	var obj nodeid
+< 	obj = a.objectNode(nil, callee) // shared contour
+< 
+< 	// Copy receiver
+< 	params := a.funcParams(obj)
+< 	caller_param0 := caller.Params[0]
+< 	var param0_arg ssa.Value
+< 	outer:
+< 	for _,bb := range caller.Blocks {
+< 		for _,inst := range bb.Instrs {
+< 			if v,ok := inst.(ssa.Value); ok {
+< 				if v.Type().String() == caller_param0.Type().String() && v != caller_param0 {
+< 					param0_arg = v
+< 					break outer
+< 				}
+< 			}
+< 			operands := inst.Operands([]*ssa.Value{})
+< 			for _,operand := range operands {
+< 				if operand == nil {
+< 					continue
+< 				}
+< 				v := *operand
+< 				if v == nil {
+< 					continue
+< 				}
+< 				if v.Type().String() == caller_param0.Type().String() && v != caller_param0 {
+< 					param0_arg = v
+< 					break outer
+< 				}
+< 			}
+< 		}
+< 	}
+< 	if param0_arg == nil {
+< 		return
+< 	}
+< 	sz := a.sizeof(param0_arg.Type())
+< 	a.copy(params, a.valueNode(param0_arg), sz)
+< }
+< 
+1444d1289
+< 
+1458,1459d1302
+< 	list := a.genq
+< 	_ = list
+diff mypointer/hvn.go pointer/hvn.go
+5c5
+< package mypointer
+---
+> package pointer
+diff mypointer/intrinsics.go pointer/intrinsics.go
+5c5
+< package mypointer
+---
+> package pointer
+diff mypointer/labels.go pointer/labels.go
+5c5
+< package mypointer
+---
+> package pointer
+62,72d61
+< 
+< func (l Label) Cgn_CallInst() ssa.CallInstruction {
+< 	if l.obj.cgn == nil {
+< 		return nil
+< 	}
+< 	if l.obj.cgn.callersite == nil {
+< 		return nil
+< 	}
+< 	return l.obj.cgn.callersite.instr
+< }
+< 
+diff mypointer/opt.go pointer/opt.go
+5c5
+< package mypointer
+---
+> package pointer
+diff mypointer/print.go pointer/print.go
+5c5
+< package mypointer
+---
+> package pointer
+diff mypointer/query.go pointer/query.go
+1c1
+< package mypointer
+---
+> package pointer
+diff mypointer/reflect.go pointer/reflect.go
+5c5
+< package mypointer
+---
+> package pointer
+diff mypointer/solve.go pointer/solve.go
+5c5
+< package mypointer
+---
+> package pointer
+Only in mypointer/: special_instr.go
+Only in pointer/: testdata
+diff mypointer/util.go pointer/util.go
+5c5
+< package mypointer
+---
+> package pointer

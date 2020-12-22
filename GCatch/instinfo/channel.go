@@ -103,6 +103,10 @@ func ClearChanOpMap() {
 	MapInst2ChanOp = make(map[ssa.Instruction][]ChanOp)
 }
 
+func init() {
+	MapInst2ChanOp = make(map[ssa.Instruction][]ChanOp)
+}
+
 const DynamicSize = -999 // If a channel's buffer size can't be computed statically, we give DynamicSize to the Buffer field
 
 // Define some special channels and its operations

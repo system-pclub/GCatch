@@ -17,7 +17,6 @@ import (
 	"os"
 	"reflect"
 	"runtime"
-	"runtime/debug"
 	"sort"
 )
 
@@ -247,8 +246,8 @@ func Analyze(config *Config, known_callgraph *callgraph.Graph) (result *Result, 
 	defer func() {
 		if p := recover(); p != nil {
 			err = fmt.Errorf("internal error in pointer analysis: %v (please report this bug)", p)
-			fmt.Fprintln(os.Stderr, "Internal panic in pointer analysis:")
-			debug.PrintStack()
+			//fmt.Fprintln(os.Stderr, "Internal panic in pointer analysis:")
+			//debug.PrintStack()
 		}
 	}()
 
@@ -400,6 +399,7 @@ func Analyze(config *Config, known_callgraph *callgraph.Graph) (result *Result, 
 func (a *analysis) callEdge(caller *cgnode, site *callsite, calleeid nodeid) {
 	obj := a.nodes[calleeid].obj
 	if obj.flags & otFunction == 0 {
+		return
 		panic(fmt.Sprintf("callEdge %s -> n%d: not a function object", site, calleeid))
 	}
 	callee := obj.cgn
