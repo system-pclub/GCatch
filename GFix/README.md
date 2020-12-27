@@ -15,14 +15,14 @@ GFix aims to automatically fix blocking misuse-of-channel (BMOC) bugs detected b
 
 1. Directory `dispatcher` contains related code for the dispatcher component. 
 
-2. Directory `gl-1-patcher` contains code for generating patches using the first fixing strategy. 
+2. Directory `bmoc-1-patcher` contains code for generating patches using the first fixing strategy. 
 
-3. Directory `gl-2-patcher` contains code for generating patches using the second fixing strategy. 
+3. Directory `bmoc-2-patcher` contains code for generating patches using the second fixing strategy. 
 
-4. Directory `gl-3-patcher` contains code for generating patches using the third fixing strategy. 
+4. Directory `bmoc-3-patcher` contains code for generating patches using the third fixing strategy. 
 
 Please refer to the demonstration scripts to figure out how to use GFix’s code. 
 
 
-[1] Ziheng Liu, Shuofei Zhu, Boqin Qin, Hao Chen and Linhai Song. “Automatically Detecting and Fixing Concurrency Bugs in Go Software Systems.” In ASPLOS’2020. 
+[1] Ziheng Liu, Shuofei Zhu, Boqin Qin, Hao Chen and Linhai Song. “Automatically Detecting and Fixing Concurrency Bugs in Go Software Systems.” In ASPLOS'2020. 
 
