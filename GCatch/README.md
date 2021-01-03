@@ -51,8 +51,8 @@ A static checker that takes Golang source code as input and detects concurrency 
 Example:
 If I want to check bugs in the grpc in testdata, I will run the following commands: 
 - cd $GOPATH/bin
-- export GOPATH=$GOPATH/src/github.com/system-pclub/GCatch/testdata/grpc-buggy
-- ./GCatch -path=$GOPATH/src/github.com/system-pclub/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc -include=google.golang.org/grpc -checker=BMOC -r
+- export GOPATH=$GOPATH/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy
+- ./GCatch -path=$GOPATH/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc -include=google.golang.org/grpc -checker=BMOC -r
 
 You should be able to see 5 bugs with 173 checked channels. All of them are real bugs.
 
