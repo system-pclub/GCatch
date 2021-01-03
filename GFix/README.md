@@ -7,7 +7,7 @@ GFix aims to automatically fix blocking misuse-of-channel (BMOC) bugs detected b
 
 ## Examples and Demonstrations
 
-1. In the `etcd-example` directory, the `run.sh` script is to download the source code of etcd, change it to a buggy version, and generate three patches using the three fixing strategies for three different bugs detected by GCatch. The details of each bug could be found in the following GitHub links: [bug 1](https://github.com/etcd-io/etcd/pull/11568/commits/b340dfdcbb4be69a07157466634b1e16042aa1a2#diff-3ad06ebe31ef56b10f1c782874d25c414ce13cc8eb381a049bd36be56ea9a969L149), [bug 2](https://github.com/etcd-io/etcd/pull/11568/commits/b340dfdcbb4be69a07157466634b1e16042aa1a2#diff-b7d7aa0bd6404176eb1196324ba19b3fcade68deeef1ab160bcc04b58f8c9341L24), and [bug 3](https://github.com/etcd-io/etcd/pull/11568/commits/b340dfdcbb4be69a07157466634b1e16042aa1a2#diff-b7d7aa0bd6404176eb1196324ba19b3fcade68deeef1ab160bcc04b58f8c9341L45) (The developers did not apply the patch generated for bug 3 directly).
+1. In the `etcd-example` directory, the `run.sh` script is to download the source code of etcd, change it to a buggy version, and generate three patches using the three fixing strategies for three different bugs detected by GCatch. The details of each bug could be found in the following GitHub links: [bug 1](https://github.com/etcd-io/etcd/pull/11568/commits/b340dfdcbb4be69a07157466634b1e16042aa1a2#diff-3ad06ebe31ef56b10f1c782874d25c414ce13cc8eb381a049bd36be56ea9a969L149), [bug 2](https://github.com/etcd-io/etcd/pull/11568/commits/b340dfdcbb4be69a07157466634b1e16042aa1a2#diff-b7d7aa0bd6404176eb1196324ba19b3fcade68deeef1ab160bcc04b58f8c9341L24), and [bug 3](https://github.com/etcd-io/etcd/pull/11568/commits/b340dfdcbb4be69a07157466634b1e16042aa1a2#diff-b7d7aa0bd6404176eb1196324ba19b3fcade68deeef1ab160bcc04b58f8c9341L45) (the developers did not apply the patch generated for bug 3 directly).
 
 2. In `toy-examples/src` directory, there are three toy programs to demonstrate the three types of bugs that can be fixed by GFix. The `run.sh` script is to apply GFix to the three bugs contained in the three programs. 
 
@@ -24,5 +24,5 @@ GFix aims to automatically fix blocking misuse-of-channel (BMOC) bugs detected b
 Please refer to the demonstration scripts to figure out how to use GFix’s code. 
 
 
-[1] Ziheng Liu, Shuofei Zhu, Boqin Qin, Hao Chen and Linhai Song. “Automatically Detecting and Fixing Concurrency Bugs in Go Software Systems.” In ASPLOS'2020. 
+[1] Ziheng Liu, Shuofei Zhu, Boqin Qin, Hao Chen, and Linhai Song. “Automatically Detecting and Fixing Concurrency Bugs in Go Software Systems.” In ASPLOS'2020. 
 
