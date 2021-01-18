@@ -171,7 +171,7 @@ func MergePairVec(v1 [] * StLockPair, v2 [] * StLockPair) [] * StLockPair {
 
 	}
 
-	fmt.Println(len(v1), len(v2), len(vecResult))
+	//fmt.Println(len(v1), len(v2), len(vecResult))
 	return vecResult
 }
 
@@ -243,7 +243,7 @@ func GenKillAnalysis(inputFn * ssa.Function, contextLock map[* StLockingOp] bool
 			vecPair := UnionGenSet(newBefore, op)
 			if len(vecPair) != 0 {
 				//bugs = append(bugs, bug)
-				fmt.Println("add")
+				//fmt.Println("add")
 				vecLockingPair = MergePairVec(vecLockingPair, vecPair)
 			}
 		}

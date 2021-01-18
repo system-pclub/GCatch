@@ -85,7 +85,7 @@ func main() {
 		case "unlock": forgetunlock.Initialize()
 		case "double": doublelock.Initialize()
 		case "conflict":
-		case "channel": // no need to initialize this checker
+		case "BMOC": // no need to initialize this checker
 		}
 	}
 

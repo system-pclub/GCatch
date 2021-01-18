@@ -6,6 +6,8 @@ A static checker that takes Golang source code as input and detects concurrency 
 
 2. How to run GCatch?
 
+- You can execute run.sh to run GCatch on a buggy version of grpc in testdata/grpc-buggy
+
 - Open terminal, and use the following commands to install GCatch:
   - mkdir newdir
   - cd newdir
