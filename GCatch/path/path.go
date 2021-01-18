@@ -14,6 +14,7 @@ var LcaErrNilNode = fmt.Errorf("Node in callgraph for target function is nil")
 var ErrNotComplete = fmt.Errorf("Incomplete callchains")
 var ErrFindNone = fmt.Errorf("Found none")
 var ErrNilNode = fmt.Errorf("Nil node in callgraph")
+var ErrInaccurateCallgraph = fmt.Errorf("The callgraph is inaccurate: a caller has multiple callees or a callee has multiple callers")
 
 type EdgeChain struct {
 	Chain []*callgraph.Edge
@@ -77,9 +78,11 @@ func cutChain(chain *EdgeChain, lca *ssa.Function) (newChain *EdgeChain) {
 }
 
 // Find the lowest common ancestors for target functions.
+// This function is used by two places: computing dependency and checking each channel. The configurations should be different
 // Note 1: we can't use some classic algorithms because in callgraph one child may have multiple parents, and there may be circles in the callgraph
 // Note 2: result is a map from one LCA to the targets it covers. It is possible that we can't find one LCA that covers every target
-func FindLCA(vecTargetFn []*ssa.Function, intMaxLayer int) (map[*ssa.Function][]*EdgeChain, error) {
+// Note 3: intMaxLayer is used if boolGiveUpWhenMaxLayerIsReached is false
+func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bool, boolGiveUpWhenMaxLayerIsReached bool, intMaxLayer int) (map[*ssa.Function][]*EdgeChain, error) {
 
 	// A map from each node to the number of chains according to the last map. If only have chains ABC and BCDE, then B:2, E:1
 	mapNode2NumChain := make(map[*callgraph.Node]int)
@@ -157,8 +160,9 @@ func FindLCA(vecTargetFn []*ssa.Function, intMaxLayer int) (map[*ssa.Function][]
 		}
 
 		// See if recursive number is reached
-		if countDepth > intMaxLayer {
+		if countDepth > intMaxLayer && boolGiveUpWhenMaxLayerIsReached == true {
 			// recursive number is reached. Now we return a map with multiple LCAs, each LCA can cover different vecTargetFn
+			// Note: if this is used in our channel checking, you must print "!!!!" with a warning, like GCatch/syncgraph/task.go
 			result := make(map[*ssa.Function][]*EdgeChain)
 
 			// A big map of all mapChain2Ancestors
@@ -331,6 +335,10 @@ func FindLCA(vecTargetFn []*ssa.Function, intMaxLayer int) (map[*ssa.Function][]
 
 				if len(lastNode.In) == 0 { // skip if the lastNode has no caller
 					continue
+				}
+
+				if len(lastNode.In) > 1 && boolGiveUpWhenCallgraphIsInaccurate {
+					return nil, ErrInaccurateCallgraph
 				}
 
 				// delete the current chain
@@ -543,4 +551,39 @@ func nextInst(inst ssa.Instruction) ssa.Instruction {
 		}
 	}
 	return nil
+}
+
+// Enumerate all paths between bb1 and bb2. Requires that bb2 post-dominates bb1
+func EnumeratePathForPostDomBBs(bb1, bb2 *ssa.BasicBlock) [][]*ssa.BasicBlock {
+	result := [][]*ssa.BasicBlock{}
+	pathWorklist := [][]*ssa.BasicBlock{[]*ssa.BasicBlock{bb1}}
+
+	for len(pathWorklist) > 0 {
+		path := pathWorklist[len(pathWorklist)-1]
+		pathWorklist = pathWorklist[:len(pathWorklist)-1]
+
+		lastBB := path[len(path)-1]
+		if lastBB == bb2 {
+			result = append(result, path)
+			continue
+		}
+
+		for _, suc := range lastBB.Succs {
+			// if suc has appeared in path, skip it
+			boolSkip := false
+			for _, existBB := range path {
+				if suc == existBB {
+					boolSkip = true
+					break
+				}
+			}
+			if boolSkip {
+				continue
+			}
+			newPath := append(path, suc)
+			pathWorklist = append(pathWorklist, newPath)
+		}
+	}
+
+	return result
 }

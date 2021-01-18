@@ -5,11 +5,14 @@ package syncgraph
 
 import (
 	"fmt"
+	"github.com/system-pclub/GCatch/GCatch/analysis"
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/path"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+	"go/token"
+	"strings"
 )
 
 type Node interface{
@@ -21,8 +24,12 @@ type Node interface{
 	CallCtx() *CallCtx
 	InAdd(*NodeEdge)
 	OutAdd(*NodeEdge)
+	InOverWrite(*NodeEdge)
+	OutOverWrite(*NodeEdge)
 	SetId(int)
 	GetId() int
+	SetString(string)
+	GetString() string
 }
 
 type node struct {
@@ -30,6 +37,7 @@ type node struct {
 	Instr ssa.Instruction
 	In_ []*NodeEdge
 	Out_ []*NodeEdge
+	String string
 
 	ID int
 }
@@ -58,6 +66,14 @@ func (n *node) CallCtx() *CallCtx {
 	return n.Ctx
 }
 
+func (n *node) OutOverWrite(e *NodeEdge) {
+	n.Out_ = []*NodeEdge{e}
+}
+
+func (n *node) InOverWrite(e *NodeEdge) {
+	n.In_ = []*NodeEdge{e}
+}
+
 func (n *node) OutAdd(e *NodeEdge) {
 	n.Out_ = append(n.Out_, e)
 }
@@ -72,6 +88,14 @@ func (n *node) SetId(id int) {
 
 func (n *node) GetId() int {
 	return n.ID
+}
+
+func (n *node) SetString(str string) {
+	n.String = str
+}
+
+func (n *node) GetString() string {
+	return n.String
 }
 
 var intFakeNodeId int
@@ -262,10 +286,11 @@ type InstCtxKey struct { // Key that considers both ssa.Instruction and Ctx
 
 type SyncGraph struct {
 	// Prepare
-	MainGoroutine  *Goroutine   // MainGoroutine is the Goroutine that is both a head and it contains the MakeChan operation
-	HeadGoroutines []*Goroutine // HeadGoroutines are the starting Goroutines that don't have creator in the graph
-	Goroutines     []*Goroutine
-	Task           *Task
+	MainGoroutine    *Goroutine   // MainGoroutine is the Goroutine that is both a head and it contains the MakeChan operation
+	HeadGoroutines   []*Goroutine // HeadGoroutines are the starting Goroutines that don't have creator in the graph
+	Goroutines       []*Goroutine
+	MapFirstNodeOfFn map[Node]struct{} // All Nodes that are the first Node of a function in SyncGraph
+	Task             *Task
 
 	// Build
 	MapInstCtxKey2Node  map[InstCtxKey]Node // Two kinds of Node is not in this map: SelectCase, rundefer's Nodes
@@ -275,6 +300,7 @@ type SyncGraph struct {
 	MapPrim2VecSyncOp   map[interface{}][]SyncOp
 	Visited             []*path.EdgeChain
 	Worklist            []*Unfinish
+	MapFnOnOpPath map[*ssa.Function]struct{} // a map of functions that are on a path to reach a sync operation
 
 	// Enumerate path
 	PathCombinations []*pathCombination
@@ -339,6 +365,8 @@ func NewGraph(task *Task) *SyncGraph{
 		Visited:             []*path.EdgeChain{},
 		PathCombinations:    nil,
 		EnumerateCfg:        nil,
+		MapFnOnOpPath: make(map[*ssa.Function]struct{}),
+		MapFirstNodeOfFn: make(map[Node]struct{}),
 	}
 
 	return newGraph
@@ -372,4 +400,273 @@ func (g *SyncGraph) NewCtx(goroutine *Goroutine, head *ssa.Function) *CallCtx {
 		Graph:     g,
 	}
 	return newCtx
+}
+
+// Update g.MapFnOnOpPath.
+func (g *SyncGraph) ComputeFnOnOpPath() {
+	for _, prim := range g.Task.VecTaskPrimitive {
+		if prim == nil {
+			continue
+		}
+		for _, opChain := range prim.Ops {
+			if opChain == nil {
+				continue
+			}
+			for _, chain := range opChain.Chains {
+				if chain.Start != nil && chain.Start.Func != nil {
+					g.MapFnOnOpPath[chain.Start.Func] = struct{}{}
+				}
+				for _, edge := range chain.Chain {
+					if edge == nil {
+						continue
+					}
+					if edge.Caller == nil || edge.Caller.Func == nil {
+						continue
+					}
+					g.MapFnOnOpPath[edge.Caller.Func] = struct{}{}
+					if edge.Callee == nil || edge.Callee.Func == nil {
+						continue
+					}
+					g.MapFnOnOpPath[edge.Callee.Func] = struct{}{}
+				}
+			}
+		}
+	}
+}
+
+// If BB X post-dominates BB Y, and all BBs on any path from Y to X don't contain important Nodes, and X and Y are in the same layer of loop,
+// we can ignore these BBs between X and Y.
+// We will link Y and X directly (let the first Node of X be the next Node of the last Node of Y)
+// What are important Nodes: Call to functions on MapFnOnOpPath/ operation of dependent primitives/ Return/ Kill/ End
+func (g *SyncGraph) OptimizeBB_V1() {
+	for headNode, _ := range g.MapFirstNodeOfFn {
+		fn := headNode.Instruction().Parent()
+		postDom := analysis.NewPostDominator(fn)
+		loopAnalysis := analysis.NewLoopAnalysis(fn)
+
+		if strings.Contains(fn.String(), "http2Client") && strings.Contains(fn.String(), "reader") {
+ 			fmt.Print()
+		}
+
+		// Enumerate X and Y
+		for _, bbY := range fn.Blocks {
+			if len(bbY.Instrs) == 0 {
+				continue
+			}
+			// There may be multiple X that satisfy our conditions
+			vecBBX := []*ssa.BasicBlock{}
+			for _, bbX := range fn.Blocks {
+				if bbX != bbY && postDom.Dominate(bbX, bbY) {
+					if len(bbX.Instrs) == 0 {
+						continue
+					}
+					// List paths from Y to X
+					vecPath := path.EnumeratePathForPostDomBBs(bbY, bbX)
+					// Check if all paths don't contain important Nodes
+					boolAllPathDoNotContain := true
+					pathLoop:
+					for _, aPath := range vecPath {
+						for _, bb := range aPath {
+							if bb == bbX || bb == bbY { // only check bbs between X and Y
+								continue
+							}
+							for _, inst := range bb.Instrs {
+								if g.isInstImportant(inst) {
+									boolAllPathDoNotContain = false
+									break pathLoop
+								}
+							}
+						}
+					} // end of pathLoop
+
+					if boolAllPathDoNotContain {
+						// Check if BBX and BBY are in the same layer of loop
+						if bbY.Index == 12 {
+							fmt.Print()
+						}
+						headersX := loopAnalysis.MapBodyBb2LoopHead[bbX]
+						headersY := loopAnalysis.MapBodyBb2LoopHead[bbY]
+						if isBBSliceEqual(headersX, headersY) {
+							vecBBX = append(vecBBX, bbX)
+						} else {
+							// It is also allowed if X is the loop header of Y
+							if isBBSliceEqual(append(headersX, bbX), headersY) {
+								vecBBX = append(vecBBX, bbX)
+							}
+						}
+					}
+				}
+
+			} // end of bbX loop
+
+			if len(vecBBX) == 0 {
+				continue
+			}
+
+			// find a bbX that is far from bbY. This can be not so accurate
+			var bbX *ssa.BasicBlock
+			largestDistance := -9999
+			for _, bb := range vecBBX {
+				distance := bb.Index - bbY.Index
+				if distance > largestDistance {
+					bbX = bb
+					largestDistance = distance
+				}
+			}
+
+			if bbX != nil {
+
+				// Link X and Y
+				var lastInstY, firstInstX ssa.Instruction
+				lastInstY = bbY.Instrs[len(bbY.Instrs) - 1]
+				firstInstX = bbX.Instrs[0]
+				var lastNodeY, firstNodeX Node
+				for _, node := range g.MapInstCtxKey2Node {
+					inst := node.Instruction()
+					if inst == lastInstY {
+						lastNodeY = node
+					} else if inst == firstInstX {
+						firstNodeX = node
+					}
+				}
+				if lastNodeY == nil || firstNodeX == nil {
+					continue
+				}
+				newNodeEdge := &NodeEdge{
+					Prev:       lastNodeY,
+					Succ:       firstNodeX,
+					IsBackedge: false,
+					IsCall:     false,
+					IsGo:       false,
+					AddValue:   0,
+				}
+				lastNodeY.OutOverWrite(newNodeEdge)
+				//firstNodeX.InOverWrite(newNodeEdge)
+			}
+		}
+	}
+
+}
+
+func (g *SyncGraph) OptimizeBB_V2() {
+	for headNode, _ := range g.MapFirstNodeOfFn {
+		fn := headNode.Instruction().Parent()
+
+		// Enumerate X and Y
+		for _, bbY := range fn.Blocks {
+			if len(bbY.Instrs) == 0 {
+				continue
+			}
+
+			// See if there is a bbX such that: bbY -> bbX and bbZ, bbZ -> bbX
+			if len(bbY.Succs) != 2 {
+				continue
+			}
+			var bbX *ssa.BasicBlock
+			for i, suc := range bbY.Succs {
+				if len(suc.Preds) != 2 {
+					continue
+				}
+				var otherBB *ssa.BasicBlock
+				if i == 0 {
+					otherBB = bbY.Succs[1]
+				} else {
+					otherBB = bbY.Succs[0]
+				}
+				if len(otherBB.Succs) != 1 || otherBB.Succs[0] != suc {
+					continue
+				}
+				boolPredFoundY, boolPredFoundZ := false, false
+				for _, pred := range suc.Preds {
+					if pred == bbY {
+						boolPredFoundY = true
+					}
+					if pred == otherBB {
+						boolPredFoundZ = true
+					}
+				}
+				if boolPredFoundZ && boolPredFoundY {
+					bbX = suc
+					break
+				}
+			}
+
+
+			if bbX != nil {
+				// Link X and Y
+				var lastInstY, firstInstX ssa.Instruction
+				lastInstY = bbY.Instrs[len(bbY.Instrs) - 1]
+				firstInstX = bbX.Instrs[0]
+				var lastNodeY, firstNodeX Node
+				for _, node := range g.MapInstCtxKey2Node {
+					inst := node.Instruction()
+					if inst == lastInstY {
+						lastNodeY = node
+					} else if inst == firstInstX {
+						firstNodeX = node
+					}
+				}
+				if lastNodeY == nil || firstNodeX == nil {
+					continue
+				}
+				newNodeEdge := &NodeEdge{
+					Prev:       lastNodeY,
+					Succ:       firstNodeX,
+					IsBackedge: false,
+					IsCall:     false,
+					IsGo:       false,
+					AddValue:   0,
+				}
+				lastNodeY.OutOverWrite(newNodeEdge)
+				firstNodeX.InOverWrite(newNodeEdge)
+			}
+		}
+	}
+
+}
+
+func (g *SyncGraph) isInstImportant(inst ssa.Instruction) bool {
+	switch concrete := inst.(type) {
+	case *ssa.MakeChan, *ssa.Return, *ssa.Go, *ssa.Select, *ssa.Send, *ssa.Panic:
+		return true
+	case *ssa.Call:
+		if g.isInstCallImportantFn(concrete) {
+			return true
+		}
+		if isKillThread(concrete) {
+			return true
+		}
+		//if instinfo.IsMutexLock(concrete) || instinfo.IsMutexUnlock(concrete) || instinfo.IsRwmutexLock(concrete) ||
+		//	instinfo.IsRwmutexUnlock(concrete) || instinfo.IsRwmutexRlock(concrete) || instinfo.IsRwmutexRunlock(concrete) {
+		//	return true
+		//}
+	case *ssa.RunDefers:
+		if vecDefer, ok := config.Inst2Defers[concrete]; ok {
+			for _, aDefer := range vecDefer {
+				if g.isInstCallImportantFn(aDefer) {
+					return true
+				}
+			}
+		}
+	case *ssa.UnOp:
+		if concrete.Op == token.ARROW {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (g *SyncGraph) isInstCallImportantFn(inst ssa.CallInstruction) bool {
+	if mapEdge, ok := config.Inst2CallSite[inst]; ok {
+		for edge, _ := range mapEdge {
+			if edge.Callee.Func == nil {
+				continue
+			}
+			if _, ok := g.MapFnOnOpPath[edge.Callee.Func]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }

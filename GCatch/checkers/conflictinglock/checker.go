@@ -380,6 +380,7 @@ func Detect() {
 	numCurrentCallChainID = 0
 
 	mapPairIDMutexPair = make(map[string] * stMutexPair)
+	mapReportedPair = make(map[string]struct{})
 
 	getFunctionWithLockingOps()
 
@@ -393,15 +394,26 @@ func Detect() {
 		analyzeEntryFN(fn)
 	}
 
-	fmt.Println(mapPairIDMutexPair)
+	//fmt.Println("Whole map:")
+	//fmt.Println(mapPairIDMutexPair)
 
 	for k, _ := range mapPairIDMutexPair {
 		mutexIDs := strings.Split(k, "\t\t")
 		k2 := mutexIDs[1] + "\t\t" + mutexIDs[0]
 
 		if _, ok := mapPairIDMutexPair[k2]; ok {
-			fmt.Println("found")
+			_, boolReported1 := mapReportedPair[k]
+			_, boolReported2 := mapReportedPair[k2]
+			if boolReported1 == false && boolReported2 == false {
+				fmt.Println("found Conflict Lock")
+				fmt.Println(k)
+				mapReportedPair[k] = struct{}{}
+				mapReportedPair[k2] = struct{}{}
+			}
+
 		}
 	}
 
 }
+
+var mapReportedPair map[string]struct{}
