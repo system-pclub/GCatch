@@ -20,11 +20,8 @@ func Detect() {
 	mapDependency := syncgraph.GenDMap(vecChannel, vecLocker)
 
 	for _, ch := range vecChannel {
-		p := config.Prog.Fset.Position(ch.MakeInst.Pos())
-		if ch.MakeInst.Parent().Name() == "TestPipeListener" {
-			ch.DebugPrintChan()
-		}
-		_ = p
+		//p := config.Prog.Fset.Position(ch.MakeInst.Pos())
+		//_ = p
 		if OKToCheck(ch) == true {
 			CheckCh(ch, vecChannel, vecLocker, mapDependency)
 		}
@@ -79,6 +76,9 @@ func CheckCh(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker []*
 		fmt.Println("-----count_ch:", countCh)
 		return
 	}
+
+	syncGraph.ComputeFnOnOpPath()
+	syncGraph.OptimizeBB_V1()
 
 	syncGraph.SetEnumCfg(1, false, true)
 

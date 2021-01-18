@@ -15,6 +15,7 @@ type Task struct {
 	MapValue2TaskPrimitive map[interface{}]*TaskPrimitive
 	MapLCARoot2Op          map[*ssa.Function][]*ChainsToReachOp
 	BoolFinished           bool
+	BoolGiveupIfCallgraphInaccurate bool
 }
 
 type TaskPrimitive struct {
@@ -39,12 +40,13 @@ type ChainsToReachOp struct{
 	Finished               bool
 }
 
-func newTask() *Task {
+func newTask(boolGiveupIfCallgraphInaccurate bool) *Task {
 	return &Task{
 		VecTaskPrimitive:       nil,
 		MapValue2TaskPrimitive: make(map[interface{}]*TaskPrimitive),
 		MapLCARoot2Op:          make(map[*ssa.Function][]*ChainsToReachOp),
 		BoolFinished:           false,
+		BoolGiveupIfCallgraphInaccurate: boolGiveupIfCallgraphInaccurate,
 	}
 }
 
@@ -59,6 +61,8 @@ func (t *Task) Step1AddPrim(newP interface{}) {
 	t.VecTaskPrimitive = append(t.VecTaskPrimitive, newTPrimitive)
 	t.MapValue2TaskPrimitive[newP] = newTPrimitive
 }
+
+var countInaccurateCall, countMaxLayer int
 
 // After adding all primitives that we want, complete everything in each TaskPrimitive.Ops
 func (t *Task) Step2CompletePrims() error {
@@ -78,13 +82,18 @@ func (t *Task) Step2CompletePrims() error {
 		}
 	}
 
-	LCA2paths, err := path.FindLCA(fnsForInstsNoDupli(vecOpInsts),config.MAX_LCA_LAYER)
+	LCA2paths, err := path.FindLCA(fnsForInstsNoDupli(vecOpInsts), t.BoolGiveupIfCallgraphInaccurate, true, config.MAX_LCA_LAYER)
 	if err != nil {
-		if config.DISABLE_OPTIMIZATION_CALLEES && err == path.LcaErrReachedMax {
-			// Do nothing because if the optimization is disabled, then we enter every callee and it is normal to reach max layers
-		} else {
-			return err
+		//if err == path.ErrInaccurateCallgraph {
+		//	fmt.Println("Task: Give up LCA because callgraph is inaccurate. Count:", countInaccurateCall)
+		//	countInaccurateCall++
+		//}
+		if err == path.LcaErrReachedMax {
+			fmt.Println("!!!!")
+			fmt.Println("Task: Give up LCA because max layer (", config.MAX_LCA_LAYER, ") is reached. Count:", countMaxLayer)
+			countMaxLayer++
 		}
+		return err
 	}
 	if err == path.LcaErrNilNode {
 		return err

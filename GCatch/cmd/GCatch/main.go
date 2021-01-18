@@ -22,6 +22,12 @@ import (
 
 func main() {
 
+	mainStart := time.Now()
+	defer func() {
+		mainDur := time.Since(mainStart)
+		fmt.Println("\n\nTime of main(): seconds", mainDur.Seconds())
+	}()
+
 	pProjectPath := flag.String("path","","Full path of the target project")
 	pRelativePath := flag.String("include","","Relative path (what's after /src/) of the target project")
 	pCheckerName := flag.String("checker", "channel", "the checker to be used, divided by \":\"")
@@ -45,8 +51,9 @@ func main() {
 	intExitPkg := *pExitPkg
 
 	go func(){
-		time.Sleep(time.Duration(config.MAX_SECOND) * time.Second)
-		fmt.Println("The checker has been running for", config.MAX_SECOND,"seconds. Now force exit")
+		time.Sleep(time.Duration(config.MAX_GCATCH_DDL_SECOND) * time.Second)
+		fmt.Println("!!!!")
+		fmt.Println("The checker has been running for", config.MAX_GCATCH_DDL_SECOND,"seconds. Now force exit")
 		os.Exit(1)
 	}()
 
@@ -130,12 +137,13 @@ func main() {
 			continue
 		}
 
-		fmt.Println(wpath.StrPath)
 
 		config.Prog, config.Pkgs, bSucc, errMsg = ssabuild.BuildWholeProgram(wpath.StrPath, false, boolShowCompileError) // Create SSA packages for the whole program including the dependencies.
 		if bSucc {
 			fmt.Println("Successful. Package NO.", index, ":", wpath.StrPath, " Num of Lock & <-:", wpath.NumLock + wpath.NumSend)
 			detect(mapCheckerName)
+			mainDur := time.Since(mainStart)
+			fmt.Println("\n\nTime passed for seconds", mainDur.Seconds())
 		} else {
 			// Step 2.4, Case 2 : building SSA failed; build its children packages
 			fmt.Println("Fail. Package NO.", index, ":", wpath.StrPath, " Num of Lock & <-:", wpath.NumLock + wpath.NumSend, " error:", errMsg)
