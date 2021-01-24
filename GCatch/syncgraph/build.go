@@ -22,12 +22,19 @@ var DependMap map[interface{}]*DPrim
 
 func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker []*instinfo.Locker, DMap map[interface{}]*DPrim) (*SyncGraph, error) {
 
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered in BuildGraph ", r)
+		}
+	}()
+
 	MapMeetCircularDependPrims = make(map[interface{}]struct{})
 
 	DependMap = DMap
 
 	// Before building: add ch into target primitive
-	task := newTask()
+	boolGiveupIfCallgraphIsInaccurate := true// true means if callgraph is inaccurate, we giveup the building. This is consistent with our paper
+	task := newTask(boolGiveupIfCallgraphIsInaccurate)
 	task.Step1AddPrim(ch)
 	err := task.Step2CompletePrims()
 	if err != nil {
@@ -94,6 +101,7 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 		// process the head
 		recursiveCount = 0
 		newGoroutine.HeadNode = ProcessInstGetNode(firstInstOfFn(LCA), newCtx)
+		newGraph.MapFirstNodeOfFn[newGoroutine.HeadNode] = struct{}{}
 	}
 
 	vecHandledUnfinish := []*Unfinish{}
@@ -163,7 +171,9 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 			nextInst := doThis.Site.Callee.Func.Blocks[0].Instrs[0]
 			switch callerNode := doThis.Unfinished.(type) {
 			case *Call:
-				callerNode.Calling[doThis.Site] = ProcessInstGetNode(nextInst, doThis.Ctx)
+				nextNode := ProcessInstGetNode(nextInst, doThis.Ctx)
+				newGraph.MapFirstNodeOfFn[nextNode] = struct{}{}
+				callerNode.Calling[doThis.Site] = nextNode
 				boolNothingLeft := true
 				for _,target := range callerNode.Calling {
 					if target == nil {
@@ -175,7 +185,9 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 					newGraph.NodeStatus[callerNode].Str = Done
 				}
 			case *Go:
-				headOfGoroutine := ProcessInstGetNode(nextInst, doThis.Ctx)
+				nextNode := ProcessInstGetNode(nextInst, doThis.Ctx)
+				newGraph.MapFirstNodeOfFn[nextNode] = struct{}{}
+				headOfGoroutine := nextNode
 				callerNode.MapCreateNodes[doThis.Site] = headOfGoroutine
 				workingGoroutine := callerNode.MapCreateGoroutines[doThis.Site]
 				workingGoroutine.HeadNode = headOfGoroutine
@@ -287,6 +299,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 
 	recursiveCount++
 	if recursiveCount > config.MAX_INST_IN_SYNCGRAPH {
+		fmt.Println("!!!!")
 		fmt.Println("Warning in ProcessInstGetNode: reached MAX_INST_IN_SYNCGRAPH")
 		newEnd := &End{
 			Inst:   targetInst,
@@ -363,10 +376,11 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 	case *ssa.MakeChan:
 		var op instinfo.ChanOp
 
-		ops,ok := instinfo.MapInst2ChanOp[inst] // The slice op can at most have 1 element
+		ops, ok := instinfo.MapInst2ChanOp[inst] // The slice op can at most have 1 element
 		if !ok {
 			fmt.Println("Warning in ProcessInstGetNode: can't find op for a channel make")
 			output.PrintIISrc(inst)
+			panic(1)
 			//op = instinfo.Anytime_make(inst)
 			normal, newStatus := newNormal(inst,ctx)
 
@@ -426,6 +440,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		if len(nextBB.Instrs) == 0 {
 			fmt.Println("Warning in ProcessInstGetNode: a jump's target is an empty bb")
 			output.PrintIISrc(inst)
+			panic(1)
 
 			newStatus := storeGraphInfo(inst,ctx, newJump)
 			newStatus.Str = Done
@@ -476,6 +491,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		if len(thenBB.Instrs) == 0 || len(elseBB.Instrs) == 0 {
 			fmt.Println("Warning in ProcessInstGetNode: a If's target is an empty bb")
 			output.PrintIISrc(inst)
+			panic(1)
 			return nil
 		}
 		thenInst := thenBB.Instrs[0]
@@ -648,6 +664,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		if !ok {
 			fmt.Println("Warning in ProcessInstGetNode: a select has no corresponding OP")
 			output.PrintIISrc(inst)
+			panic(1)
 		}
 
 		// Update task
@@ -670,6 +687,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 				if concrete.CaseIndex == -1 {
 					fmt.Println("Warning in ProcessInstGetNode: a send is not in select, but we are dealing with select inst:")
 					output.PrintIISrc(inst)
+					panic(1)
 					continue
 				}
 				index = concrete.CaseIndex
@@ -677,6 +695,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 				if concrete.CaseIndex == -1 {
 					fmt.Println("Warning in ProcessInstGetNode: a recv is not in select, but we are dealing with select inst:")
 					output.PrintIISrc(inst)
+					panic(1)
 					continue
 				}
 				index = concrete.CaseIndex
@@ -929,6 +948,8 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 
 		return newNormal
 
+		//return ProcessInstGetNode(nextInst(inst), ctx)
+
 	case *ssa.Defer:
 		return ProcessInstGetNode(nextInst(inst),ctx)
 
@@ -968,6 +989,8 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		new_status.Str = Done
 
 		return newNormal
+
+		//return ProcessInstGetNode(nextInst(inst), ctx)
 	}
 }
 
@@ -1007,6 +1030,7 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 			if !ok {
 				fmt.Println("Warning in ProcessInstGetNode: can't find op for a close(chan)")
 				output.PrintIISrc(anInst)
+				panic(1)
 				//chOp = instinfo.Anytime_close(anInst)
 				newNormal, newStatus := newNormal(inst,ctx)
 

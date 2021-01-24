@@ -208,6 +208,12 @@ func WalkGenEdge(node Node, mapHeadOfFn map[Node]bool) {
 	node.SetId(intNextId)
 	intNextId++
 
+	str := node.Instruction().String()
+	if value, ok := node.Instruction().(ssa.Value); ok {
+		str = value.Name() + str
+	}
+	node.SetString(str)
+
 	switch concrete := node.(type) {
 	case *Jump:
 		edge := &NodeEdge{
@@ -741,4 +747,25 @@ func (g *SyncGraph) findUnfinishGoOfMainGoroutine(unfinishes []*Unfinish) *Unfin
 		}
 	}
 	return nil
+}
+
+func isBBSliceEqual(s1, s2 []*ssa.BasicBlock) bool {
+	map1 := make(map[*ssa.BasicBlock]struct{})
+	map2 := make(map[*ssa.BasicBlock]struct{})
+	for _, bb := range s1 {
+		map1[bb] = struct{}{}
+	}
+	for _, bb := range s2 {
+		map2[bb] = struct{}{}
+	}
+	if len(map1) != len(map2) {
+		return false
+	}
+	for bb, _ := range map1 {
+		_, existInMap2 := map2[bb]
+		if existInMap2 == false {
+			return false
+		}
+	}
+	return true
 }

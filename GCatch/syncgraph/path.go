@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"github.com/system-pclub/GCatch/GCatch/analysis"
 	"github.com/system-pclub/GCatch/GCatch/config"
+	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/output"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"strconv"
@@ -34,6 +36,7 @@ type LocalPath struct {
 	Path                   []Node
 	Hash                   string
 	mapNodeEdge2IntVisited map[*NodeEdge]int
+	mapLoopHead2Visited map[Node]int
 	//finished bool
 }
 
@@ -45,6 +48,7 @@ func NewEmptyPath() *LocalPath {
 		Path:                   []Node{},
 		Hash:                   "Empty_path_NO." + strconv.Itoa(intEmptyPathId),
 		mapNodeEdge2IntVisited: nil,
+		mapLoopHead2Visited: nil,
 	}
 }
 
@@ -117,16 +121,20 @@ func deleteNormalFromPath(oldPath *LocalPath) *LocalPath {
 		Path:                   newSlice,
 		Hash:                   hashOfPath(newSlice),
 		mapNodeEdge2IntVisited: copyBackedgeMap(oldPath.mapNodeEdge2IntVisited),
+		mapLoopHead2Visited: copyHeaderMap(oldPath.mapLoopHead2Visited),
 	}
 	oldPath = nil
 	return newLocalPath
 }
 
 func copyLocalPath(old *LocalPath) *LocalPath {
+	newPath := make([]Node, len(old.Path))
+	copy(newPath, old.Path)
 	newLocalPath := &LocalPath{
-		Path:                   copyPathSlice(old.Path),
+		Path:                   newPath,
 		Hash:                   old.Hash,
 		mapNodeEdge2IntVisited: copyBackedgeMap(old.mapNodeEdge2IntVisited),
+		mapLoopHead2Visited: copyHeaderMap(old.mapLoopHead2Visited),
 	}
 	return newLocalPath
 }
@@ -136,7 +144,8 @@ func debugPrintEnumeratedPaths(path_map map[string]*LocalPath) {
 	fmt.Println("In total:", len(path_map))
 	for _,path := range path_map {
 		fmt.Println("-----Path:", count)
-		fmt.Println(path.mapNodeEdge2IntVisited)
+		//fmt.Println(path.mapNodeEdge2IntVisited)
+		fmt.Println(path.mapLoopHead2Visited)
 		count++
 		for i,n := range path.Path {
 			str := TypeMsgForNode(n)
@@ -176,6 +185,14 @@ func copyBackedgeMap(old map[*NodeEdge]int) map[*NodeEdge]int {
 	return n
 }
 
+func copyHeaderMap(old map[Node]int) map[Node]int {
+	n := make(map[Node]int)
+	for key,value := range old {
+		n[key] = value
+	}
+	return n
+}
+
 func copyPathMap(old map[string]*LocalPath) map[string]*LocalPath {
 	n := make(map[string]*LocalPath)
 	for key,value := range old {
@@ -203,7 +220,8 @@ func copyIntSlice(old []int) []int {
 func hashOfPath(node []Node) string {
 	var buffer bytes.Buffer
 	for _,n := range node {
-		buffer.WriteString(strconv.Itoa(n.GetId())+" ")
+		str := n.GetString() + "_"
+		buffer.WriteString(str)
 	}
 	byte_key := buffer.Bytes()
 	hash := sha256.Sum256(byte_key)
@@ -283,8 +301,8 @@ func (g *SyncGraph) SetEnumCfg(unfold int, flagIgnoreNoSyncFn bool, flagIgnoreNo
 	g.EnumerateCfg = cfg
 }
 
-// Enumerate all tuples. A pathCombination: a slice of {one goroutine and one path}. Path can be Not_execute, meaning empty path.
-// Note that the number of goroutine_path may be greater than len(g.Goroutines). If a *Go is visited 3 times, we create 2 extra goroutines
+// Enumerate all path combinations. A pathCombination: a slice of {one goroutine and one path}. Path can be Not_execute, meaning empty path.
+// Note that the number of goroutine_path may be greater than len(g.Goroutines). For example, if a *Go is visited 3 times, we create 3 goroutines
 func (g *SyncGraph) EnumerateAllPathCombinations() {
 
 	g.PathCombinations = []*pathCombination{}
@@ -317,13 +335,15 @@ func (g *SyncGraph) EnumerateAllPathCombinations() {
 	startPathCombination := time.Now()
 
 	for {
-		if len(g.PathCombinations) > 1000 {
+		if len(g.PathCombinations) > config.Max_PATH_ENUMERATE {
+			fmt.Println("!!!!")
 			fmt.Println("EnumerateAllPathCombinations: reached max enumerate number")
 			return
 		}
 
 		since := time.Since(startPathCombination)
-		if since > time.Second *100 {
+		if since > config.MAX_PATH_ENUMERATE_SECOND * time.Second {
+			fmt.Println("!!!!")
 			fmt.Println("EnumerateAllPathCombinations: timeout")
 			return
 		}
@@ -379,7 +399,8 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 	startEnumeAllPaths := time.Now()
 
 	for len(todoFnHeads) > 0 {
-		if time.Since(startEnumeAllPaths) > time.Second * 60 {
+		if time.Since(startEnumeAllPaths) > config.MAX_PATH_ENUMERATE_SECOND * time.Second {
+			fmt.Println("!!!!")
 			fmt.Println("Warning in EnumeratePathWithGoroutineHead: timeout")
 			return nil
 		}
@@ -421,6 +442,7 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 		path                  []Node
 		hash                  string
 		mapVisitedBackedge    map[*NodeEdge]int
+		mapLoopHeadVisited map[Node]int
 		vecUnfinishCallsIndex []int // a list of indexs of *Call Nodes that have callee in caller2paths map,
 		// but the callee's path has not been inserted yet. We must use index instead of Node, because Node can duplicate
 	}
@@ -437,10 +459,13 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 					}
 				}
 
+				newPath := make([]Node, len(path.Path))
+				copy(newPath, path.Path)
 				newUnfinish := unfinishPath{
-					path:                  copyPathSlice(path.Path),
+					path:                  newPath,
 					hash:                  path.Hash,
 					mapVisitedBackedge:    copyBackedgeMap(path.mapNodeEdge2IntVisited),
+					mapLoopHeadVisited: copyHeaderMap(path.mapLoopHead2Visited),
 					vecUnfinishCallsIndex: copyIntSlice(unfinish_calls_index),
 				}
 				worklistPaths = append(worklistPaths, newUnfinish)
@@ -449,7 +474,8 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 	}
 
 	for len(worklistPaths) > 0 {
-		if time.Since(startEnumeAllPaths) > time.Second * 60 {
+		if time.Since(startEnumeAllPaths) > config.MAX_PATH_ENUMERATE_SECOND * time.Second {
+			fmt.Println("!!!!")
 			fmt.Println("Warning in EnumeratePathWithGoroutineHead: timeout")
 			return nil
 		}
@@ -459,6 +485,7 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 				Path:                   thisUnfinish.path,
 				Hash:                   thisUnfinish.hash,
 				mapNodeEdge2IntVisited: thisUnfinish.mapVisitedBackedge,
+				mapLoopHead2Visited: thisUnfinish.mapLoopHeadVisited,
 			}
 			result[thisUnfinish.hash] = newLocalPath
 		}
@@ -507,6 +534,7 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 					combinedBackedgeMap[key] = value
 				}
 
+
 				if len(vecNewUnfinishCallIndexs) == 0 { // no unfinished nodes, this can be added to return value
 
 					newLocalPath := &LocalPath{
@@ -549,25 +577,41 @@ func enumeratePathBreadthFirst(head Node, unfold int, todo_fn_heads map[tupleCal
 		Path:                   head_path,
 		Hash:                   hash_head_path,
 		mapNodeEdge2IntVisited: make(map[*NodeEdge]int),
+		mapLoopHead2Visited: make(map[Node]int),
 	}
 
 	worklist = append(worklist, head_local_path)
 
+	fn := head.Instruction().Parent()
+	loopAnalysis := analysis.NewLoopAnalysis(fn)
+	mapBackedge2Visited := make(map[*analysis.Edge]int)
+	mapLoopHeader2Visited := make(map[*ssa.BasicBlock]int)
+	for _, edge := range loopAnalysis.VecBackedge {
+		mapBackedge2Visited[edge] = 0
+	}
+	for headerBB, _ := range loopAnalysis.MapLoopHead2BodyBB {
+		mapLoopHeader2Visited[headerBB] = 0
+	}
+
 	count := 0
-	//start_path_enume := time.Now()
+	startPathEnume := time.Now()
 
 	for len(worklist) != 0 {
 		count ++
 		if count > config.Max_PATH_ENUMERATE {
-			//fmt.Println("Warning in enumeratePathBreadthFirst: reached max enumerate number")
+			if config.Print_Debug_Info {
+				fmt.Println("!!!!")
+				fmt.Println("Warning in enumeratePathBreadthFirst: reached max enumerate number")
+			}
 			return
 		}
 
 		current_local_path := worklist[0]
-		worklist = removeFromPathWorklist(worklist, current_local_path)
+		worklist = worklist[1:]
 
 		current_path := current_local_path.Path
 		last_node := current_path[len(current_path) - 1]
+
 
 		valid_outs := []*NodeEdge{}
 		for _,out := range last_node.Out() {
@@ -575,12 +619,15 @@ func enumeratePathBreadthFirst(head Node, unfold int, todo_fn_heads map[tupleCal
 				continue
 			}
 			if out.IsCall { // If we encounter call to a Node in another function, add it to todo_list
-				new_caller_callee := tupleCallerCallee{
-					caller: last_node,
-					callee: out.Succ,
+				calleeFn := out.Succ.Instruction().Parent()
+				if _, ok := head.Parent().MapFnOnOpPath[calleeFn]; ok {
+					new_caller_callee := tupleCallerCallee{
+						caller: last_node,
+						callee: out.Succ,
+					}
+					todo_fn_heads[new_caller_callee] = struct{}{}
+					continue
 				}
-				todo_fn_heads[new_caller_callee] = struct{}{}
-				continue
 			}
 			valid_outs = append(valid_outs, out)
 		}
@@ -591,20 +638,64 @@ func enumeratePathBreadthFirst(head Node, unfold int, todo_fn_heads map[tupleCal
 			continue
 		}
 
+		outLoop:
 		for _,out := range valid_outs {
-			//if time.Since(start_path_enume) > time.Second * 20 {
-			//	fmt.Println("Warning in enumeratePathBreadthFirst: timeout")
-			//	return
-			//}
-			new_path := copyPathSlice(current_path)
+			if time.Since(startPathEnume) > config.MAX_PATH_ENUMERATE_SECOND * time.Second {
+				if config.Print_Debug_Info {
+					fmt.Println("Warning in enumeratePathBreadthFirst: timeout")
+					for _, prim := range head.Parent().Task.VecTaskPrimitive {
+						for op, _ := range prim.Ops {
+							if make, ok := op.(*instinfo.ChMake); ok {
+								p := config.Prog.Fset.Position(make.Inst.Pos())
+								fmt.Println(p.Filename + ":" + strconv.Itoa(p.Line))
+								break
+							}
+						}
+					}
+				}
+				
+				return
+			}
+			//new_path := copyPathSlice(current_path)
+			new_path := make([]Node, len(current_path))
+			copy(new_path, current_path)
 			new_path = append(new_path, out.Succ)
 			hash_new_path := hashOfPath(new_path)
 			new_backedge_visited := copyBackedgeMap(current_local_path.mapNodeEdge2IntVisited)
+			newLoopHeaderVisited := copyHeaderMap(current_local_path.mapLoopHead2Visited)
 
+			// update the counter on backedges and loop headers
+
+			// our old implementation
 			if out.IsBackedge {
+				newLoopHeaderVisited[out.Succ]++
+				if newLoopHeaderVisited[out.Succ] > unfold {
+					continue
+				}
 				new_backedge_visited[out]++
 				if new_backedge_visited[out] > unfold {
 					continue
+				}
+			}
+
+			// new implementation
+			// check if BB has changed
+			bbPrev := last_node.Instruction().Block()
+			bbSucc := out.Succ.Instruction().Block()
+			if bbPrev != bbSucc {
+				if _, ok := mapLoopHeader2Visited[bbSucc]; ok {
+					mapLoopHeader2Visited[bbSucc]++
+					if mapLoopHeader2Visited[bbSucc] > unfold {
+						continue
+					}
+				}
+				for backedge, _ := range mapBackedge2Visited {
+					if backedge.Pred == bbPrev && backedge.Succ == bbSucc {
+						mapBackedge2Visited[backedge]++
+						if mapBackedge2Visited[backedge] > unfold {
+							continue outLoop
+						}
+					}
 				}
 			}
 

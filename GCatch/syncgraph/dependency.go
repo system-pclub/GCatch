@@ -27,6 +27,8 @@ type DEdge struct {
 func GenDMap(vecChan []*instinfo.Channel, vecLocker []*instinfo.Locker) (DMap map[interface{}]*DPrim) {
 	DMap = make(map[interface{}]*DPrim)
 
+	return
+
 	// Store primitives that have blocking operation in a function
 	Fn2Prims := make(map[*ssa.Function]map[*DPrim]struct{})
 
@@ -83,7 +85,7 @@ func GenDMap(vecChan []*instinfo.Channel, vecLocker []*instinfo.Locker) (DMap ma
 	// Current implementation is conservative: only when the len(potention_Bs) == 1, will A inherits B's primitives
 	intCountRecursive := 0
 	boolDMapUpdated := true
-	for boolDMapUpdated && intCountRecursive < config.MAX_LCA_LAYER {
+	for boolDMapUpdated && intCountRecursive < 7{
 		boolDMapUpdated = false
 		intCountRecursive++
 
@@ -142,7 +144,7 @@ func GenDMap(vecChan []*instinfo.Channel, vecLocker []*instinfo.Locker) (DMap ma
 			}
 			vecAllOpInst = append(vecAllOpInst, op.Instr())
 		}
-		mapLCA2Chains, err := path.FindLCA(util.VecFnForVecInst(vecAllOpInst), config.MAX_LCA_LAYER)
+		mapLCA2Chains, err := path.FindLCA(util.VecFnForVecInst(vecAllOpInst), false,true, 7)
 		if err != nil {
 			continue
 		}
