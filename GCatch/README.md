@@ -4,59 +4,13 @@
 
 A static checker that takes Golang source code as input and detects concurrency bugs in source code.
 
-2. How to run GCatch?
+2. How to install and run GCatch?
 
-- You can execute run.sh to run GCatch on a buggy version of grpc in testdata/grpc-buggy
+- run "sudo installZ3.sh" to install Z3
 
-- Open terminal, and use the following commands to install GCatch:
-  - mkdir newdir
-  - cd newdir
-  - export GOPATH=`pwd`
-  - mkdir -p src/github.com/system-pclub
-  - git clone git@github.com:system-pclub/GCatch.git
-  - cd ./GCatch/GCatch/cmd/GCatch
-  - go install
+- run "install.sh" to install GCatch
 
-  
-- Then use the following commands to install Z3, if it hasn't been installed
-  - cd $GOPATH/src/github.com/system-pclub/GCatch/GCatch/tools/z3
-  - python scripts/mk_make.py
-  - cd build
-  - make
-  - sudo make install
-  - // If you want Z3 to be installed to a non-default location, please check https://github.com/Z3Prover/z3/blob/master/README.md and https://github.com/aclements/go-z3
-
-- The following commands are used to run GCatch:
-  - cd $GOPATH/bin
-  - export GOPATH=/GOPATH/of/the/application/to/be/scanned
-  - ./GCatch $PARAMETERS
-
-- Required $PARAMETERS:
-  - -path=...  
-    - Full path of the application you want to scan. This should be the path of the directory that contains all packages in your project.
-  - -include=... 
-    - Relative path (what's after /src/) of the application you want to scan.
-  - -checker=...
-    - The checkers you want to run, divided by ":"
-    - Default value: "BMOC"
-
-- Commonly used $PARAMETERS:
-  - -r
-    - After the package typed in "-path" is checked, check its child packages recursively
-  - -compile-error
-    - If the project has compile errors, print these compilation errors
-  - -exclude=...
-    - Name of directories that you want to ignore, divided by ":"
-    - Default value: "vendor"
-  
-
-Example:
-If I want to check bugs in the grpc in testdata, I will run the following commands: 
-- cd $GOPATH/bin
-- export GOPATH=$GOPATH/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy
-- ./GCatch -path=$GOPATH/src/google.golang.org/grpc -include=google.golang.org/grpc -checker=BMOC -r
-
-You should be able to see 5 bugs with 173 checked channels. All of them are real bugs.
+- run "run.sh" to run GCatch on testdata/grpc-buggy
 
 3. What are the checkers in GCatch?
 
