@@ -37,3 +37,8 @@ After the installation, you can run the `run.sh` script to execute GCatch on a b
 12. Directory `tools` contains copies of external packages. 
 
 13. Directory `util` contains utility code shared by different components of GCatch. 
+
+Please refer to the demonstration scripts to figure out how to use GCatch’s code. 
+
+
+[1] Ziheng Liu, Shuofei Zhu, Boqin Qin, Hao Chen and Linhai Song. “Automatically Detecting and Fixing Concurrency Bugs in Go Software Systems.” In ASPLOS’2020. 
