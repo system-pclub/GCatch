@@ -1,54 +1,44 @@
-# What is GCatch and how to use it
+# GCatch: Automatically Detecting Concurrency Bugs in Go
 
-1. What is GCatch?
+## Descriptions
 
-A static checker that takes Golang source code as input and detects concurrency bugs in source code.
+GCatch contains a suite of static detectors aiming to identify concurrency bugs in large, real Go software systems. Concurrency bugs covered by the current version of GCatch include blocking misuse-of-channel (BMOC) bugs, deadlocks caused by misuse of mutexes (\eg, lock-with-unlock, double lock), races on struct fields, and races due to errors when using the testing package. The technical details of GCatch are presented in Section 3 of our ASPLOS paper [1]. 
 
-2. How to install and run GCatch?
+## Installation and Demonstration
 
-- run "sudo installZ3.sh" to install Z3
+GCatch leverages Z3 for constraint solving. If you have already installed Z3, you can use the `install.sh` script is to install GCatch. You can also install Z3 together with GCatch using the `installZ3.sh` script. 
 
-- run "install.sh" to install GCatch
+After the installation, you can run the `run.sh` script to execute GCatch on a buggy version of gRPC. 
 
-- run "run.sh" to run GCatch on testdata/grpc-buggy
+## Directories
 
-3. What are the checkers in GCatch?
+1. Directory `analysis` contains static analysis routines shared by multiple checkers (e.g., computing post-dominator). 
 
-  - Forget Unlock
-    - When a function returns, if there are any Mutex or RWMutex that are previously locked in the same function but not unlocked, report a bug.
-  - Struct Field
-    - If a field of a structure is often protected by a Mutex/RWMutex, but there are a few times that it is not protected, it is likely that the programmer forgot to use a mutex. Report a bug and show all usages of this field.
-  - Double Lock
-    - When a Mutex/RWMutex is locked in one function, and before it is unlocked, some other functions are called and the Mutex/RWMutex is locked again, report a bug.
-  - Conflict Lock
-    - Consider two Mutex/RWMutex m1 and m2. When one goroutine runs m1.Lock() and m2.Lock(), and another goroutine runs m2.Lock() and then m1.Lock(), report a bug.
-  - BMOC
-    - When a channel operation blocks forever, report a bug.
-  - Fatal
-    - If a testing function creates a goroutine that calls testing.Fatal()/FailNow()/Skip()/SkipNow(), report a bug.
+2. Directory `checkers` contains code for implementing the checking functionalities.
 
-# Introduction of each package
+3. Directory `cmd` is the entry point of GCatch.
 
-1. cmd contains the main() function of GCatch. When you want to install GCatch, you need to set GOPATH to this repo, open cmd/GCatch, and run `go install`
+4. Directory `config` contains configuration files of GCatch. 
 
-2. analysis contains post-dominator analysis and code to analyze the results of pointer analysis
+5. Directory `instinfo` contains code for analyzing Go SSA instructions. 
 
-3. checkers contains the code to run each checker. The main() function will invoke checkers in this package
+6. Directory `output` contains code for printing the detection results. 
 
-4. config contains the configure variables, global variables
+7. Directory `path` contains code for computation conducted on CFG.
 
-5. instoinfo contains the definition of synchronization primitives, including channels and mutexes (named locker in GCatch)
+8. Directory `ssabuild` contains code for transforming input programs into SSA. 
 
-6. output contains usaful functions to print to terminal
+9. Directory `syncgraph` contains code for interaction with call graph, alias analysis, and Z3. 
 
-7. path contains some CFG analysis
+10. Directory `testdata` contains a buggy version of gRPC. 
 
-8. ssabuild contains the code to build the AST and SSA from the input program
+11. Directory `tests` contains toy programs to test traditional checkers. 
 
-9. syncgraph is the core of BMOC checker. It contains a definition of SyncGraph, a data structure that records all the CFG, callgraph, dependency and alias information we need to detect a BMOC bug. It also contains the code to generate Z3 constraints and invoke Z3.
+12. Directory `tools` contains copies of external packages. 
 
-10. tests contains some functions used to test if traditional checkers work well
+13. Directory `util` contains utility code shared by different components of GCatch. 
 
-11. tools are copied vendor packages like golang.org/x/tools, because we want to maintain our own copies of them.
+Please refer to the demonstration scripts to figure out how to use GCatch’s code. 
 
-12. util contains some functions used by all other packages
+
+[1] Ziheng Liu, Shuofei Zhu, Boqin Qin, Hao Chen and Linhai Song. “Automatically Detecting and Fixing Concurrency Bugs in Go Software Systems.” In ASPLOS’2020. 
