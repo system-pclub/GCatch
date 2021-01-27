@@ -15,3 +15,9 @@ const DISABLE_OPTIMIZATION_CALLEES = false // If set to false, we won't enter ev
 const POINTER_CONSIDER_REFLECTION = false
 // flag constants
 const ConstPrintDeferMap = "print-defer-map"
+
+// Parameters used to tune only the checkers/structfield checker
+const STRUCT_MIN_TIME_OF_USAGE = 4
+const STRUCT_RATIO float32 = 0.75
+const STRUCT_FP_RATIO float32 = 0.5
+const STRUCT_FP_LAYER int = 3

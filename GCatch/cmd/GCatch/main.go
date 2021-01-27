@@ -92,6 +92,8 @@ func main() {
 		case "unlock": forgetunlock.Initialize()
 		case "double": doublelock.Initialize()
 		case "conflict":
+		case "structfield":
+		case "fatal":
 		case "BMOC": // no need to initialize this checker
 		}
 	}
