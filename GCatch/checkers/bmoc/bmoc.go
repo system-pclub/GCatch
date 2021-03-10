@@ -72,8 +72,9 @@ func CheckCh(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker []*
 
 	syncGraph, err := syncgraph.BuildGraph(ch, vecChannel, vecLocker, mapDependency)
 	if err != nil { // Met some error
-		//fmt.Println(err)
-		fmt.Println("-----count_ch:", countCh)
+		if config.Print_Debug_Info {
+			fmt.Println("-----count_ch:", countCh)
+		}
 		return
 	}
 
@@ -95,9 +96,12 @@ func CheckCh(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker []*
 				countBufferBug++
 			}
 		}
-		fmt.Println("-----count_unbuffer_bug:", countUnbufferBug,"---buffer_bug:", countBufferBug)
+		if config.Print_Debug_Info {
+			fmt.Println("-----count_unbuffer_bug:", countUnbufferBug,"---buffer_bug:", countBufferBug)
+		}
 	}
-
-	fmt.Println("-----count_ch:", countCh)
+	if config.Print_Debug_Info {
+		fmt.Println("-----count_ch:", countCh)
+	}
 	return
 }

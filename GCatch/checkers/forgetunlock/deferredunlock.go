@@ -1,13 +1,13 @@
 package forgetunlock
 
 import (
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
+	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 )
 
-func SearchDeferredUnlock(inputInst ssa.Instruction) [] string {
+func SearchDeferredUnlock(inputInst ssa.Instruction) []string {
 
-	mapResults :=  make(map[string] bool)
+	mapResults := make(map[string]bool)
 
 	for _, inst := range inputInst.Block().Instrs {
 		if inst == inputInst {
@@ -20,12 +20,12 @@ func SearchDeferredUnlock(inputInst ssa.Instruction) [] string {
 			strMutexName := instinfo.GetMutexName(inst)
 			_, ok := mapResults[strMutexName]
 
-			if ! ok {
+			if !ok {
 				mapResults[strMutexName] = true
 			}
 		} else if instinfo.IsDefer(inst) {
 			flag := false
-			var closure * ssa.MakeClosure
+			var closure *ssa.MakeClosure
 			var ok1 bool
 
 			for _, op := range inst.Operands(nil) {
@@ -37,13 +37,13 @@ func SearchDeferredUnlock(inputInst ssa.Instruction) [] string {
 				}
 			}
 
-			if ! flag {
+			if !flag {
 				continue
 			}
 
 			closureFN, ok := closure.Fn.(*ssa.Function)
 
-			if ! ok {
+			if !ok {
 				continue
 			}
 
@@ -54,7 +54,7 @@ func SearchDeferredUnlock(inputInst ssa.Instruction) [] string {
 						continue
 					}
 
-					if ! call.Call.IsInvoke() {
+					if !call.Call.IsInvoke() {
 						if call.Call.Value.Name() != "Unlock" {
 							continue
 						}
@@ -78,9 +78,8 @@ func SearchDeferredUnlock(inputInst ssa.Instruction) [] string {
 
 	}
 
-	visitedBB := make(map[* ssa.BasicBlock] bool)
+	visitedBB := make(map[*ssa.BasicBlock]bool)
 	visitedBB[inputInst.Block()] = true
-
 
 	for _, prev := range inputInst.Block().Preds {
 		_, ok := visitedBB[prev]
@@ -100,7 +99,7 @@ func SearchDeferredUnlock(inputInst ssa.Instruction) [] string {
 	return results
 }
 
-func searchDeferredUnlockBB(mapResults map[string]bool, visitedBB map[*ssa.BasicBlock] bool, BB * ssa.BasicBlock) {
+func searchDeferredUnlockBB(mapResults map[string]bool, visitedBB map[*ssa.BasicBlock]bool, BB *ssa.BasicBlock) {
 	for _, inst := range BB.Instrs {
 		strInst := inst.String()
 
@@ -108,7 +107,7 @@ func searchDeferredUnlockBB(mapResults map[string]bool, visitedBB map[*ssa.Basic
 			strMutexName := instinfo.GetMutexName(inst)
 			_, ok := mapResults[strMutexName]
 
-			if ! ok {
+			if !ok {
 				mapResults[strMutexName] = true
 			}
 		} else if instinfo.IsDefer(inst) {
@@ -125,13 +124,13 @@ func searchDeferredUnlockBB(mapResults map[string]bool, visitedBB map[*ssa.Basic
 				}
 			}
 
-			if ! flag {
+			if !flag {
 				continue
 			}
 
 			closureFN, ok := closure.Fn.(*ssa.Function)
 
-			if ! ok {
+			if !ok {
 				continue
 			}
 
@@ -142,7 +141,7 @@ func searchDeferredUnlockBB(mapResults map[string]bool, visitedBB map[*ssa.Basic
 						continue
 					}
 
-					if ! call.Call.IsInvoke() {
+					if !call.Call.IsInvoke() {
 						if call.Call.Value.Name() != "Unlock" {
 							continue
 						}

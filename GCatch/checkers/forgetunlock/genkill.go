@@ -6,12 +6,12 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/util"
 )
 
-var mapGen map[ssa.Instruction] string
-var mapKill map[ssa.Instruction] string
-var mapBefore map[ssa.Instruction] map[string] bool
-var mapAfter map[ssa.Instruction] map[string] bool
+var mapGen map[ssa.Instruction]string
+var mapKill map[ssa.Instruction]string
+var mapBefore map[ssa.Instruction]map[string]bool
+var mapAfter map[ssa.Instruction]map[string]bool
 
-func CompareTwoMaps(map1 map[string] bool, map2 map[string] bool) bool {
+func CompareTwoMaps(map1 map[string]bool, map2 map[string]bool) bool {
 	if len(map1) != len(map2) {
 		return false
 	}
@@ -25,14 +25,11 @@ func CompareTwoMaps(map1 map[string] bool, map2 map[string] bool) bool {
 	return true
 }
 
-func GetLiveMutex(inputInst ssa.Instruction) map[string] bool {
+func GetLiveMutex(inputInst ssa.Instruction) map[string]bool {
 	return mapBefore[inputInst]
 }
 
-
-
-
-func InitGenKillMap(inputFn * ssa.Function) {
+func InitGenKillMap(inputFn *ssa.Function) {
 	for _, bb := range inputFn.Blocks {
 		for _, ii := range bb.Instrs {
 			if instinfo.IsDefer(ii) {
@@ -68,23 +65,23 @@ func InitGenKillMap(inputFn * ssa.Function) {
 	}
 }
 
-func InitBeforeAfterMap(inputFn * ssa.Function) {
+func InitBeforeAfterMap(inputFn *ssa.Function) {
 	for _, bb := range inputFn.Blocks {
 		for _, ii := range bb.Instrs {
-			s1 := make(map[string] bool)
+			s1 := make(map[string]bool)
 			mapBefore[ii] = s1
-			s2 := make(map[string] bool)
+			s2 := make(map[string]bool)
 			mapAfter[ii] = s2
 		}
 	}
 
 }
 
-func GenKillAnalysis(inputFn * ssa.Function) {
-	mapGen = make(map[ssa.Instruction] string)
-	mapKill = make(map[ssa.Instruction] string)
-	mapBefore = make(map[ssa.Instruction] map[string] bool)
-	mapAfter = make(map[ssa.Instruction] map[string] bool)
+func GenKillAnalysis(inputFn *ssa.Function) {
+	mapGen = make(map[ssa.Instruction]string)
+	mapKill = make(map[ssa.Instruction]string)
+	mapBefore = make(map[ssa.Instruction]map[string]bool)
+	mapAfter = make(map[ssa.Instruction]map[string]bool)
 
 	InitGenKillMap(inputFn)
 
@@ -94,7 +91,7 @@ func GenKillAnalysis(inputFn * ssa.Function) {
 
 	InitBeforeAfterMap(inputFn)
 
-	vecWorkList := make([] ssa.Instruction, 0)
+	vecWorkList := make([]ssa.Instruction, 0)
 
 	for _, bb := range inputFn.Blocks {
 		for _, ii := range bb.Instrs {
@@ -108,7 +105,7 @@ func GenKillAnalysis(inputFn * ssa.Function) {
 
 		prevIIs := util.GetPrevInsts(ii)
 
-		newBefore := make(map[string] bool)
+		newBefore := make(map[string]bool)
 
 		for _, prevII := range prevIIs {
 			for strMutexName, _ := range mapAfter[prevII] {
@@ -118,12 +115,11 @@ func GenKillAnalysis(inputFn * ssa.Function) {
 
 		//mapBefore[ii] = newBefore
 
-		mapBefore[ii] = make(map[string] bool)
+		mapBefore[ii] = make(map[string]bool)
 
 		for i, _ := range newBefore {
 			mapBefore[ii][i] = true
 		}
-
 
 		if strMutexName, ok := mapGen[ii]; ok {
 			newBefore[strMutexName] = true

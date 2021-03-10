@@ -6,10 +6,10 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/util"
 )
 
-var mapGen map[ssa.Instruction] * StLockingOp
-var mapKill map[ssa.Instruction] * StUnlockingOp
-var mapBefore map[ssa.Instruction] map[* StLockingOp] bool
-var mapAfter map[ssa.Instruction] map[* StLockingOp] bool
+var mapGen map[ssa.Instruction]*StLockingOp
+var mapKill map[ssa.Instruction]*StUnlockingOp
+var mapBefore map[ssa.Instruction]map[*StLockingOp]bool
+var mapAfter map[ssa.Instruction]map[*StLockingOp]bool
 
 func printMapBefore() {
 
@@ -42,8 +42,7 @@ func printMapGen() {
 	}
 }
 
-
-func CompareTwoMaps(map1 map[* StLockingOp] bool, map2 map[* StLockingOp] bool) bool {
+func CompareTwoMaps(map1 map[*StLockingOp]bool, map2 map[*StLockingOp]bool) bool {
 	if len(map1) != len(map2) {
 		return false
 	}
@@ -57,8 +56,8 @@ func CompareTwoMaps(map1 map[* StLockingOp] bool, map2 map[* StLockingOp] bool) 
 	return true
 }
 
-func GetLiveMutex(inputInst ssa.Instruction) map[* StLockingOp] bool {
-	mapReturn := make(map[* StLockingOp] bool)
+func GetLiveMutex(inputInst ssa.Instruction) map[*StLockingOp]bool {
+	mapReturn := make(map[*StLockingOp]bool)
 
 	for op, _ := range mapBefore[inputInst] {
 		mapReturn[op] = true
@@ -67,10 +66,10 @@ func GetLiveMutex(inputInst ssa.Instruction) map[* StLockingOp] bool {
 	return mapReturn
 }
 
-func InitGenKillMap(inputFn * ssa.Function) {
+func InitGenKillMap(inputFn *ssa.Function) {
 
-	mapGen = make(map[ssa.Instruction] * StLockingOp)
-	mapKill = make(map[ssa.Instruction] * StUnlockingOp)
+	mapGen = make(map[ssa.Instruction]*StLockingOp)
+	mapKill = make(map[ssa.Instruction]*StUnlockingOp)
 
 	for _, bb := range inputFn.Blocks {
 		for _, ii := range bb.Instrs {
@@ -85,12 +84,12 @@ func InitGenKillMap(inputFn * ssa.Function) {
 	}
 }
 
-func InitBeforeAfterMap(inputFn * ssa.Function, contextLock map[* StLockingOp] bool) {
+func InitBeforeAfterMap(inputFn *ssa.Function, contextLock map[*StLockingOp]bool) {
 	for _, bb := range inputFn.Blocks {
 		for _, ii := range bb.Instrs {
-			m1 := make(map[* StLockingOp] bool)
+			m1 := make(map[*StLockingOp]bool)
 			mapBefore[ii] = m1
-			m2 := make(map[* StLockingOp] bool)
+			m2 := make(map[*StLockingOp]bool)
 			mapAfter[ii] = m2
 		}
 	}
@@ -106,14 +105,14 @@ func InitBeforeAfterMap(inputFn * ssa.Function, contextLock map[* StLockingOp] b
 	}
 }
 
-func UnionGenSet(newbefore map[* StLockingOp] bool, pLocking * StLockingOp) * StDoubleLock {
+func UnionGenSet(newbefore map[*StLockingOp]bool, pLocking *StLockingOp) *StDoubleLock {
 
 	//fmt.Println("inside union gen")
 
 	for l, _ := range newbefore {
 
 		if l.Parent == pLocking.Parent { // try alias analysis here
-			bug := & StDoubleLock{
+			bug := &StDoubleLock{
 				PLock1: l,
 				PLock2: pLocking,
 			}
@@ -128,7 +127,7 @@ func UnionGenSet(newbefore map[* StLockingOp] bool, pLocking * StLockingOp) * St
 	return nil
 }
 
-func KillKillSet(newbefore map[* StLockingOp] bool, pUnlocking * StUnlockingOp) {
+func KillKillSet(newbefore map[*StLockingOp]bool, pUnlocking *StUnlockingOp) {
 	for l, _ := range newbefore {
 		if l.Parent == pUnlocking.Parent {
 			delete(newbefore, l)
@@ -137,17 +136,16 @@ func KillKillSet(newbefore map[* StLockingOp] bool, pUnlocking * StUnlockingOp) 
 	}
 }
 
-
-func GenKillAnalysis(inputFn * ssa.Function, contextLock map[* StLockingOp] bool) [] * StDoubleLock {
+func GenKillAnalysis(inputFn *ssa.Function, contextLock map[*StLockingOp]bool) []*StDoubleLock {
 
 	//fmt.Println(inputFn.Name(), len(contextLock))
 
-	mapGen = make(map[ssa.Instruction] * StLockingOp)
-	mapKill = make(map[ssa.Instruction] * StUnlockingOp)
-	mapBefore = make(map[ssa.Instruction] map[* StLockingOp] bool)
-	mapAfter = make(map[ssa.Instruction] map[* StLockingOp] bool)
+	mapGen = make(map[ssa.Instruction]*StLockingOp)
+	mapKill = make(map[ssa.Instruction]*StUnlockingOp)
+	mapBefore = make(map[ssa.Instruction]map[*StLockingOp]bool)
+	mapAfter = make(map[ssa.Instruction]map[*StLockingOp]bool)
 
-	bugs := make([] * StDoubleLock, 0)
+	bugs := make([]*StDoubleLock, 0)
 
 	InitGenKillMap(inputFn)
 
@@ -155,13 +153,11 @@ func GenKillAnalysis(inputFn * ssa.Function, contextLock map[* StLockingOp] bool
 		return bugs
 	}
 
-
 	InitBeforeAfterMap(inputFn, contextLock)
 
 	//printMapBefore()
 
-
-	vecWorkList := make([] ssa.Instruction, 0)
+	vecWorkList := make([]ssa.Instruction, 0)
 
 	for _, bb := range inputFn.Blocks {
 		for _, ii := range bb.Instrs {
@@ -175,7 +171,7 @@ func GenKillAnalysis(inputFn * ssa.Function, contextLock map[* StLockingOp] bool
 
 		prevIIs := util.GetPrevInsts(ii)
 
-		newBefore := make(map[* StLockingOp] bool)
+		newBefore := make(map[*StLockingOp]bool)
 
 		if len(prevIIs) > 0 {
 			for _, prevII := range prevIIs {
@@ -209,8 +205,6 @@ func GenKillAnalysis(inputFn * ssa.Function, contextLock map[* StLockingOp] bool
 		if op, ok := mapKill[ii]; ok {
 			KillKillSet(newBefore, op)
 		}
-
-
 
 		//if op, ok := mapGen[ii]; ok {
 		//	newBefore[op] = true

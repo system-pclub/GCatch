@@ -14,17 +14,14 @@ import (
 	"strings"
 )
 
-
 type stCond struct {
 	Cond ssa.Value
 	Flag bool
 }
 
-
-
-var FNOnlyContainUnlock map[string] string
-var Bugs [] ssa.Instruction
-var AnalyzedFNs map[string] bool
+var FNOnlyContainUnlock map[string]string
+var Bugs []ssa.Instruction
+var AnalyzedFNs map[string]bool
 
 var numFunction int
 
@@ -39,16 +36,14 @@ func strInsensitiveContains(s, substr string) bool {
 }
 
 func Initialize() {
-	FNOnlyContainUnlock = make(map[string] string)
-	AnalyzedFNs = make(map[string] bool)
-	Bugs = [] ssa.Instruction{}
+	FNOnlyContainUnlock = make(map[string]string)
+	AnalyzedFNs = make(map[string]bool)
+	Bugs = []ssa.Instruction{}
 }
 
+func collectDominator(inputBB *ssa.BasicBlock) map[*ssa.BasicBlock]bool {
 
-
-func collectDominator(inputBB * ssa.BasicBlock) map[* ssa.BasicBlock] bool {
-
-	mapDominators := make(map[* ssa.BasicBlock] bool)
+	mapDominators := make(map[*ssa.BasicBlock]bool)
 
 	for _, bb := range inputBB.Parent().Blocks {
 		if bb.Dominates(inputBB) {
@@ -59,8 +54,8 @@ func collectDominator(inputBB * ssa.BasicBlock) map[* ssa.BasicBlock] bool {
 	return mapDominators
 }
 
-func compDominatorIntersection(m1 map[* ssa.BasicBlock] bool, m2 map[* ssa.BasicBlock] bool)  map[ * ssa.BasicBlock] bool {
-	mapIntersection := make(map[*ssa.BasicBlock] bool)
+func compDominatorIntersection(m1 map[*ssa.BasicBlock]bool, m2 map[*ssa.BasicBlock]bool) map[*ssa.BasicBlock]bool {
+	mapIntersection := make(map[*ssa.BasicBlock]bool)
 
 	for bb, _ := range m1 {
 		if _, ok := m2[bb]; ok {
@@ -71,8 +66,7 @@ func compDominatorIntersection(m1 map[* ssa.BasicBlock] bool, m2 map[* ssa.Basic
 	return mapIntersection
 }
 
-
-func getLowestDominator(m map[* ssa.BasicBlock] bool) * ssa.BasicBlock {
+func getLowestDominator(m map[*ssa.BasicBlock]bool) *ssa.BasicBlock {
 
 	for bb1, _ := range m {
 		flag := true
@@ -95,23 +89,21 @@ func getLowestDominator(m map[* ssa.BasicBlock] bool) * ssa.BasicBlock {
 	return nil
 }
 
-func getShortestPath(b1 *ssa.BasicBlock, b2 *ssa.BasicBlock) [] * ssa.BasicBlock {
+func getShortestPath(b1 *ssa.BasicBlock, b2 *ssa.BasicBlock) []*ssa.BasicBlock {
 
-	mapWorkList := make(map[* ssa.BasicBlock] [] * ssa.BasicBlock)
-	bbVisited := make(map[* ssa.BasicBlock] bool)
+	mapWorkList := make(map[*ssa.BasicBlock][]*ssa.BasicBlock)
+	bbVisited := make(map[*ssa.BasicBlock]bool)
 
-	mapWorkList[b1] = []*ssa.BasicBlock {b1}
+	mapWorkList[b1] = []*ssa.BasicBlock{b1}
 
 	if b1 == b2 {
 		return mapWorkList[b1]
 	}
 
-
-
 	bbVisited[b1] = true
 
 	for len(mapWorkList) > 0 {
-		mapWorkList2 := make(map[* ssa.BasicBlock] [] * ssa.BasicBlock )
+		mapWorkList2 := make(map[*ssa.BasicBlock][]*ssa.BasicBlock)
 
 		for bb, path := range mapWorkList {
 			for _, succ := range bb.Succs {
@@ -132,11 +124,11 @@ func getShortestPath(b1 *ssa.BasicBlock, b2 *ssa.BasicBlock) [] * ssa.BasicBlock
 		mapWorkList = mapWorkList2
 	}
 
-	return [] * ssa.BasicBlock {}
+	return []*ssa.BasicBlock{}
 
 }
 
-func printPath(p []* ssa.BasicBlock) {
+func printPath(p []*ssa.BasicBlock) {
 
 	for _, bb := range p[:len(p)-1] {
 		fmt.Print(bb.Index, "->")
@@ -146,15 +138,14 @@ func printPath(p []* ssa.BasicBlock) {
 
 }
 
+func generatePathConditions(vecPath []*ssa.BasicBlock, pd *analysis.PostDominator) []stCond {
 
-func generatePathConditions(vecPath [] * ssa.BasicBlock, pd * analysis.PostDominator) [] stCond {
-
-	vecKeep := [] bool {}
+	vecKeep := []bool{}
 	index := 0
 
 	for index < len(vecPath) {
 		vecKeep = append(vecKeep, true)
-		index ++
+		index++
 	}
 
 	ii := len(vecPath) - 1
@@ -169,20 +160,20 @@ func generatePathConditions(vecPath [] * ssa.BasicBlock, pd * analysis.PostDomin
 				break
 			}
 
-			jj --
+			jj--
 		}
 
 		ii = jj
 
 	}
 
-	vecPathConds := [] stCond {}
+	vecPathConds := []stCond{}
 
 	index = 0
 
-	for index < len(vecPath) - 1 {
+	for index < len(vecPath)-1 {
 		if vecKeep[index] {
-			iiLast := vecPath[index].Instrs[len(vecPath[index].Instrs) -1]
+			iiLast := vecPath[index].Instrs[len(vecPath[index].Instrs)-1]
 			iiIF, ok := iiLast.(*ssa.If)
 			if ok {
 				var newCond stCond
@@ -197,55 +188,55 @@ func generatePathConditions(vecPath [] * ssa.BasicBlock, pd * analysis.PostDomin
 				vecPathConds = append(vecPathConds, newCond)
 			}
 		}
-		index ++
+		index++
 	}
 
 	return vecPathConds
 }
 
-func collectUnlockedMutex(fn * ssa.Function, pd * analysis.PostDominator) map[string] bool {
+func collectUnlockedMutex(fn *ssa.Function, pd *analysis.PostDominator) map[string]bool {
 
-	mapResult := make(map[string] bool)
+	mapResult := make(map[string]bool)
 
-	mapLockingOperation := make(map[string] map[ssa.Instruction] bool)
-	mapUnlockingOperation := make(map[string] map[ssa.Instruction] bool)
+	mapLockingOperation := make(map[string]map[ssa.Instruction]bool)
+	mapUnlockingOperation := make(map[string]map[ssa.Instruction]bool)
 
 	for _, bb := range fn.Blocks {
 		for _, ii := range bb.Instrs {
 			if instinfo.IsMutexLock(ii) {
 				strMutexName := instinfo.GetMutexName(ii) + "_mutex"
 				if _, ok := mapLockingOperation[strMutexName]; !ok {
-					mapLockingOperation[strMutexName] = make(map[ssa.Instruction] bool)
+					mapLockingOperation[strMutexName] = make(map[ssa.Instruction]bool)
 				}
 				mapLockingOperation[strMutexName][ii] = true
 			} else if instinfo.IsRwmutexLock(ii) {
 				strMutexName := instinfo.GetMutexName(ii) + "_rwmutexW"
 				if _, ok := mapLockingOperation[strMutexName]; !ok {
-					mapLockingOperation[strMutexName] = make(map[ssa.Instruction] bool)
+					mapLockingOperation[strMutexName] = make(map[ssa.Instruction]bool)
 				}
 				mapLockingOperation[strMutexName][ii] = true
 			} else if instinfo.IsRwmutexRlock(ii) {
 				strMutexName := instinfo.GetMutexName(ii) + "_rwmutexR"
 				if _, ok := mapLockingOperation[strMutexName]; !ok {
-					mapLockingOperation[strMutexName] = make(map[ssa.Instruction] bool)
+					mapLockingOperation[strMutexName] = make(map[ssa.Instruction]bool)
 				}
 				mapLockingOperation[strMutexName][ii] = true
 			} else if instinfo.IsMutexUnlock(ii) {
 				strMutexName := instinfo.GetMutexName(ii) + "_mutex"
 				if _, ok := mapUnlockingOperation[strMutexName]; !ok {
-					mapUnlockingOperation[strMutexName] = make(map[ssa.Instruction] bool)
+					mapUnlockingOperation[strMutexName] = make(map[ssa.Instruction]bool)
 				}
 				mapUnlockingOperation[strMutexName][ii] = true
 			} else if instinfo.IsRwmutexUnlock(ii) {
 				strMutexName := instinfo.GetMutexName(ii) + "_rwmutexW"
 				if _, ok := mapUnlockingOperation[strMutexName]; !ok {
-					mapUnlockingOperation[strMutexName] = make(map[ssa.Instruction] bool)
+					mapUnlockingOperation[strMutexName] = make(map[ssa.Instruction]bool)
 				}
 				mapUnlockingOperation[strMutexName][ii] = true
 			} else if instinfo.IsRwmutexRunlock(ii) {
 				strMutexName := instinfo.GetMutexName(ii) + "_rwmutexR"
 				if _, ok := mapUnlockingOperation[strMutexName]; !ok {
-					mapUnlockingOperation[strMutexName] = make(map[ssa.Instruction] bool)
+					mapUnlockingOperation[strMutexName] = make(map[ssa.Instruction]bool)
 				}
 				mapUnlockingOperation[strMutexName][ii] = true
 			}
@@ -274,7 +265,7 @@ func collectUnlockedMutex(fn * ssa.Function, pd * analysis.PostDominator) map[st
 			bbLocking = ii.Block()
 		}
 
-		var bbUnlocking * ssa.BasicBlock
+		var bbUnlocking *ssa.BasicBlock
 		for ii, _ := range mapUnlockingOp {
 			bbUnlocking = ii.Block()
 		}
@@ -307,7 +298,7 @@ func collectUnlockedMutex(fn * ssa.Function, pd * analysis.PostDominator) map[st
 
 		//fn.WriteTo(os.Stdout)
 
-		if len(vecCond1) != len(vecCond2)  {
+		if len(vecCond1) != len(vecCond2) {
 			continue
 		}
 
@@ -329,7 +320,6 @@ func collectUnlockedMutex(fn * ssa.Function, pd * analysis.PostDominator) map[st
 
 	return mapResult
 }
-
 
 func IsDominatedbyShutdown(inputInst ssa.Instruction) bool {
 	for _, bb := range inputInst.Parent().Blocks {
@@ -360,7 +350,7 @@ func IsDominatedbyShutdown(inputInst ssa.Instruction) bool {
 	return false
 }
 
-func inspectInst(inputInst ssa.Instruction, isBrutal bool, usingSolver bool, pd * analysis.PostDominator) bool {
+func inspectInst(inputInst ssa.Instruction, isBrutal bool, usingSolver bool, pd *analysis.PostDominator) bool {
 	if util.IsFnEnd(inputInst) {
 		instPanic, ok := inputInst.(*ssa.Panic)
 		if ok {
@@ -382,7 +372,7 @@ func inspectInst(inputInst ssa.Instruction, isBrutal bool, usingSolver bool, pd 
 		//fmt.Println(inputInst.Parent().String())
 		if usingSolver {
 			mapUnlockedMutex := collectUnlockedMutex(inputInst.Parent(), pd)
-			newMapLiveMutex := map[string] bool {}
+			newMapLiveMutex := map[string]bool{}
 
 			for strMutexName, _ := range mapLiveMutex {
 				//fmt.Println(strMutexName)
@@ -401,23 +391,19 @@ func inspectInst(inputInst ssa.Instruction, isBrutal bool, usingSolver bool, pd 
 
 		if len(mapLiveMutex) > len(vecDeferredMutex) {
 
-
-
-
 			//fmt.Println(inputInst, inputInst.Block().Index)
-
 
 			if pReturn, ok := inputInst.(*ssa.Return); ok {
 
 				for _, res := range pReturn.Results {
-					m := make(map[string] bool)
-					mVisited := make(map[types.Type] bool)
+					m := make(map[string]bool)
+					mVisited := make(map[types.Type]bool)
 					if pMake, ok := res.(*ssa.MakeInterface); ok {
 						util.GetTypeMethods(pMake.Type(), m, mVisited)
 						res = pMake.X
-					} else if pCall, ok := res.(* ssa.Call); ok {
+					} else if pCall, ok := res.(*ssa.Call); ok {
 						if pCall.Common().Value.Name()[:3] == "new" || pCall.Common().Value.Name()[:3] == "New" {
-							for i := 0 ; i < len(pCall.Common().Args); i ++ {
+							for i := 0; i < len(pCall.Common().Args); i++ {
 								arg := pCall.Common().Args[i]
 								if pMake, ok := arg.(*ssa.MakeInterface); ok {
 									util.GetTypeMethods(pMake.Type(), m, mVisited)
@@ -430,7 +416,6 @@ func inspectInst(inputInst ssa.Instruction, isBrutal bool, usingSolver bool, pd 
 
 					util.GetTypeMethods(res.Type(), m, mVisited)
 					mapTypeMethods := util.DecoupleTypeMethods(m)
-
 
 					//util.PrintTypeMethods(mapTypeMethods)
 					//fmt.Println()
@@ -462,21 +447,19 @@ func inspectInst(inputInst ssa.Instruction, isBrutal bool, usingSolver bool, pd 
 	return false
 }
 
+func inspectFunc1(fn *ssa.Function) {
 
-func inspectFunc1(fn * ssa.Function) {
-
-	numFunction ++
+	numFunction++
 	GenKillAnalysis(fn)
 	pd := analysis.NewPostDominator(fn)
 
 	for _, bb := range fn.Blocks {
 		for _, ii := range bb.Instrs {
-			if inspectInst(ii, false, false , pd ) {
+			if inspectInst(ii, false, false, pd) {
 
 				if IsDominatedbyShutdown(ii) {
 					continue
 				}
-
 
 				if inspectInst(ii, true, true, pd) {
 					flag := false
@@ -486,7 +469,6 @@ func inspectFunc1(fn * ssa.Function) {
 							flag = true
 							break
 						}
-
 
 						if bug.Pos() == ii.Pos() && ii.Pos() != token.NoPos {
 							flag = true
@@ -498,7 +480,7 @@ func inspectFunc1(fn * ssa.Function) {
 
 					//fmt.Println(ii, ii.Pos(), ii.Pos())
 
-					if ! flag {
+					if !flag {
 						Bugs = append(Bugs, ii)
 					}
 
@@ -508,8 +490,7 @@ func inspectFunc1(fn * ssa.Function) {
 	}
 }
 
-
-func inspectFunc(fn * ssa.Function, isMethod bool) {
+func inspectFunc(fn *ssa.Function, isMethod bool) {
 	if fn.Blocks == nil {
 		//meaning this is external function. You will see a lot of them if you use Ssa_build_packages
 		return
@@ -520,7 +501,6 @@ func inspectFunc(fn * ssa.Function, isMethod bool) {
 		return
 	}
 
-
 	inspectFunc1(fn)
 
 	for _, anonyFN := range fn.AnonFuncs { // loop through all anonymous functions in fn
@@ -528,12 +508,10 @@ func inspectFunc(fn * ssa.Function, isMethod bool) {
 	}
 }
 
-
 func Detect() {
 
-	Bugs = [] ssa.Instruction{}
+	Bugs = []ssa.Instruction{}
 	util.GetStructPointerMapping()
-
 
 	for fn, _ := range ssautil.AllFunctions(config.Prog) {
 		if fn == nil {
@@ -554,7 +532,6 @@ func Detect() {
 
 		AnalyzedFNs[fn.String()] = true
 
-
 		if fn.Signature.Recv() == nil {
 			inspectFunc(fn, false)
 		} else {
@@ -564,22 +541,21 @@ func Detect() {
 
 	//fmt.Print("Analyzed function", len(AnalyzedFNs))
 
-	mapCombinedIndex := make(map[int] bool)
-	mapIndexGroup := make(map[int] map[int] bool)
-
+	mapCombinedIndex := make(map[int]bool)
+	mapIndexGroup := make(map[int]map[int]bool)
 
 	/*
-	for i, _ := range Bugs {
-		Bugs[i].Parent().WriteTo(os.Stdout)
-	}
-
-
-
-	for i, _ :=  range Bugs {
-		for j:= i + 1; j < len(Bugs); j ++ {
-			fmt.Printf("%p %p %d\n",Bugs[i].Parent(), Bugs[j].Parent(), Bugs[i].Parent() == Bugs[j].Parent())
+		for i, _ := range Bugs {
+			Bugs[i].Parent().WriteTo(os.Stdout)
 		}
-	}
+
+
+
+		for i, _ :=  range Bugs {
+			for j:= i + 1; j < len(Bugs); j ++ {
+				fmt.Printf("%p %p %d\n",Bugs[i].Parent(), Bugs[j].Parent(), Bugs[i].Parent() == Bugs[j].Parent())
+			}
+		}
 
 	*/
 
@@ -587,12 +563,12 @@ func Detect() {
 		if _, ok := mapCombinedIndex[i]; ok {
 			continue
 		}
-		m1 := make(map[int] bool)
+		m1 := make(map[int]bool)
 		m1[i] = true
 		mapIndexGroup[i] = m1
 		mapCombinedIndex[i] = true
 
-		for j := i +1; j < len(Bugs); j ++ {
+		for j := i + 1; j < len(Bugs); j++ {
 			if _, ok := mapCombinedIndex[j]; ok {
 				continue
 			}
@@ -605,16 +581,15 @@ func Detect() {
 		}
 	}
 
-
 	for _, mapIndex := range mapIndexGroup {
-		vecToPrint := [] ssa.Instruction {}
+		vecToPrint := []ssa.Instruction{}
 
 		for i, _ := range mapIndex {
 			vecToPrint = append(vecToPrint, Bugs[i])
 		}
 
 		config.BugIndexMu.Lock()
-		config.BugIndex ++
+		config.BugIndex++
 		fmt.Print("----------Bug[")
 		fmt.Print(config.BugIndex)
 		config.BugIndexMu.Unlock()
@@ -622,6 +597,5 @@ func Detect() {
 		fmt.Print("\tLocation of multiple buggy instructions:\n")
 		output.PrintInsts(vecToPrint)
 	}
-
 
 }

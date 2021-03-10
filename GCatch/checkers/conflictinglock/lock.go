@@ -11,53 +11,49 @@ import (
 const Unknown = "Unknown"
 const Edited = "Edited"
 
-
 type StLockingOp struct {
-	StrName string
-	I ssa.Instruction
+	StrName  string
+	I        ssa.Instruction
 	IsRWLock bool
-	IsDefer bool
+	IsDefer  bool
 
-	Parent * StMutex
+	Parent *StMutex
 
 	StrFileName string
-	NumLine int
+	NumLine     int
 }
 
 type StUnlockingOp struct {
-	StrName string
-	I ssa.Instruction
+	StrName  string
+	I        ssa.Instruction
 	IsRWLock bool
-	IsDefer bool
+	IsDefer  bool
 
-	Parent * StMutex
+	Parent *StMutex
 }
 
-
-type StMutex struct{
-	StrName string
-	StrType string
+type StMutex struct {
+	StrName           string
+	StrType           string
 	StrBastStructType string
-	MapLockingOps map[ssa.Instruction] *StLockingOp
-	MapUnlockingOps map[ssa.Instruction] *StUnlockingOp
-	Pkg string // Don't use *ssa.Package here! It's not reliable
-
-
+	MapLockingOps     map[ssa.Instruction]*StLockingOp
+	MapUnlockingOps   map[ssa.Instruction]*StUnlockingOp
+	Pkg               string // Don't use *ssa.Package here! It's not reliable
 
 	StrStatus string
 }
 
 type StLockPair struct {
-	PLock1 * StLockingOp
-	PLock2 * StLockingOp
+	PLock1      *StLockingOp
+	PLock2      *StLockingOp
 	CallChainID int
 }
 
 type stMutexPair struct {
-	PMutex1 * StMutex
-	PMutex2 * StMutex
+	PMutex1 *StMutex
+	PMutex2 *StMutex
 
-	VecLockingPair [] * StLockPair
+	VecLockingPair []*StLockPair
 }
 
 func getLockingOpInfo(inputInst ssa.Instruction) (strName string, strMutexType string, strOpType string, isDefer bool, isLockingOp bool) {
@@ -68,7 +64,7 @@ func getLockingOpInfo(inputInst ssa.Instruction) (strName string, strMutexType s
 	isDefer = false
 	isLockingOp = true
 
-	var pCall * ssa.CallCommon
+	var pCall *ssa.CallCommon
 
 	switch pType := inputInst.(type) {
 	case *ssa.Call:
@@ -76,7 +72,7 @@ func getLockingOpInfo(inputInst ssa.Instruction) (strName string, strMutexType s
 	case *ssa.Defer:
 		pCall = pType.Common()
 		isDefer = true
-	default :
+	default:
 		isLockingOp = false
 		return
 	}
@@ -144,7 +140,6 @@ func getLockingOpInfo(inputInst ssa.Instruction) (strName string, strMutexType s
 	return
 }
 
-
 func handleInst(inputInst ssa.Instruction) (isLockingOp bool) {
 	isLockingOp = false
 
@@ -162,7 +157,7 @@ func handleInst(inputInst ssa.Instruction) (isLockingOp bool) {
 		return
 	}
 
-	var pMutex * StMutex
+	var pMutex *StMutex
 	strBaseType := ""
 
 	if pCall, ok := inputInst.(*ssa.Call); ok {
@@ -173,20 +168,20 @@ func handleInst(inputInst ssa.Instruction) (isLockingOp bool) {
 		}
 	}
 
-	if pm, ok := MapMutex[inputInst.Parent().Pkg.Pkg.Path() + ": " + strName + " (" + strBaseType + ")"]; ok {
+	if pm, ok := MapMutex[inputInst.Parent().Pkg.Pkg.Path()+": "+strName+" ("+strBaseType+")"]; ok {
 		pMutex = pm
 	} else {
 		pMutex = &StMutex{
-			StrName:    		strName,
-			StrType:    		strMutexType,
-			StrBastStructType:	strBaseType,
-			MapLockingOps:		map[ssa.Instruction] *StLockingOp {},
-			MapUnlockingOps:	map[ssa.Instruction] *StUnlockingOp {},
-			Pkg:				inputInst.Parent().Pkg.Pkg.Path(),
-			StrStatus:  		Edited,
+			StrName:           strName,
+			StrType:           strMutexType,
+			StrBastStructType: strBaseType,
+			MapLockingOps:     map[ssa.Instruction]*StLockingOp{},
+			MapUnlockingOps:   map[ssa.Instruction]*StUnlockingOp{},
+			Pkg:               inputInst.Parent().Pkg.Pkg.Path(),
+			StrStatus:         Edited,
 		}
 
-		MapMutex[inputInst.Parent().Pkg.Pkg.Path() + ": " + strName + " (" + strBaseType + ")"] = pMutex
+		MapMutex[inputInst.Parent().Pkg.Pkg.Path()+": "+strName+" ("+strBaseType+")"] = pMutex
 	}
 
 	isRWLocking := false
@@ -200,22 +195,22 @@ func handleInst(inputInst ssa.Instruction) (isLockingOp bool) {
 		loc := config.Prog.Fset.Position(inputInst.Pos())
 
 		newLocking := &StLockingOp{
-			StrName:		strName,
-			I:				inputInst,
-			IsRWLock:		isRWLocking,
-			IsDefer:		isDefer,
-			Parent:			pMutex,
-			StrFileName: 	loc.Filename,
-			NumLine: 		loc.Line,
+			StrName:     strName,
+			I:           inputInst,
+			IsRWLock:    isRWLocking,
+			IsDefer:     isDefer,
+			Parent:      pMutex,
+			StrFileName: loc.Filename,
+			NumLine:     loc.Line,
 		}
 		pMutex.MapLockingOps[inputInst] = newLocking
 	} else if strOpType == "Unlock" || strOpType == "RUnlock" {
-		newUnlocking := & StUnlockingOp {
-			StrName:	strName,
-			I:			inputInst,
-			IsRWLock:	isRWLocking,
-			IsDefer: 	isDefer,
-			Parent:		pMutex,
+		newUnlocking := &StUnlockingOp{
+			StrName:  strName,
+			I:        inputInst,
+			IsRWLock: isRWLocking,
+			IsDefer:  isDefer,
+			Parent:   pMutex,
 		}
 		pMutex.MapUnlockingOps[inputInst] = newUnlocking
 	}

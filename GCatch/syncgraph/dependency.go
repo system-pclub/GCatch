@@ -7,15 +7,14 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa/ssautil"
-	"github.com/system-pclub/GCatch/GCatch/util"
 )
 
 type DPrim struct {
-	Primitive interface{} // *instinfo.Channel or *instinfo.Locker
-	Out []*DEdge
-	In []*DEdge
-	Circular_depend []*DEdge
-	place string
+	Primitive        interface{} // *instinfo.Channel or *instinfo.Locker
+	Out              []*DEdge
+	In               []*DEdge
+	Circular_depend  []*DPrim
+	place            string
 	depend_on_places []string
 }
 
@@ -24,10 +23,54 @@ type DEdge struct {
 	Callee *DPrim
 }
 
+func (prim *DPrim) AddOutEdge(prim2 *DPrim) {
+	for _, outEdge := range prim.Out {
+		if outEdge.Callee == prim2 {
+			return
+		}
+	}
+	newEdge := &DEdge{
+		Caller: prim,
+		Callee: prim2,
+	}
+	prim.Out = append(prim.Out, newEdge)
+	prim2.In = append(prim2.In, newEdge)
+}
+
+func (prim *DPrim) AddCircularDepend(prim2 *DPrim) {
+	for _, existDepend := range prim.Circular_depend {
+		if existDepend == prim2 {
+			return
+		}
+	}
+	prim.Circular_depend = append(prim.Circular_depend, prim2)
+	for _, existDepend := range prim2.Circular_depend {
+		if existDepend == prim {
+			return
+		}
+	}
+	prim2.Circular_depend = append(prim2.Circular_depend, prim)
+}
+
+func (prim *DPrim) IsCircularDepend(prim2 *DPrim) bool {
+	hasIn, hasOut := false, false
+	for _, outEdge := range prim.Out {
+		if outEdge.Callee == prim2 {
+			hasOut = true
+			break
+		}
+	}
+	for _, inEdge := range prim.In {
+		if inEdge.Caller == prim2 {
+			hasIn = true
+			break
+		}
+	}
+	return hasIn && hasOut
+}
+
 func GenDMap(vecChan []*instinfo.Channel, vecLocker []*instinfo.Locker) (DMap map[interface{}]*DPrim) {
 	DMap = make(map[interface{}]*DPrim)
-
-	return
 
 	// Store primitives that have blocking operation in a function
 	Fn2Prims := make(map[*ssa.Function]map[*DPrim]struct{})
@@ -85,7 +128,7 @@ func GenDMap(vecChan []*instinfo.Channel, vecLocker []*instinfo.Locker) (DMap ma
 	// Current implementation is conservative: only when the len(potention_Bs) == 1, will A inherits B's primitives
 	intCountRecursive := 0
 	boolDMapUpdated := true
-	for boolDMapUpdated && intCountRecursive < 7{
+	for boolDMapUpdated && intCountRecursive < 7 {
 		boolDMapUpdated = false
 		intCountRecursive++
 
@@ -128,6 +171,8 @@ func GenDMap(vecChan []*instinfo.Channel, vecLocker []*instinfo.Locker) (DMap ma
 		}
 	}
 
+	prim2BlockInst := make(map[*DPrim][]ssa.Instruction)
+	prim2UnBlockInst := make(map[*DPrim][]ssa.Instruction)
 	for _, ch := range vecChan {
 		prim, exist := DMap[ch]
 		if exist == false {
@@ -136,23 +181,45 @@ func GenDMap(vecChan []*instinfo.Channel, vecLocker []*instinfo.Locker) (DMap ma
 			}
 			DMap[ch] = prim
 		}
-
-		vecAllOpInst := []ssa.Instruction{}
-		for _, op := range ch.AllOps() {
-			if op == nil {
-				continue
-			}
-			vecAllOpInst = append(vecAllOpInst, op.Instr())
+		for _, op := range ch.Recvs {
+			prim2BlockInst[prim] = append(prim2BlockInst[prim], op.Inst)
+			prim2UnBlockInst[prim] = append(prim2UnBlockInst[prim], op.Inst)
 		}
-		mapLCA2Chains, err := path.FindLCA(util.VecFnForVecInst(vecAllOpInst), false,true, 7)
-		if err != nil {
-			continue
+		for _, op := range ch.Sends {
+			prim2BlockInst[prim] = append(prim2BlockInst[prim], op.Inst)
+			prim2UnBlockInst[prim] = append(prim2UnBlockInst[prim], op.Inst)
 		}
-
-		// TODO: continue this part after I write the code for FindLCA
-		_ = mapLCA2Chains
+		for _, op := range ch.Closes {
+			prim2UnBlockInst[prim] = append(prim2UnBlockInst[prim], op.Inst)
+		}
 	}
 
+	for ch1, prim1 := range DMap {
+		for ch2, prim2 := range DMap {
+			if ch1 == ch2 {
+				continue
+			}
+			vecPrim1UnBlockInst, ok := prim2UnBlockInst[prim1]
+			if !ok {
+				continue
+			}
+			vecPrim2BlockInst, ok := prim2BlockInst[prim2]
+			if !ok {
+				continue
+			}
+			for _, prim1UnBlockInst := range vecPrim1UnBlockInst {
+				for _, prim2BlockInst := range vecPrim2BlockInst {
+					aPath := path.PathBetweenInst(prim2BlockInst, prim1UnBlockInst)
+					if len(aPath) > 0 {
+						prim1.AddOutEdge(prim2)
+						if prim1.IsCircularDepend(prim2) {
+							prim1.AddCircularDepend(prim2)
+						}
+					}
+				}
+			}
+		}
+	}
 
 	return
 }

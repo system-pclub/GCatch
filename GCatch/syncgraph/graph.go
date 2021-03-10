@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-type Node interface{
+type Node interface {
 	Context() *CallCtx
 	Instruction() ssa.Instruction
 	Parent() *SyncGraph
@@ -33,10 +33,10 @@ type Node interface{
 }
 
 type node struct {
-	Ctx *CallCtx
-	Instr ssa.Instruction
-	In_ []*NodeEdge
-	Out_ []*NodeEdge
+	Ctx    *CallCtx
+	Instr  ssa.Instruction
+	In_    []*NodeEdge
+	Out_   []*NodeEdge
 	String string
 
 	ID int
@@ -99,6 +99,7 @@ func (n *node) GetString() string {
 }
 
 var intFakeNodeId int
+
 // Returns a unique Node that doesn't have any information
 func Fake_Node() Node {
 	intFakeNodeId++
@@ -144,7 +145,7 @@ const MaxRecursive = 1
 const EndDefer = 2
 
 type End struct {
-	Inst ssa.Instruction
+	Inst   ssa.Instruction
 	Reason int
 
 	node
@@ -249,8 +250,8 @@ func (a *SelectCase) Operation() interface{} {
 // Can be send/receive/close. Note that send and receive here must not be in select
 type ChanOp struct {
 	Channel *instinfo.Channel
-	Op instinfo.ChanOp
-	Next Node
+	Op      instinfo.ChanOp
+	Next    Node
 
 	syncNode
 }
@@ -261,8 +262,8 @@ func (a *ChanOp) Operation() interface{} {
 
 type LockerOp struct {
 	Locker *instinfo.Locker
-	Op instinfo.LockerOp
-	Next Node
+	Op     instinfo.LockerOp
+	Next   Node
 
 	syncNode
 }
@@ -270,7 +271,6 @@ type LockerOp struct {
 func (a *LockerOp) Operation() interface{} {
 	return a.Op
 }
-
 
 type NormalInst struct {
 	Inst ssa.Instruction
@@ -281,7 +281,7 @@ type NormalInst struct {
 
 type InstCtxKey struct { // Key that considers both ssa.Instruction and Ctx
 	Inst ssa.Instruction
-	Ctx *CallCtx
+	Ctx  *CallCtx
 }
 
 type SyncGraph struct {
@@ -300,7 +300,7 @@ type SyncGraph struct {
 	MapPrim2VecSyncOp   map[interface{}][]SyncOp
 	Visited             []*path.EdgeChain
 	Worklist            []*Unfinish
-	MapFnOnOpPath map[*ssa.Function]struct{} // a map of functions that are on a path to reach a sync operation
+	MapFnOnOpPath       map[*ssa.Function]struct{} // a map of functions that are on a path to reach a sync operation
 
 	// Enumerate path
 	PathCombinations []*pathCombination
@@ -308,7 +308,7 @@ type SyncGraph struct {
 }
 
 type Status struct {
-	Str string // Str can be In_progress or Done. Only used to decide backedge for local nodes
+	Str     string // Str can be In_progress or Done. Only used to decide backedge for local nodes
 	Visited int
 }
 
@@ -336,8 +336,8 @@ type Goroutine struct {
 type CallCtx struct {
 	CallChain *path.EdgeChain
 	Goroutine *Goroutine
-	CallSite Node
-	Graph *SyncGraph
+	CallSite  Node
+	Graph     *SyncGraph
 }
 
 type Unfinish struct {
@@ -345,12 +345,11 @@ type Unfinish struct {
 	Unfinished   Node
 	IsGo         bool
 	Site         *callgraph.Edge // Site.Callee has at least 1 bb, and this bb has at least 1 inst
-	Dir          bool // true if Call/Go (from caller to callee), false if Return (from callee to caller)
-	Ctx          *CallCtx // a new CallCtx used for the Site. This can be directly used
+	Dir          bool            // true if Call/Go (from caller to callee), false if Return (from callee to caller)
+	Ctx          *CallCtx        // a new CallCtx used for the Site. This can be directly used
 }
 
-
-func NewGraph(task *Task) *SyncGraph{
+func NewGraph(task *Task) *SyncGraph {
 	newGraph := &SyncGraph{
 		MainGoroutine:       nil,
 		HeadGoroutines:      []*Goroutine{},
@@ -365,8 +364,8 @@ func NewGraph(task *Task) *SyncGraph{
 		Visited:             []*path.EdgeChain{},
 		PathCombinations:    nil,
 		EnumerateCfg:        nil,
-		MapFnOnOpPath: make(map[*ssa.Function]struct{}),
-		MapFirstNodeOfFn: make(map[Node]struct{}),
+		MapFnOnOpPath:       make(map[*ssa.Function]struct{}),
+		MapFirstNodeOfFn:    make(map[Node]struct{}),
 	}
 
 	return newGraph
@@ -387,7 +386,7 @@ func (g *SyncGraph) NewGoroutine(headFn *ssa.Function) *Goroutine {
 func (g *SyncGraph) NewCtx(goroutine *Goroutine, head *ssa.Function) *CallCtx {
 	headNode := config.CallGraph.Nodes[head]
 	if headNode == nil {
-		fmt.Println("Fatal error in NewCtx: can't find the callgraph.Node for head function:",head.String())
+		fmt.Println("Fatal error in NewCtx: can't find the callgraph.Node for head function:", head.String())
 	}
 	newEdgePath := &path.EdgeChain{
 		Chain: nil,
@@ -445,7 +444,7 @@ func (g *SyncGraph) OptimizeBB_V1() {
 		loopAnalysis := analysis.NewLoopAnalysis(fn)
 
 		if strings.Contains(fn.String(), "http2Client") && strings.Contains(fn.String(), "reader") {
- 			fmt.Print()
+			fmt.Print()
 		}
 
 		// Enumerate X and Y
@@ -464,7 +463,7 @@ func (g *SyncGraph) OptimizeBB_V1() {
 					vecPath := path.EnumeratePathForPostDomBBs(bbY, bbX)
 					// Check if all paths don't contain important Nodes
 					boolAllPathDoNotContain := true
-					pathLoop:
+				pathLoop:
 					for _, aPath := range vecPath {
 						for _, bb := range aPath {
 							if bb == bbX || bb == bbY { // only check bbs between X and Y
@@ -518,7 +517,7 @@ func (g *SyncGraph) OptimizeBB_V1() {
 
 				// Link X and Y
 				var lastInstY, firstInstX ssa.Instruction
-				lastInstY = bbY.Instrs[len(bbY.Instrs) - 1]
+				lastInstY = bbY.Instrs[len(bbY.Instrs)-1]
 				firstInstX = bbX.Instrs[0]
 				var lastNodeY, firstNodeX Node
 				for _, node := range g.MapInstCtxKey2Node {
@@ -591,11 +590,10 @@ func (g *SyncGraph) OptimizeBB_V2() {
 				}
 			}
 
-
 			if bbX != nil {
 				// Link X and Y
 				var lastInstY, firstInstX ssa.Instruction
-				lastInstY = bbY.Instrs[len(bbY.Instrs) - 1]
+				lastInstY = bbY.Instrs[len(bbY.Instrs)-1]
 				firstInstX = bbX.Instrs[0]
 				var lastNodeY, firstNodeX Node
 				for _, node := range g.MapInstCtxKey2Node {

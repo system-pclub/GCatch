@@ -33,7 +33,7 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 	DependMap = DMap
 
 	// Before building: add ch into target primitive
-	boolGiveupIfCallgraphIsInaccurate := true// true means if callgraph is inaccurate, we giveup the building. This is consistent with our paper
+	boolGiveupIfCallgraphIsInaccurate := true // true means if callgraph is inaccurate, we giveup the building. This is consistent with our paper
 	task := newTask(boolGiveupIfCallgraphIsInaccurate)
 	task.Step1AddPrim(ch)
 	err := task.Step2CompletePrims()
@@ -73,8 +73,6 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 			}
 		}
 	}
-
-
 
 	for LCA, ops := range task.MapLCARoot2Op {
 		// create a new goroutine for head_node
@@ -130,7 +128,6 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 			doThis = newGraph.findUnfinishGoOfMainGoroutine(newGraph.Worklist)
 		}
 
-
 		newGraph.Task.Update()
 		if newGraph.Task.BoolFinished && doThis == nil {
 			break
@@ -140,9 +137,9 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 			wanted_chains := newGraph.Task.WantedList()
 			wanted_chains = removeVisitedChains(wanted_chains, newGraph.Visited)
 			// if someone is in our wanted list, do this
-			for _,unfinished := range newGraph.Worklist {
+			for _, unfinished := range newGraph.Worklist {
 				has_match := false
-				for _,wanted := range wanted_chains {
+				for _, wanted := range wanted_chains {
 					if wanted.Contains(unfinished.Ctx.CallChain) {
 						has_match = true
 						break
@@ -175,7 +172,7 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 				newGraph.MapFirstNodeOfFn[nextNode] = struct{}{}
 				callerNode.Calling[doThis.Site] = nextNode
 				boolNothingLeft := true
-				for _,target := range callerNode.Calling {
+				for _, target := range callerNode.Calling {
 					if target == nil {
 						boolNothingLeft = false
 						break
@@ -193,7 +190,7 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 				workingGoroutine.HeadNode = headOfGoroutine
 				newGraph.Goroutines = append(newGraph.Goroutines, workingGoroutine)
 				boolNothingLeft := true
-				for _,target := range callerNode.MapCreateNodes {
+				for _, target := range callerNode.MapCreateNodes {
 					if target == nil {
 						boolNothingLeft = false
 						break
@@ -234,7 +231,7 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 	return newGraph, nil
 }
 
-func newNormal(inst ssa.Instruction, ctx *CallCtx) (*NormalInst,*Status) {
+func newNormal(inst ssa.Instruction, ctx *CallCtx) (*NormalInst, *Status) {
 	normal := &NormalInst{
 		Inst: inst,
 		Next: nil,
@@ -244,7 +241,7 @@ func newNormal(inst ssa.Instruction, ctx *CallCtx) (*NormalInst,*Status) {
 		},
 	}
 
-	newStatus := storeGraphInfo(inst,ctx, normal)
+	newStatus := storeGraphInfo(inst, ctx, normal)
 
 	return normal, newStatus
 }
@@ -278,9 +275,9 @@ func storeGraphInfoForDefer(inst ssa.Instruction, ctx *CallCtx, node Node) *Stat
 }
 
 func updateTaskOp(op interface{}, prim interface{}, ctx *CallCtx, inst ssa.Instruction) {
-	tPrim,ok := ctx.Graph.Task.MapValue2TaskPrimitive[prim]
+	tPrim, ok := ctx.Graph.Task.MapValue2TaskPrimitive[prim]
 	if ok {
-		chainsToReachOp,ok := tPrim.Ops[op]
+		chainsToReachOp, ok := tPrim.Ops[op]
 		if !ok {
 			fmt.Println("An op's primitive is in task, but op is not found in primitive.Ops")
 			output.PrintIISrc(inst)
@@ -299,12 +296,14 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 
 	recursiveCount++
 	if recursiveCount > config.MAX_INST_IN_SYNCGRAPH {
-		fmt.Println("!!!!")
-		fmt.Println("Warning in ProcessInstGetNode: reached MAX_INST_IN_SYNCGRAPH")
+		if config.Print_Debug_Info {
+			fmt.Println("!!!!")
+			fmt.Println("Warning in ProcessInstGetNode: reached MAX_INST_IN_SYNCGRAPH")
+		}
 		newEnd := &End{
 			Inst:   targetInst,
 			Reason: MaxRecursive,
-			node:      node{
+			node: node{
 				Instr: targetInst,
 				Ctx:   ctx,
 			},
@@ -320,7 +319,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		Inst: targetInst,
 		Ctx:  ctx,
 	}
-	if existNode,ok := ctx.Graph.MapInstCtxKey2Node[key]; ok {
+	if existNode, ok := ctx.Graph.MapInstCtxKey2Node[key]; ok {
 		return existNode
 	}
 
@@ -338,7 +337,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 				continue
 			}
 
-			metPrimNode,ok := DependMap[chOp.Prim()]
+			metPrimNode, ok := DependMap[chOp.Prim()]
 			if ok {
 				metPrims = append(metPrims, metPrimNode)
 			}
@@ -347,7 +346,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		muOp, ok := instinfo.MapInst2LockerOp[targetInst]
 		lockOp, isBlocking := muOp.(*instinfo.LockOp)
 		if ok && isBlocking {
-			metPrimNode,ok := DependMap[lockOp.Prim()]
+			metPrimNode, ok := DependMap[lockOp.Prim()]
 			if ok {
 				metPrims = append(metPrims, metPrimNode)
 			}
@@ -355,11 +354,11 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 	}
 	for _, metPrimNode := range metPrims {
 		for _, targetPrim := range ctx.Graph.Task.VecTaskPrimitive {
-			targetPrimNode,ok := DependMap[targetPrim.Primitive]
+			targetPrimNode, ok := DependMap[targetPrim.Primitive]
 			if ok {
 				isCircularDepend := false
-				for _, depend := range targetPrimNode.Circular_depend {
-					if depend.Callee == metPrimNode {
+				for _, circularDependPrim := range targetPrimNode.Circular_depend {
+					if circularDependPrim == metPrimNode {
 						isCircularDepend = true
 						break
 					}
@@ -382,7 +381,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			output.PrintIISrc(inst)
 			panic(1)
 			//op = instinfo.Anytime_make(inst)
-			normal, newStatus := newNormal(inst,ctx)
+			normal, newStatus := newNormal(inst, ctx)
 
 			normal.Next = ProcessInstGetNode(nextInst(inst), ctx)
 			newStatus.Str = Done
@@ -396,7 +395,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		}
 		ch := op.(*instinfo.ChMake).Parent
 
-		updateTaskOp(op,ch,ctx,inst)
+		updateTaskOp(op, ch, ctx, inst)
 
 		newMakeChan := &ChanMake{
 			Inst:    inst,
@@ -408,7 +407,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 				BoolIsAllAliasInGraph: ctx.Graph.Task.IsPrimATarget(ch),
 				AliasOp:               make(map[SyncOp]bool),
 				SyncOp:                make(map[SyncOp]bool),
-				node:                  node{
+				node: node{
 					Instr: inst,
 					Ctx:   ctx,
 				},
@@ -416,13 +415,12 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		}
 		ctx.Graph.MapPrim2VecSyncOp[ch] = append(ctx.Graph.MapPrim2VecSyncOp[ch], newMakeChan)
 
-		newStatus := storeGraphInfo(inst,ctx, newMakeChan)
+		newStatus := storeGraphInfo(inst, ctx, newMakeChan)
 
-		newMakeChan.Next = ProcessInstGetNode(nextInst(inst),ctx)
+		newMakeChan.Next = ProcessInstGetNode(nextInst(inst), ctx)
 		newStatus.Str = Done
 
 		return newMakeChan
-
 
 	case *ssa.Jump:
 		newJump := &Jump{
@@ -430,7 +428,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			Next:            nil,
 			BoolIsBackedge:  false,
 			BoolIsNextexist: false,
-			node:        node{
+			node: node{
 				Instr: inst,
 				Ctx:   ctx,
 			},
@@ -442,7 +440,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			output.PrintIISrc(inst)
 			panic(1)
 
-			newStatus := storeGraphInfo(inst,ctx, newJump)
+			newStatus := storeGraphInfo(inst, ctx, newJump)
 			newStatus.Str = Done
 			return newJump
 		}
@@ -452,21 +450,21 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			Inst: nextInst,
 			Ctx:  ctx,
 		}
-		nextNode,ok := ctx.Graph.MapInstCtxKey2Node[key]
-		if ok{
+		nextNode, ok := ctx.Graph.MapInstCtxKey2Node[key]
+		if ok {
 			newJump.BoolIsNextexist = true
 			if ctx.Graph.NodeStatus[nextNode].Str == In_progress {
 				newJump.BoolIsBackedge = true
 			}
 		}
 
-		newStatus := storeGraphInfo(inst,ctx, newJump)
+		newStatus := storeGraphInfo(inst, ctx, newJump)
 
 		if ok {
 			newJump.Next = nextNode
 		} else {
 			// inst not met before
-			newJump.Next = ProcessInstGetNode(nextInst,ctx)
+			newJump.Next = ProcessInstGetNode(nextInst, ctx)
 		}
 		newStatus.Str = Done
 
@@ -480,7 +478,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			Else:               nil,
 			BoolIsThenBackedge: false,
 			BoolIsElseBackedge: false,
-			node:             node{
+			node: node{
 				Instr: inst,
 				Ctx:   ctx,
 			},
@@ -517,17 +515,17 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			}
 		}
 
-		newStatus := storeGraphInfo(inst,ctx, newIf)
+		newStatus := storeGraphInfo(inst, ctx, newIf)
 
 		if thenOk {
 			newIf.Then = thenNode
 		} else {
-			newIf.Then = ProcessInstGetNode(thenInst,ctx)
+			newIf.Then = ProcessInstGetNode(thenInst, ctx)
 		}
 		if elseOk {
 			newIf.Else = elseNode
 		} else {
-			newIf.Else = ProcessInstGetNode(elseInst,ctx)
+			newIf.Else = ProcessInstGetNode(elseInst, ctx)
 		}
 		newStatus.Str = Done
 
@@ -537,11 +535,11 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 
 		todoInsts := []ssa.CallInstruction{}
 		var flagRundefer bool
-		if rundefer,ok := inst.(*ssa.RunDefers); ok {
+		if rundefer, ok := inst.(*ssa.RunDefers); ok {
 			flagRundefer = true
-			vecAllDefers,ok := config.Inst2Defers[rundefer]
+			vecAllDefers, ok := config.Inst2Defers[rundefer]
 			if !ok {
-				newNormal, newStatus := newNormal(inst,ctx)
+				newNormal, newStatus := newNormal(inst, ctx)
 
 				newNormal.Next = ProcessInstGetNode(nextInst(inst), ctx)
 				newStatus.Str = Done
@@ -552,7 +550,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 					todoInsts = append(todoInsts, aDefer)
 				}
 			}
-		} else if call,ok := inst.(*ssa.Call); ok {
+		} else if call, ok := inst.(*ssa.Call); ok {
 			flagRundefer = false
 			todoInsts = []ssa.CallInstruction{call}
 		}
@@ -566,13 +564,13 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			Inst:                 inst,
 			BoolIsEndOfGoroutine: inst.Parent() == ctx.Goroutine.EntryFn,
 			Caller:               ctx.CallSite,
-			node:                node{
+			node: node{
 				Instr: inst,
 				Ctx:   ctx,
 			},
 		}
 
-		newStatus := storeGraphInfo(inst,ctx, newReturn)
+		newStatus := storeGraphInfo(inst, ctx, newReturn)
 		newStatus.Str = Done
 
 		return newReturn
@@ -583,16 +581,16 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			MapCreateGoroutines: make(map[*callgraph.Edge]*Goroutine),
 			MapCreateNodes:      make(map[*callgraph.Edge]Node),
 			NextLocal:           nil,
-			node:       node{
+			node: node{
 				Instr: inst,
 				Ctx:   ctx,
 			},
 		}
 
-		newStatus := storeGraphInfo(inst,ctx, newGo)
+		newStatus := storeGraphInfo(inst, ctx, newGo)
 
 		// An Go inst may have multiple call edges if calling interface method
-		mapAllEdges,ok := config.Inst2CallSite[inst]
+		mapAllEdges, ok := config.Inst2CallSite[inst]
 		if ok {
 			for edge, _ := range mapAllEdges {
 				callee := edge.Callee.Func
@@ -601,7 +599,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 				}
 
 				newEdgePath := &path.EdgeChain{
-					Chain:  append(ctx.CallChain.Chain, edge),
+					Chain: append(ctx.CallChain.Chain, edge),
 					Start: ctx.CallChain.Start,
 				}
 
@@ -624,11 +622,11 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 
 				newUnfinish := &Unfinish{
 					UnfinishedFn: inst.Parent(),
-					Unfinished:    newGo,
-					IsGo:          true,
-					Site:          edge,
-					Dir:           true,
-					Ctx:           newCtx,
+					Unfinished:   newGo,
+					IsGo:         true,
+					Site:         edge,
+					Dir:          true,
+					Ctx:          newCtx,
 				}
 
 				ctx.Graph.Worklist = append(ctx.Graph.Worklist, newUnfinish)
@@ -653,7 +651,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			Cases:          make(map[int]*SelectCase),
 			BoolHasDefault: !inst.Blocking,
 			DefaultCase:    nil,
-			node:         node{
+			node: node{
 				Instr: inst,
 				Ctx:   ctx,
 			},
@@ -672,15 +670,15 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			switch concrete := op.(type) {
 			case *instinfo.ChSend:
 				ch := concrete.Parent
-				updateTaskOp(op,ch,ctx,inst)
+				updateTaskOp(op, ch, ctx, inst)
 			case *instinfo.ChRecv:
 				ch := concrete.Parent
-				updateTaskOp(op,ch,ctx,inst)
+				updateTaskOp(op, ch, ctx, inst)
 			}
 		}
 
 		index2op := make(map[int]instinfo.ChanOp)
-		for _,op := range ops {
+		for _, op := range ops {
 			var index int
 			switch concrete := op.(type) {
 			case *instinfo.ChSend:
@@ -700,7 +698,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 				}
 				index = concrete.CaseIndex
 			}
-			_,ok := index2op[index]
+			_, ok := index2op[index]
 			if ok { // This index is used by another op, which doesn't make sense
 				//fmt.Println("Warning in ProcessInstGetNode: one case index show up twice in a select:")
 				//output.PrintIISrc(inst)
@@ -712,7 +710,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		}
 		// for those cases without op, we create an unsure op
 		for i := 0; i < len(inst.States); i++ {
-			if _,ok := index2op[i]; ok {
+			if _, ok := index2op[i]; ok {
 				continue
 			}
 			switch inst.States[i].Dir {
@@ -730,7 +728,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		}
 
 		index2next := make(map[int]ssa.Instruction)
-		index2next,err := path.FindSelectNexts(inst)
+		index2next, err := path.FindSelectNexts(inst)
 		if err != nil {
 			fmt.Println("Fatal error: can't deal with a select, because:")
 			fmt.Println(err.Error())
@@ -743,9 +741,9 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			output.PrintIISrc(inst)
 			return newSelect
 		}
-		for i,_ := range index2op {
+		for i, _ := range index2op {
 			flagFound := false
-			for j,_ := range index2next {
+			for j, _ := range index2next {
 				if i == j {
 					flagFound = true
 					break
@@ -759,12 +757,12 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		}
 
 		type opNext struct {
-			op instinfo.ChanOp
+			op   instinfo.ChanOp
 			next ssa.Instruction
 		}
 
 		mapIndex2opNext := make(map[int]opNext)
-		for index,op := range index2op {
+		for index, op := range index2op {
 			next := index2next[index]
 			mapIndex2opNext[index] = opNext{
 				op:   op,
@@ -772,15 +770,15 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			}
 		}
 
-		newSelectStatus := storeGraphInfo(inst,ctx, newSelect)
+		newSelectStatus := storeGraphInfo(inst, ctx, newSelect)
 
 		indexs := []int{}
-		for i,_ := range mapIndex2opNext {
+		for i, _ := range mapIndex2opNext {
 			indexs = append(indexs, i)
 		}
 		sort.Ints(indexs)
 
-		for _,index := range indexs {
+		for _, index := range indexs {
 			opNext := mapIndex2opNext[index]
 			var ch *instinfo.Channel
 			switch concrete := opNext.op.(type) {
@@ -797,12 +795,12 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 				Next:           nil,
 				BoolIsBackedge: false,
 				Select:         newSelect,
-				syncNode:  syncNode{
+				syncNode: syncNode{
 					Prim:                  ch,
 					BoolIsAllAliasInGraph: ctx.Graph.Task.IsPrimATarget(ch),
 					AliasOp:               make(map[SyncOp]bool),
 					SyncOp:                make(map[SyncOp]bool),
-					node:                  node{
+					node: node{
 						Instr: inst,
 						Ctx:   ctx,
 					},
@@ -812,8 +810,8 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 				Inst: opNext.next,
 				Ctx:  ctx,
 			}
-			nextNode,ok := ctx.Graph.MapInstCtxKey2Node[key]
-			if ok{
+			nextNode, ok := ctx.Graph.MapInstCtxKey2Node[key]
+			if ok {
 				if ctx.Graph.NodeStatus[nextNode].Str == In_progress {
 					newSelectcase.BoolIsBackedge = true
 				}
@@ -841,7 +839,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 
 	case *ssa.Send:
 		var chOp instinfo.ChanOp
-		chOps,ok := instinfo.MapInst2ChanOp[inst]
+		chOps, ok := instinfo.MapInst2ChanOp[inst]
 		if !ok {
 			fmt.Println("Warning in ProcessInstGetNode: can't find op for a send")
 			output.PrintIISrc(inst)
@@ -850,7 +848,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 
 		if len(chOps) == 0 { // when channel can be overwritten, vecChOp can have multiple elements
 			//debugPrintMultiChAlias(inst,vecChOp,"send")
-			new_normal, new_status := newNormal(inst,ctx)
+			new_normal, new_status := newNormal(inst, ctx)
 
 			new_normal.Next = ProcessInstGetNode(nextInst(inst), ctx)
 			new_status.Str = Done
@@ -862,18 +860,18 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		sendOp := chOp.(*instinfo.ChSend)
 
 		ch := sendOp.Parent
-		updateTaskOp(sendOp,ch,ctx,inst)
+		updateTaskOp(sendOp, ch, ctx, inst)
 
 		newSend := &ChanOp{
 			Channel: sendOp.Parent,
 			Op:      sendOp,
 			Next:    nil,
-			syncNode:      syncNode{
+			syncNode: syncNode{
 				Prim:                  sendOp.Parent,
 				BoolIsAllAliasInGraph: ctx.Graph.Task.IsPrimATarget(sendOp.Parent),
 				AliasOp:               make(map[SyncOp]bool),
 				SyncOp:                make(map[SyncOp]bool),
-				node:                  node{
+				node: node{
 					Instr: inst,
 					Ctx:   ctx,
 				},
@@ -881,7 +879,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		}
 		ctx.Graph.MapPrim2VecSyncOp[sendOp.Parent] = append(ctx.Graph.MapPrim2VecSyncOp[sendOp.Parent], newSend)
 
-		newStatus := storeGraphInfo(inst,ctx, newSend)
+		newStatus := storeGraphInfo(inst, ctx, newSend)
 
 		newSend.Next = ProcessInstGetNode(nextInst(inst), ctx)
 		newStatus.Str = Done
@@ -896,8 +894,9 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			if !ok {
 				fmt.Println("Warning in ProcessInstGetNode: can't find op for a receive")
 				output.PrintIISrc(inst)
+				panic(1)
 				//chOp = instinfo.Anytime_recv(inst)
-				newNormal, newStatus := newNormal(inst,ctx)
+				newNormal, newStatus := newNormal(inst, ctx)
 
 				newNormal.Next = ProcessInstGetNode(nextInst(inst), ctx)
 				newStatus.Str = Done
@@ -913,18 +912,18 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			recvOp := chOp.(*instinfo.ChRecv)
 
 			ch := recvOp.Parent
-			updateTaskOp(recvOp,ch,ctx,inst)
+			updateTaskOp(recvOp, ch, ctx, inst)
 
 			newRecv := &ChanOp{
 				Channel: ch,
 				Op:      chOp,
 				Next:    nil,
-				syncNode:      syncNode{
+				syncNode: syncNode{
 					Prim:                  ch,
 					BoolIsAllAliasInGraph: ctx.Graph.Task.IsPrimATarget(ch),
 					AliasOp:               make(map[SyncOp]bool),
 					SyncOp:                make(map[SyncOp]bool),
-					node:                  node{
+					node: node{
 						Instr: inst,
 						Ctx:   ctx,
 					},
@@ -932,7 +931,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 			}
 			ctx.Graph.MapPrim2VecSyncOp[ch] = append(ctx.Graph.MapPrim2VecSyncOp[ch], newRecv)
 
-			newStatus := storeGraphInfo(inst,ctx, newRecv)
+			newStatus := storeGraphInfo(inst, ctx, newRecv)
 
 			newRecv.Next = ProcessInstGetNode(nextInst(inst), ctx)
 			newStatus.Str = Done
@@ -941,7 +940,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 
 		}
 
-		newNormal, newStatus := newNormal(inst,ctx)
+		newNormal, newStatus := newNormal(inst, ctx)
 
 		newNormal.Next = ProcessInstGetNode(nextInst(inst), ctx)
 		newStatus.Str = Done
@@ -951,27 +950,27 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		//return ProcessInstGetNode(nextInst(inst), ctx)
 
 	case *ssa.Defer:
-		return ProcessInstGetNode(nextInst(inst),ctx)
+		return ProcessInstGetNode(nextInst(inst), ctx)
 
 	case *ssa.Panic:
 		newKill := &Kill{
 			Inst:        inst,
 			BoolIsPanic: true,
 			BoolIsFatal: false,
-			node:     node{
+			node: node{
 				Instr: inst,
 				Ctx:   ctx,
 			},
 		}
-		newStatus := storeGraphInfo(inst,ctx, newKill)
+		newStatus := storeGraphInfo(inst, ctx, newKill)
 
-		vecAllDefers,ok := config.Inst2Defers[inst]
+		vecAllDefers, ok := config.Inst2Defers[inst]
 		if !ok {
 			newKill.Next = nil
 		} else {
 			todoInsts := []ssa.CallInstruction{}
-			for _,a_defer := range vecAllDefers {
-				todoInsts = append(todoInsts,a_defer)
+			for _, a_defer := range vecAllDefers {
+				todoInsts = append(todoInsts, a_defer)
 			}
 			firstNode := handleTodoInsts(inst, ctx, true, todoInsts)
 
@@ -983,7 +982,7 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		return newKill
 
 	default:
-		newNormal, new_status := newNormal(inst,ctx)
+		newNormal, new_status := newNormal(inst, ctx)
 
 		newNormal.Next = ProcessInstGetNode(nextInst(inst), ctx)
 		new_status.Str = Done
@@ -1026,13 +1025,13 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 		// Case1: close(ch)
 		if instinfo.IsChanClose(anInst) {
 			var chOp instinfo.ChanOp
-			vecChOps,ok := instinfo.MapInst2ChanOp[anInst] // because this is close, vecChOps can at most have 1 element
+			vecChOps, ok := instinfo.MapInst2ChanOp[anInst] // because this is close, vecChOps can at most have 1 element
 			if !ok {
 				fmt.Println("Warning in ProcessInstGetNode: can't find op for a close(chan)")
 				output.PrintIISrc(anInst)
 				panic(1)
 				//chOp = instinfo.Anytime_close(anInst)
-				newNormal, newStatus := newNormal(inst,ctx)
+				newNormal, newStatus := newNormal(inst, ctx)
 
 				newNormal.Next = ProcessInstGetNode(nextInst(inst), ctx)
 				newStatus.Str = Done
@@ -1048,18 +1047,18 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 			ch := chOp.(*instinfo.ChClose).Parent
 
 			// If this close is in task, update the task
-			updateTaskOp(chOp,ch,ctx, anInst)
+			updateTaskOp(chOp, ch, ctx, anInst)
 
 			newChOp := &ChanOp{
 				Channel: ch,
 				Op:      chOp,
 				Next:    nil,
-				syncNode:    syncNode{
+				syncNode: syncNode{
 					Prim:                  ch,
 					BoolIsAllAliasInGraph: ctx.Graph.Task.IsPrimATarget(ch),
 					AliasOp:               make(map[SyncOp]bool),
 					SyncOp:                make(map[SyncOp]bool),
-					node:                  node{
+					node: node{
 						Instr: anInst,
 						Ctx:   ctx,
 					},
@@ -1068,9 +1067,9 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 			ctx.Graph.MapPrim2VecSyncOp[ch] = append(ctx.Graph.MapPrim2VecSyncOp[ch], newChOp)
 
 			if flagRundefer {
-				storeGraphInfoForDefer(inst,ctx, newChOp) // Note: use inst (which is *ssa.RunDefers/Panic/Call to Fatal...) as key
+				storeGraphInfoForDefer(inst, ctx, newChOp) // Note: use inst (which is *ssa.RunDefers/Panic/Call to Fatal...) as key
 			} else {
-				storeGraphInfo(anInst,ctx, newChOp)
+				storeGraphInfo(anInst, ctx, newChOp)
 			}
 
 			vecNewNodes = append(vecNewNodes, newChOp)
@@ -1090,7 +1089,7 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 				locker_prim = concrete.Parent
 			}
 
-			updateTaskOp(lockerOp,locker_prim,ctx, anInst)
+			updateTaskOp(lockerOp, locker_prim, ctx, anInst)
 
 			new_locker_op := &LockerOp{
 				Locker: locker_prim,
@@ -1101,7 +1100,7 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 					BoolIsAllAliasInGraph: ctx.Graph.Task.IsPrimATarget(locker_prim),
 					AliasOp:               make(map[SyncOp]bool),
 					SyncOp:                make(map[SyncOp]bool),
-					node:                  node{
+					node: node{
 						Instr: anInst,
 						Ctx:   ctx,
 					},
@@ -1110,9 +1109,9 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 			ctx.Graph.MapPrim2VecSyncOp[locker_prim] = append(ctx.Graph.MapPrim2VecSyncOp[locker_prim], new_locker_op)
 
 			if flagRundefer {
-				storeGraphInfoForDefer(inst,ctx,new_locker_op) // Note: use inst (which is *ssa.RunDefers/Panic/Call to Fatal...) as key
+				storeGraphInfoForDefer(inst, ctx, new_locker_op) // Note: use inst (which is *ssa.RunDefers/Panic/Call to Fatal...) as key
 			} else {
-				storeGraphInfo(anInst,ctx,new_locker_op)
+				storeGraphInfo(anInst, ctx, new_locker_op)
 			}
 
 			vecNewNodes = append(vecNewNodes, new_locker_op)
@@ -1127,15 +1126,15 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 				Inst:        anInst,
 				BoolIsPanic: false,
 				BoolIsFatal: true,
-				node:     node{
+				node: node{
 					Instr: anInst,
 					Ctx:   ctx,
 				},
 			}
 			if flagRundefer {
-				storeGraphInfoForDefer(inst,ctx, newKill) // Note: use inst (which is *ssa.RunDefers/Panic/Call to Fatal...) as key
+				storeGraphInfoForDefer(inst, ctx, newKill) // Note: use inst (which is *ssa.RunDefers/Panic/Call to Fatal...) as key
 			} else {
-				storeGraphInfo(anInst,ctx, newKill)
+				storeGraphInfo(anInst, ctx, newKill)
 			}
 			vecNewNodes = append(vecNewNodes, newKill)
 
@@ -1147,20 +1146,20 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 			Inst:      anInst,
 			Calling:   make(map[*callgraph.Edge]Node),
 			NextLocal: nil,
-			node:       node{
+			node: node{
 				Instr: anInst,
 				Ctx:   ctx,
 			},
 		}
 
 		if flagRundefer {
-			storeGraphInfoForDefer(inst,ctx, newCall) // Note: use inst (which is *ssa.RunDefers/Panic/Call to Fatal...) as key
+			storeGraphInfoForDefer(inst, ctx, newCall) // Note: use inst (which is *ssa.RunDefers/Panic/Call to Fatal...) as key
 		} else {
-			storeGraphInfo(anInst,ctx, newCall)
+			storeGraphInfo(anInst, ctx, newCall)
 		}
 
 		// An inst may have multiple call edges if calling interface method
-		vecAllEdges,ok := config.Inst2CallSite[anInst]
+		vecAllEdges, ok := config.Inst2CallSite[anInst]
 		if ok {
 			for edge, _ := range vecAllEdges {
 				callee := edge.Callee.Func
@@ -1171,7 +1170,7 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 				newCall.Calling[edge] = nil
 
 				newEdgeChain := &path.EdgeChain{
-					Chain:  append(path.CopyEdgeSlice(ctx.CallChain.Chain), edge),
+					Chain: append(path.CopyEdgeSlice(ctx.CallChain.Chain), edge),
 					Start: ctx.CallChain.Start,
 				}
 
@@ -1195,7 +1194,7 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 			}
 		} else {
 			value := anInst.Common().Value
-			if _,ok := value.(*ssa.Builtin); ok {
+			if _, ok := value.(*ssa.Builtin); ok {
 				// It is natural if a Builtin can't be found
 			} else {
 				//fmt.Println("Warning in ProcessInstGetNode: Call: can't find Sites of inst by global.Inst2CallSite")
@@ -1208,7 +1207,7 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 
 	for i, node_ := range vecNewNodes {
 		flagLast := false
-		if i == len(vecNewNodes) - 1 { // The last node
+		if i == len(vecNewNodes)-1 { // The last node
 			flagLast = true
 		}
 		switch concrete := node_.(type) {
@@ -1218,13 +1217,13 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 					concrete.Next = &End{
 						Inst:   concrete.Inst,
 						Reason: EndDefer,
-						node:   node{
+						node: node{
 							Instr: concrete.Inst,
 							Ctx:   ctx,
 						},
 					}
 				} else {
-					concrete.Next = ProcessInstGetNode(nextInst(inst),ctx)
+					concrete.Next = ProcessInstGetNode(nextInst(inst), ctx)
 				}
 			} else {
 				concrete.Next = vecNewNodes[i+1]
@@ -1235,13 +1234,13 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 					concrete.Next = &End{
 						Inst:   concrete.Instr,
 						Reason: EndDefer,
-						node:   node{
+						node: node{
 							Instr: concrete.Instr,
 							Ctx:   ctx,
 						},
 					}
 				} else {
-					concrete.Next = ProcessInstGetNode(nextInst(inst),ctx)
+					concrete.Next = ProcessInstGetNode(nextInst(inst), ctx)
 				}
 			} else {
 				concrete.Next = vecNewNodes[i+1]
@@ -1252,13 +1251,13 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 					concrete.Next = &End{
 						Inst:   concrete.Instr,
 						Reason: EndDefer,
-						node:   node{
+						node: node{
 							Instr: concrete.Instr,
 							Ctx:   ctx,
 						},
 					}
 				} else {
-					concrete.Next = ProcessInstGetNode(nextInst(inst),ctx)
+					concrete.Next = ProcessInstGetNode(nextInst(inst), ctx)
 				}
 			} else {
 				concrete.Next = vecNewNodes[i+1]
@@ -1269,13 +1268,13 @@ func handleTodoInsts(inst ssa.Instruction, ctx *CallCtx, flagRundefer bool, todo
 					concrete.NextLocal = &End{
 						Inst:   concrete.Inst,
 						Reason: EndDefer,
-						node:   node{
+						node: node{
 							Instr: concrete.Inst,
 							Ctx:   ctx,
 						},
 					}
 				} else {
-					concrete.NextLocal = ProcessInstGetNode(nextInst(inst),ctx)
+					concrete.NextLocal = ProcessInstGetNode(nextInst(inst), ctx)
 				}
 			} else {
 				concrete.NextLocal = vecNewNodes[i+1]

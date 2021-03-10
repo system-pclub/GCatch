@@ -8,60 +8,57 @@ import (
 	"strings"
 )
 
-
 type stDecSort struct {
 	Name string
 }
 
 type stDecFn struct {
-	Name string
-	Inputs [] string
-	Outputs [] string
+	Name    string
+	Inputs  []string
+	Outputs []string
 }
 
 type stDefineSort struct {
-	Name string
-	Input string
-	Output string
+	Name           string
+	Input          string
+	Output         string
 	HasInputOutput bool
 }
 
 type stDecConst struct {
-	Name string
-	Type string
+	Name  string
+	Type  string
 	Value ssa.Value
 }
 
 type Assert string
 
 type StSMTSet struct {
-	DecSorts [] stDecSort
-	DecFns  [] stDecFn
-	DefineSorts  [] stDefineSort
-	DecConsts [] stDecConst
-	Asserts [] Assert
-	FinalConst stDecConst
+	DecSorts    []stDecSort
+	DecFns      []stDecFn
+	DefineSorts []stDefineSort
+	DecConsts   []stDecConst
+	Asserts     []Assert
+	FinalConst  stDecConst
 	FinalAssert Assert
-	Todo [] ssa.Value
-	Status string
-	Index int
+	Todo        []ssa.Value
+	Status      string
+	Index       int
 }
 
-
 var (
-	SMTBool = "Bool"
-	SMTEQL = "="
-	SMTNot = "not"
-	DefaultSorts = []string{ "byte", "int", "int64", "bool", "string"}
-
+	SMTBool      = "Bool"
+	SMTEQL       = "="
+	SMTNot       = "not"
+	DefaultSorts = []string{"byte", "int", "int64", "bool", "string"}
 )
 
 var (
 	CountSMTSet = 0
 )
 
-func isDecConstInSlice(new stDecConst, slice [] stDecConst) bool {
-	for _,elem := range slice {
+func isDecConstInSlice(new stDecConst, slice []stDecConst) bool {
+	for _, elem := range slice {
 		if new.Name == elem.Name {
 			return true
 		}
@@ -69,9 +66,8 @@ func isDecConstInSlice(new stDecConst, slice [] stDecConst) bool {
 	return false
 }
 
-
-func isDecSortInSlice(new stDecSort, slice [] stDecSort) bool {
-	for _,elem := range slice {
+func isDecSortInSlice(new stDecSort, slice []stDecSort) bool {
+	for _, elem := range slice {
 		if new.Name == elem.Name {
 			return true
 		}
@@ -79,8 +75,8 @@ func isDecSortInSlice(new stDecSort, slice [] stDecSort) bool {
 	return false
 }
 
-func isDefInSlice(new stDefineSort, slice [] stDefineSort) bool {
-	for _,elem := range slice {
+func isDefInSlice(new stDefineSort, slice []stDefineSort) bool {
+	for _, elem := range slice {
 		if new.Name == elem.Name {
 			return true
 		}
@@ -99,7 +95,7 @@ func isAssertInSlice(assert Assert, slice []Assert) bool {
 }
 
 func isStringInSlice(str string, slice []string) bool {
-	for _,elem := range slice {
+	for _, elem := range slice {
 		if str == elem {
 			return true
 		}
@@ -107,15 +103,15 @@ func isStringInSlice(str string, slice []string) bool {
 	return false
 }
 
-func appendConstOnLeft(oldConsts [] stDecConst, newConst stDecConst) (result [] stDecConst) {
-	result = append([]stDecConst{},newConst)
+func appendConstOnLeft(oldConsts []stDecConst, newConst stDecConst) (result []stDecConst) {
+	result = append([]stDecConst{}, newConst)
 	for _, oldConst := range oldConsts {
 		result = append(result, oldConst)
 	}
 	return
 }
 
-func appendDecSortsOnLeft(oldDecs [] stDecSort, newDec stDecSort) (result []stDecSort) {
+func appendDecSortsOnLeft(oldDecs []stDecSort, newDec stDecSort) (result []stDecSort) {
 	result = append([]stDecSort{}, newDec)
 	for _, oldDec := range oldDecs {
 		result = append(result, oldDec)
@@ -123,19 +119,18 @@ func appendDecSortsOnLeft(oldDecs [] stDecSort, newDec stDecSort) (result []stDe
 	return
 }
 
-func appendDefineSortsOnLeft(oldDefs [] stDefineSort, newDef stDefineSort) (result [] stDefineSort) {
+func appendDefineSortsOnLeft(oldDefs []stDefineSort, newDef stDefineSort) (result []stDefineSort) {
 	result = append([]stDefineSort{}, newDef)
 	for _, oldDef := range oldDefs {
-		result = append(result,oldDef)
+		result = append(result, oldDef)
 	}
 	return
 }
 
+func appendAssertOnLeft(oldAsserts []Assert, newAssert Assert) (result []Assert) {
+	result = append([]Assert{}, newAssert)
 
-func appendAssertOnLeft(oldAsserts [] Assert, newAssert Assert) (result [] Assert) {
-	result = append([]Assert{},newAssert)
-
-	for _,oldAssert := range oldAsserts {
+	for _, oldAssert := range oldAsserts {
 		result = append(result, oldAssert)
 	}
 	return
@@ -148,123 +143,123 @@ func getNilName(constNil *ssa.Const) string {
 }
 
 func removeParentheses(str string) string {
-	str = strings.ReplaceAll(str,"(","")
-	str =strings.ReplaceAll(str,")","")
+	str = strings.ReplaceAll(str, "(", "")
+	str = strings.ReplaceAll(str, ")", "")
 	return str
 }
 
 func stripSliceType(str string) (core string, layers int) {
-	layers = strings.Count(str,"[]")
-	core = strings.ReplaceAll(str,"[]","")
+	layers = strings.Count(str, "[]")
+	core = strings.ReplaceAll(str, "[]", "")
 	return
 }
 
 func getValueType(v ssa.Value) string {
-	if _,ok := v.(*ssa.Alloc); ok {
+	if _, ok := v.(*ssa.Alloc); ok {
 		return "Alloc"
 	}
-	if _,ok := v.(*ssa.BinOp); ok {
+	if _, ok := v.(*ssa.BinOp); ok {
 		return "BinOp"
 	}
-	if _,ok := v.(*ssa.Builtin); ok {
+	if _, ok := v.(*ssa.Builtin); ok {
 		return "Builtin"
 	}
-	if _,ok := v.(*ssa.Call); ok {
+	if _, ok := v.(*ssa.Call); ok {
 		return "Call"
 	}
-	if _,ok := v.(*ssa.ChangeInterface); ok {
+	if _, ok := v.(*ssa.ChangeInterface); ok {
 		return "ChangeInterface"
 	}
-	if _,ok := v.(*ssa.ChangeType); ok {
+	if _, ok := v.(*ssa.ChangeType); ok {
 		return "ChangeType"
 	}
-	if _,ok := v.(*ssa.Const); ok {
+	if _, ok := v.(*ssa.Const); ok {
 		return "Const"
 	}
-	if _,ok := v.(*ssa.Convert); ok {
+	if _, ok := v.(*ssa.Convert); ok {
 		return "Convert"
 	}
-	if _,ok := v.(*ssa.Extract); ok {
+	if _, ok := v.(*ssa.Extract); ok {
 		return "Extract"
 	}
-	if _,ok := v.(*ssa.Field); ok {
+	if _, ok := v.(*ssa.Field); ok {
 		return "Field"
 	}
-	if _,ok := v.(*ssa.FieldAddr); ok {
+	if _, ok := v.(*ssa.FieldAddr); ok {
 		return "FieldAddr"
 	}
-	if _,ok := v.(*ssa.FreeVar); ok {
+	if _, ok := v.(*ssa.FreeVar); ok {
 		return "FreeVar"
 	}
-	if _,ok := v.(*ssa.Function); ok {
+	if _, ok := v.(*ssa.Function); ok {
 		return "Function"
 	}
-	if _,ok := v.(*ssa.Global); ok {
+	if _, ok := v.(*ssa.Global); ok {
 		return "Global"
 	}
-	if _,ok := v.(*ssa.Index); ok {
+	if _, ok := v.(*ssa.Index); ok {
 		return "Index"
 	}
-	if _,ok := v.(*ssa.IndexAddr); ok {
+	if _, ok := v.(*ssa.IndexAddr); ok {
 		return "IndexAddr"
 	}
-	if _,ok := v.(*ssa.Lookup); ok {
+	if _, ok := v.(*ssa.Lookup); ok {
 		return "Lookup"
 	}
-	if _,ok := v.(*ssa.MakeChan); ok {
+	if _, ok := v.(*ssa.MakeChan); ok {
 		return "MakeChan"
 	}
 
-	if _,ok := v.(*ssa.MakeClosure); ok {
+	if _, ok := v.(*ssa.MakeClosure); ok {
 		return "MakeClosure"
 	}
-	if _,ok := v.(*ssa.MakeInterface); ok {
+	if _, ok := v.(*ssa.MakeInterface); ok {
 		return "MakeInterface"
 	}
-	if _,ok := v.(*ssa.MakeMap); ok {
+	if _, ok := v.(*ssa.MakeMap); ok {
 		return "MakeMap"
 	}
-	if _,ok := v.(*ssa.MakeSlice); ok {
+	if _, ok := v.(*ssa.MakeSlice); ok {
 		return "MakeSlice"
 	}
-	if _,ok := v.(*ssa.Next); ok {
+	if _, ok := v.(*ssa.Next); ok {
 		return "Next"
 	}
-	if _,ok := v.(*ssa.Parameter); ok {
+	if _, ok := v.(*ssa.Parameter); ok {
 		return "Parameter"
 	}
-	if _,ok := v.(*ssa.Phi); ok {
+	if _, ok := v.(*ssa.Phi); ok {
 		return "Phi"
 	}
-	if _,ok := v.(*ssa.Range); ok {
+	if _, ok := v.(*ssa.Range); ok {
 		return "Range"
 	}
-	if _,ok := v.(*ssa.Select); ok {
+	if _, ok := v.(*ssa.Select); ok {
 		return "Select"
 	}
-	if _,ok := v.(*ssa.Slice); ok {
+	if _, ok := v.(*ssa.Slice); ok {
 		return "Slice"
 	}
-	if _,ok := v.(*ssa.TypeAssert); ok {
+	if _, ok := v.(*ssa.TypeAssert); ok {
 		return "TypeAssert"
 	}
-	if _,ok := v.(*ssa.UnOp); ok {
+	if _, ok := v.(*ssa.UnOp); ok {
 		return "UnOp"
 	}
 
 	return "unknown"
 }
 
-func createEmptySMTSet() (result * StSMTSet) {
-	result = & StSMTSet{}
+func createEmptySMTSet() (result *StSMTSet) {
+	result = &StSMTSet{}
 	result.DecSorts = []stDecSort{}
-	result.DecFns = [] stDecFn {}
+	result.DecFns = []stDecFn{}
 	result.DefineSorts = []stDefineSort{}
-	result.DecConsts = [] stDecConst{}
+	result.DecConsts = []stDecConst{}
 	result.Asserts = []Assert{}
 	result.FinalAssert = Assert("")
 	result.FinalConst = stDecConst{}
-	result.Todo = [] ssa.Value{}
+	result.Todo = []ssa.Value{}
 	result.Status = "Empty"
 	result.Index = CountSMTSet
 	CountSMTSet++
@@ -272,7 +267,7 @@ func createEmptySMTSet() (result * StSMTSet) {
 	return
 }
 
-func (s * StSMTSet) isValueDeclared(value ssa.Value) bool {
+func (s *StSMTSet) isValueDeclared(value ssa.Value) bool {
 	name := util.GetValueName(value)
 	for _, elem := range s.DecConsts {
 		if name == elem.Name {
@@ -283,7 +278,7 @@ func (s * StSMTSet) isValueDeclared(value ssa.Value) bool {
 	return false
 }
 
-func (s * StSMTSet) createAssertBodyBinOp(binOp * ssa.BinOp) string {
+func (s *StSMTSet) createAssertBodyBinOp(binOp *ssa.BinOp) string {
 
 	var v1, v2 string
 
@@ -302,14 +297,14 @@ func (s * StSMTSet) createAssertBodyBinOp(binOp * ssa.BinOp) string {
 	if v2Const, ok := binOp.Y.(*ssa.Const); ok {
 		if v2Const.IsNil() {
 			v2 = getNilName(v2Const)
-			s.Todo = append(s.Todo,v2Const)
+			s.Todo = append(s.Todo, v2Const)
 		} else {
 			v2 = removeParentheses(v2Const.Value.ExactString())
 		}
 
 	} else {
 		v2 = util.GetValueName(binOp.Y)
-		s.Todo = append(s.Todo,binOp.Y)
+		s.Todo = append(s.Todo, binOp.Y)
 	}
 
 	var body string
@@ -333,9 +328,9 @@ func (s * StSMTSet) createAssertBodyBinOp(binOp * ssa.BinOp) string {
 	return body
 }
 
-func (s * StSMTSet) declareCommonSorts(){
+func (s *StSMTSet) declareCommonSorts() {
 	// declare Byte for byte
-	decSort := stDecSort {
+	decSort := stDecSort{
 		"Byte",
 	}
 	s.DecSorts = appendDecSortsOnLeft(s.DecSorts, decSort)
@@ -347,7 +342,7 @@ func type2Sort(strTypeName string) (strSortName string) {
 	//handling slice
 	core_type, layers_of_slice := stripSliceType(strTypeName)
 
-	for i:=0; i < layers_of_slice; i++ {
+	for i := 0; i < layers_of_slice; i++ {
 		strSortName += "S_"
 	}
 	var core_sort string
@@ -369,14 +364,12 @@ func type2Sort(strTypeName string) (strSortName string) {
 	strSortName += core_sort
 
 	//handling defined structs
-	strSortName = strings.ReplaceAll(strSortName,"*","Ptr_")
-	strSortName = strings.ReplaceAll(strSortName,"/","_Of_")
+	strSortName = strings.ReplaceAll(strSortName, "*", "Ptr_")
+	strSortName = strings.ReplaceAll(strSortName, "/", "_Of_")
 	return
 }
 
-
-
-func (s * StSMTSet) sortDecOrDef(sort string) {
+func (s *StSMTSet) sortDecOrDef(sort string) {
 
 	coreSort, numLayersOfSlice := stripSliceType(sort)
 
@@ -385,7 +378,7 @@ func (s * StSMTSet) sortDecOrDef(sort string) {
 		coreSort,
 	}
 
-	if isStringInSlice(coreSort, DefaultSorts) == false && isDecSortInSlice(new_dec_sort, s.DecSorts) == false  {
+	if isStringInSlice(coreSort, DefaultSorts) == false && isDecSortInSlice(new_dec_sort, s.DecSorts) == false {
 		s.DecSorts = appendDecSortsOnLeft(s.DecSorts, new_dec_sort)
 	}
 
@@ -393,31 +386,31 @@ func (s * StSMTSet) sortDecOrDef(sort string) {
 		return
 	}
 	// Now we see if "S_S_Byte" is already defined. If not, define it
-	newDefine := stDefineSort{ }
+	newDefine := stDefineSort{}
 	newDefine.HasInputOutput = true
 	newDefine.Input = ""
 	newDefine.Name = sort
 	newDefine.Output = coreSort
 
-	for i:=0; i < numLayersOfSlice; i++ {
+	for i := 0; i < numLayersOfSlice; i++ {
 		newDefine.Output = "Array Int " + newDefine.Output
 	}
 
 	if isDefInSlice(newDefine, s.DefineSorts) == false {
-		s.DefineSorts =  appendDefineSortsOnLeft(s.DefineSorts, newDefine)
+		s.DefineSorts = appendDefineSortsOnLeft(s.DefineSorts, newDefine)
 	}
 }
 
 // Now only * is handled
-func (s * StSMTSet) handleUnOp(u *ssa.UnOp) {
+func (s *StSMTSet) handleUnOp(u *ssa.UnOp) {
 	switch u.Op {
 	default:
 		// TODO: need alias analysis for load and store. Now we only declare a new const here without any assert
 		u_type := u.Type().String()
 		u_sort := type2Sort(u_type)
 		new_dec_const := stDecConst{
-			Name: getValueType(u),
-			Type: u_sort,
+			Name:  getValueType(u),
+			Type:  u_sort,
 			Value: u,
 		}
 		s.sortDecOrDef(u_sort)
@@ -428,7 +421,7 @@ func (s * StSMTSet) handleUnOp(u *ssa.UnOp) {
 	}
 }
 
-func (s * StSMTSet) processTodo() {
+func (s *StSMTSet) processTodo() {
 	for len(s.Todo) > 0 {
 		value := s.Todo[0]
 		if s.isValueDeclared(value) == false {
@@ -440,14 +433,14 @@ func (s * StSMTSet) processTodo() {
 				//s.handle_Call(value_Call)
 			case "UnOp":
 				//panic("UnOp in processTodo")
-				value_UnOp,_ := value.(*ssa.UnOp)
+				value_UnOp, _ := value.(*ssa.UnOp)
 				s.handleUnOp(value_UnOp)
 			default:
 				s.Status = "Unhealthy"
 				return
 			}
 		}
-		new_Todo := [] ssa.Value {}
+		new_Todo := []ssa.Value{}
 		for i, v := range s.Todo {
 			if i > 0 {
 				new_Todo = append(new_Todo, v)
@@ -457,8 +450,7 @@ func (s * StSMTSet) processTodo() {
 	}
 }
 
-
-func Conds2SMTSet(vecCond [] stCond) (result * StSMTSet) {
+func Conds2SMTSet(vecCond []stCond) (result *StSMTSet) {
 	result = createEmptySMTSet()
 	if len(vecCond) == 0 {
 		result.Status = "Unhealthy"
@@ -468,13 +460,13 @@ func Conds2SMTSet(vecCond [] stCond) (result * StSMTSet) {
 	}
 
 	for i, _ := range vecCond {
-		cond := vecCond[len(vecCond) - 1 - i] // need to do this from tail to head
+		cond := vecCond[len(vecCond)-1-i] // need to do this from tail to head
 		strCondName := util.GetValueName(cond.Cond)
 
 		//generate declare-const
-		newConst := stDecConst {
-			Name: strCondName,
-			Type: SMTBool,
+		newConst := stDecConst{
+			Name:  strCondName,
+			Type:  SMTBool,
 			Value: cond.Cond,
 		}
 		if isDecConstInSlice(newConst, result.DecConsts) {
@@ -501,7 +493,7 @@ func Conds2SMTSet(vecCond [] stCond) (result * StSMTSet) {
 			newAssert = Assert(strErr)
 		}
 
-		result.Asserts = appendAssertOnLeft(result.Asserts,newAssert)
+		result.Asserts = appendAssertOnLeft(result.Asserts, newAssert)
 
 		//handle Todo_list, declaring all values we need
 		result.processTodo()
@@ -513,9 +505,9 @@ func Conds2SMTSet(vecCond [] stCond) (result * StSMTSet) {
 	result.declareCommonSorts()
 
 	//generate final bool const and its assert, which is linking
-	result.FinalConst = stDecConst {
-		Name: "Final" + strconv.Itoa(result.Index),
-		Type: "Bool",
+	result.FinalConst = stDecConst{
+		Name:  "Final" + strconv.Itoa(result.Index),
+		Type:  "Bool",
 		Value: nil,
 	}
 
@@ -530,7 +522,7 @@ func Conds2SMTSet(vecCond [] stCond) (result * StSMTSet) {
 		}
 	}
 	result.FinalAssert = Assert("(assert (= " + result.FinalConst.Name + " (and true " + strFinalAssertBody + ")))")
-	result.Asserts = append(result.Asserts,result.FinalAssert)
+	result.Asserts = append(result.Asserts, result.FinalAssert)
 	result.Status = "Finished"
 
 	return result

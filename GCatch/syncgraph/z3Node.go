@@ -127,4 +127,3 @@ func (r *ZNodeBRecv) findAllThreadCloses() (result []*ZNodeClose) {
 	}
 	return
 }
-

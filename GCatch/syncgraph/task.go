@@ -11,18 +11,18 @@ import (
 )
 
 type Task struct {
-	VecTaskPrimitive       []*TaskPrimitive // VecTaskPrimitive means these primitives satify: all its operations are in the graph
-	MapValue2TaskPrimitive map[interface{}]*TaskPrimitive
-	MapLCARoot2Op          map[*ssa.Function][]*ChainsToReachOp
-	BoolFinished           bool
+	VecTaskPrimitive                []*TaskPrimitive // VecTaskPrimitive means these primitives satify: all its operations are in the graph
+	MapValue2TaskPrimitive          map[interface{}]*TaskPrimitive
+	MapLCARoot2Op                   map[*ssa.Function][]*ChainsToReachOp
+	BoolFinished                    bool
 	BoolGiveupIfCallgraphInaccurate bool
 }
 
 type TaskPrimitive struct {
 	Primitive interface{}
-	Ops map[interface{}]*ChainsToReachOp
-	Finished bool
-	Task *Task
+	Ops       map[interface{}]*ChainsToReachOp
+	Finished  bool
+	Task      *Task
 }
 
 // Operation of a primitive, context-sensitive
@@ -32,7 +32,7 @@ type TaskPrimitive struct {
 //			send() // Line 4
 //		}
 // There are 2 operations, called by two paths: main() ---Line3---> send(); main() ---Line4---> send()
-type ChainsToReachOp struct{
+type ChainsToReachOp struct {
 	Op                     interface{}
 	Inst                   ssa.Instruction
 	Chains                 []*path.EdgeChain
@@ -42,10 +42,10 @@ type ChainsToReachOp struct{
 
 func newTask(boolGiveupIfCallgraphInaccurate bool) *Task {
 	return &Task{
-		VecTaskPrimitive:       nil,
-		MapValue2TaskPrimitive: make(map[interface{}]*TaskPrimitive),
-		MapLCARoot2Op:          make(map[*ssa.Function][]*ChainsToReachOp),
-		BoolFinished:           false,
+		VecTaskPrimitive:                nil,
+		MapValue2TaskPrimitive:          make(map[interface{}]*TaskPrimitive),
+		MapLCARoot2Op:                   make(map[*ssa.Function][]*ChainsToReachOp),
+		BoolFinished:                    false,
 		BoolGiveupIfCallgraphInaccurate: boolGiveupIfCallgraphInaccurate,
 	}
 }
@@ -60,6 +60,28 @@ func (t *Task) Step1AddPrim(newP interface{}) {
 	}
 	t.VecTaskPrimitive = append(t.VecTaskPrimitive, newTPrimitive)
 	t.MapValue2TaskPrimitive[newP] = newTPrimitive
+	thisPrimCh, ok := newP.(*instinfo.Channel)
+	if !ok || thisPrimCh.MakeInst == nil {
+		return
+	}
+	if dPrim, ok := DependMap[newP]; ok {
+		for _, otherPrim := range dPrim.Circular_depend {
+			if otherPrimCh, ok := otherPrim.Primitive.(*instinfo.Channel); ok {
+				if otherPrimCh.MakeInst != nil {
+					if otherPrimCh.MakeInst.Parent() == thisPrimCh.MakeInst.Parent() {
+						otherTPrimitive := &TaskPrimitive{
+							Primitive: otherPrimCh,
+							Ops:       make(map[interface{}]*ChainsToReachOp),
+							Finished:  false,
+							Task:      t,
+						}
+						t.VecTaskPrimitive = append(t.VecTaskPrimitive, otherTPrimitive)
+						t.MapValue2TaskPrimitive[otherPrimCh] = otherTPrimitive
+					}
+				}
+			}
+		}
+	}
 }
 
 var countInaccurateCall, countMaxLayer int
@@ -89,8 +111,11 @@ func (t *Task) Step2CompletePrims() error {
 		//	countInaccurateCall++
 		//}
 		if err == path.LcaErrReachedMax {
-			fmt.Println("!!!!")
-			fmt.Println("Task: Give up LCA because max layer (", config.MAX_LCA_LAYER, ") is reached. Count:", countMaxLayer)
+			if config.Print_Debug_Info {
+				fmt.Println("!!!!")
+				fmt.Println("Task: Give up LCA because max layer (", config.MAX_LCA_LAYER, ") is reached. Count:", countMaxLayer)
+			}
+
 			countMaxLayer++
 		}
 		return err
@@ -111,7 +136,7 @@ func (t *Task) Update() {
 		return
 	}
 
-	for _,prim := range t.VecTaskPrimitive {
+	for _, prim := range t.VecTaskPrimitive {
 		if prim.Finished {
 			continue
 		}
@@ -130,7 +155,7 @@ func (t *Task) Update() {
 		}
 	}
 
-	for _,prim := range t.VecTaskPrimitive {
+	for _, prim := range t.VecTaskPrimitive {
 		if prim.Finished {
 			continue
 		}
@@ -145,7 +170,7 @@ func (t *Task) Update() {
 	}
 
 	boolAllPrimFinished := true
-	for _,prim := range t.VecTaskPrimitive {
+	for _, prim := range t.VecTaskPrimitive {
 		if prim.Finished == false {
 			boolAllPrimFinished = false
 			break
@@ -159,7 +184,7 @@ func (t *Task) WantedList() (result []*path.EdgeChain) {
 		return nil
 	}
 
-	for _,prim := range t.VecTaskPrimitive {
+	for _, prim := range t.VecTaskPrimitive {
 		if prim.Finished {
 			continue
 		}
@@ -167,7 +192,7 @@ func (t *Task) WantedList() (result []*path.EdgeChain) {
 			if chainsToReachOp.Finished {
 				continue
 			}
-			for i,chain := range chainsToReachOp.Chains {
+			for i, chain := range chainsToReachOp.Chains {
 				if chainsToReachOp.VecBoolIsChainFinished[i] {
 					continue
 				}
@@ -200,9 +225,9 @@ func (t *Task) IsPrimATarget(prim interface{}) bool {
 }
 
 func removeVisitedChains(vecWanted, vecVisited []*path.EdgeChain) (result []*path.EdgeChain) {
-	for _,wanted := range vecWanted {
+	for _, wanted := range vecWanted {
 		boolVisited := false
-		for _,visited := range vecVisited {
+		for _, visited := range vecVisited {
 			if wanted.Equal(visited) {
 				boolVisited = true
 				break
@@ -219,7 +244,7 @@ func removeVisitedChains(vecWanted, vecVisited []*path.EdgeChain) (result []*pat
 func (tp *TaskPrimitive) CompleteOps(LCA2paths map[*ssa.Function][]*path.EdgeChain) {
 	switch p := tp.Primitive.(type) {
 	case *instinfo.Channel:
-		for _,op := range p.AllOps() {
+		for _, op := range p.AllOps() {
 			new_op := &ChainsToReachOp{
 				Op:                     op,
 				Inst:                   op.Instr(),
@@ -230,7 +255,7 @@ func (tp *TaskPrimitive) CompleteOps(LCA2paths map[*ssa.Function][]*path.EdgeCha
 			tp.Ops[op] = new_op
 		}
 	case *instinfo.Locker:
-		for _,op := range p.AllOps() {
+		for _, op := range p.AllOps() {
 			new_op := &ChainsToReachOp{
 				Op:                     op,
 				Inst:                   op.Instr(),
@@ -252,7 +277,7 @@ func (tp *TaskPrimitive) CompleteOps(LCA2paths map[*ssa.Function][]*path.EdgeCha
 				if len(onePath.Chain) == 0 {
 					end = onePath.Start
 				} else {
-					end = onePath.Chain[len(onePath.Chain) - 1].Callee
+					end = onePath.Chain[len(onePath.Chain)-1].Callee
 				}
 				if end.Func == op_fn {
 					boolFound = true
@@ -273,7 +298,7 @@ func (tp *TaskPrimitive) CompleteOps(LCA2paths map[*ssa.Function][]*path.EdgeCha
 }
 
 func removeFromWorklist(old []*Unfinish, remove *Unfinish) (result []*Unfinish) {
-	for _,o := range old {
+	for _, o := range old {
 		if o != remove {
 			result = append(result, o)
 		}

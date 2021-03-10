@@ -124,7 +124,7 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 	for {
 		mapTarget2OldChains := make(map[*ssa.Function][]*EdgeChain)
 		for target, workspace := range mapTargetFn2workspace {
-			for encode,_ := range workspace.mapChain2Ancestors {
+			for encode, _ := range workspace.mapChain2Ancestors {
 				chain := mapEncode2Chain[encode]
 				mapTarget2OldChains[target] = append(mapTarget2OldChains[target], chain)
 			}
@@ -132,7 +132,7 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 
 		// See if we can find the lowest common ancestor
 		intActiveChains := 0
-		for _,workspace := range mapTargetFn2workspace {
+		for _, workspace := range mapTargetFn2workspace {
 			intActiveChains += len(workspace.mapChain2Ancestors)
 		}
 
@@ -143,8 +143,8 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 				result := make(map[*ssa.Function][]*EdgeChain)
 				vecEdgePaths := []*EdgeChain{}
 
-				for _,workspace := range mapTargetFn2workspace {
-					for encode,_ := range workspace.mapChain2Ancestors {
+				for _, workspace := range mapTargetFn2workspace {
+					for encode, _ := range workspace.mapChain2Ancestors {
 						chain := mapEncode2Chain[encode]
 						chain = cutChain(chain, oneLca)
 						reversedChain := reverseChain(chain)
@@ -183,7 +183,7 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 				var intGreatestNumOfChains int
 				for node, intNumOfChains := range mapNode2NumChain {
 					if intNumOfChains > intGreatestNumOfChains {
-						champions = []*callgraph.Node{node }
+						champions = []*callgraph.Node{node}
 						intGreatestNumOfChains = intNumOfChains
 					} else if intNumOfChains == intGreatestNumOfChains {
 						champions = append(champions, node)
@@ -233,7 +233,7 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 					}
 					if boolHasChampion {
 						// num--
-						for _,ancestor := range ancestors {
+						for _, ancestor := range ancestors {
 							if mapNode2NumChain[ancestor] == 0 {
 								fmt.Print()
 							}
@@ -296,7 +296,7 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 				}
 
 				if mapNode2NumChain[currentChampion] != 0 {
-					err := fmt.Errorf("Warning in FindLCA: a node's number of chains is not 0 after we find " +
+					err := fmt.Errorf("Warning in FindLCA: a node's number of chains is not 0 after we find "+
 						"all chains containing it:", mapNode2NumChain[currentChampion])
 					return nil, err
 				}
@@ -310,7 +310,7 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 		countDepth++
 
 		// For each workspace
-		for _,workspace := range mapTargetFn2workspace {
+		for _, workspace := range mapTargetFn2workspace {
 
 			// Update all active chains
 			// We can't directly use a "for range workspace.mapChain2Ancestors", because we want a breadth-first search, but
@@ -330,7 +330,7 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 				if len(chain.Chain) == 0 {
 					lastNode = chain.Start
 				} else {
-					lastNode = chain.Chain[len(chain.Chain) - 1].Caller
+					lastNode = chain.Chain[len(chain.Chain)-1].Caller
 				}
 
 				if len(lastNode.In) == 0 { // skip if the lastNode has no caller
@@ -343,12 +343,12 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 
 				// delete the current chain
 				delete(workspace.mapChain2Ancestors, encode)
-				for _,ancestor := range ancestors {
+				for _, ancestor := range ancestors {
 					mapNode2NumChain[ancestor] -= 1
 				}
 
 				// for each caller, create a new chain for it
-				for _,in := range lastNode.In {
+				for _, in := range lastNode.In {
 
 					boolInExist := false
 					for _, existing_edge := range chain.Chain {
@@ -366,7 +366,7 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 						Start: chain.Start,
 					}
 					newEncode := encodeChain(newChain, mapEncode2Chain)
-					newAncestors := append(CopyNodeSlice(ancestors),in.Caller)
+					newAncestors := append(CopyNodeSlice(ancestors), in.Caller)
 					workspace.mapChain2Ancestors[newEncode] = newAncestors
 					for _, ancestor := range newAncestors {
 						mapNode2NumChain[ancestor] += 1
@@ -387,14 +387,14 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 						printWarning()
 					}
 				} else {
-					if len(path.Chain) + 1 != len(ancestors) {
+					if len(path.Chain)+1 != len(ancestors) {
 						printWarning()
 					}
 					for i, edge := range path.Chain {
 						if edge.Callee != ancestors[i] {
 							printWarning()
 						}
-						if i == len(path.Chain) - 1 {
+						if i == len(path.Chain)-1 {
 							if edge.Caller != ancestors[i+1] {
 								printWarning()
 							}
@@ -412,7 +412,7 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 func encodeChain(chain *EdgeChain, encode2chain map[string]*EdgeChain) string {
 	str := ""
 	str += chain.Start.Func.String() + " "
-	for _,edge := range chain.Chain {
+	for _, edge := range chain.Chain {
 		boolNilSite := edge.Site == nil
 		if boolNilSite {
 			str += "NilSite" + fmt.Sprintf("%p", edge) + edge.Caller.String() + " "
@@ -464,8 +464,8 @@ func CopyNodeSlice(old []*callgraph.Node) []*callgraph.Node {
 // default is If.Else. If the next is not If, meaning default and the last case are going to the same place
 func FindSelectNexts(s *ssa.Select) (map[int]ssa.Instruction, error) {
 	var e *ssa.Extract
-	for _,r := range *(s.Referrers()) {
-		if rAsExtract,ok := r.(*ssa.Extract); ok {
+	for _, r := range *(s.Referrers()) {
+		if rAsExtract, ok := r.(*ssa.Extract); ok {
 			if rAsExtract.Index == 0 {
 				e = rAsExtract
 				break
@@ -473,18 +473,18 @@ func FindSelectNexts(s *ssa.Select) (map[int]ssa.Instruction, error) {
 		}
 	}
 
-	if e == nil {// This should never happen
+	if e == nil { // This should never happen
 		output.PrintIISrc(s)
-		return nil, fmt.Errorf("Warning in find_select_nexts: no Extract found" )
+		return nil, fmt.Errorf("Warning in find_select_nexts: no Extract found")
 	}
 
 	mapIndex2binop := make(map[int]*ssa.BinOp)
-	for _,r := range *(e.Referrers()) {
-		binop,ok := r.(*ssa.BinOp)
-		if !ok {// This should never happen
+	for _, r := range *(e.Referrers()) {
+		binop, ok := r.(*ssa.BinOp)
+		if !ok { // This should never happen
 			output.PrintIISrc(s)
 			output.PrintIISrc(binop)
-			return nil, fmt.Errorf("Warning in find_select_nexts: one of Extract.Referrer is not BinOp" )
+			return nil, fmt.Errorf("Warning in find_select_nexts: one of Extract.Referrer is not BinOp")
 		}
 		defer func() {
 			if r := recover(); r != nil {
@@ -502,7 +502,7 @@ func FindSelectNexts(s *ssa.Select) (map[int]ssa.Instruction, error) {
 		referrers := *binop.Referrers()
 		if len(referrers) == 1 { // 1 referrer. This must be If. If.Then is the case. When index is the
 			// last index of all cases, and default exists, then If.Else is the default
-			inst_if,ok := referrers[0].(*ssa.If)
+			inst_if, ok := referrers[0].(*ssa.If)
 			if !ok { // This should never happen
 				output.PrintIISrc(s)
 				output.PrintIISrc(referrers[0])
@@ -513,7 +513,7 @@ func FindSelectNexts(s *ssa.Select) (map[int]ssa.Instruction, error) {
 			result[index] = thenInst
 
 			if s.Blocking == false { // Has default
-				if index == len(mapIndex2binop) - 1 { // This is the last case
+				if index == len(mapIndex2binop)-1 { // This is the last case
 					result[-1] = elseInst
 				}
 			}
@@ -521,29 +521,29 @@ func FindSelectNexts(s *ssa.Select) (map[int]ssa.Instruction, error) {
 		} else if len(referrers) == 0 { //No referrer. Meaning there is no If. This is an empty case
 			result[index] = nextInst(binop)
 			if s.Blocking == false { // Has default
-				if index == len(mapIndex2binop) - 1 { // This is the last case
+				if index == len(mapIndex2binop)-1 { // This is the last case
 					result[-1] = nextInst(binop)
 				}
 			}
 		} else { // This should never happen
 			output.PrintIISrc(s)
-			for _,r := range referrers {
+			for _, r := range referrers {
 				output.PrintIISrc(r)
 			}
 			return nil, fmt.Errorf("Warning in find_select_nexts: binop has multiple referrers")
 		}
 	}
 
-	return result,nil
+	return result, nil
 }
 
 // nextInst mustn't be called upon jump/if/return/panic, which have no or multiple nextInst
 func nextInst(inst ssa.Instruction) ssa.Instruction {
 	bb := inst.Block()
 	insts := bb.Instrs
-	for i,other := range insts {
+	for i, other := range insts {
 		if other == inst {
-			if len(insts) == i + 1 {
+			if len(insts) == i+1 {
 				return nil
 			} else {
 				return insts[i+1]
@@ -586,4 +586,57 @@ func EnumeratePathForPostDomBBs(bb1, bb2 *ssa.BasicBlock) [][]*ssa.BasicBlock {
 	}
 
 	return result
+}
+
+func PathBetweenInst(inst1, inst2 ssa.Instruction) (result []*ssa.BasicBlock) {
+	result = []*ssa.BasicBlock{}
+	if inst1.Parent() == inst2.Parent() {
+		result = PathBetweenLocalInst(inst1, inst2)
+	}
+	return
+}
+
+func PathBetweenLocalInst(inst1, inst2 ssa.Instruction) (result []*ssa.BasicBlock) {
+	result = []*ssa.BasicBlock{}
+	bb1 := inst1.Block()
+	bb2 := inst2.Block()
+	if bb1 == bb2 {
+		bb := bb1
+		var index1, index2 int
+		for i, inst := range bb.Instrs {
+			if inst == inst1 {
+				index1 = i
+			} else if inst == inst2 {
+				index2 = i
+			}
+		}
+		if index1 <= index2 {
+			result = append(result, bb)
+		}
+		return
+	}
+	result = DFSPathLocalBB(bb1, bb2, result)
+
+	return
+}
+
+func DFSPathLocalBB(bbCur, bbTarget *ssa.BasicBlock, path []*ssa.BasicBlock) (result []*ssa.BasicBlock) {
+	if bbCur == bbTarget {
+		result = path
+		return
+	}
+	for _, bbSuc := range bbCur.Succs {
+		isSucInPath := false
+		for _, bb := range path {
+			if bb == bbSuc {
+				isSucInPath = true
+				break
+			}
+		}
+		if isSucInPath == false {
+			newPath := append(path, bbSuc)
+			result = DFSPathLocalBB(bbSuc, bbTarget, newPath)
+		}
+	}
+	return
 }

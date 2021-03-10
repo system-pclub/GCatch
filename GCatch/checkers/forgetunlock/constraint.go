@@ -9,15 +9,13 @@ import (
 	"strconv"
 )
 
-func HandleCall(pCall * ssa.Call) string {
+func HandleCall(pCall *ssa.Call) string {
 	if pCall.Common().Value.Name() == "len" {
 		return "len(" + HandleVarOrInst(pCall.Common().Args[0]) + ")"
 	} else {
 		return pCall.String()
 	}
 }
-
-
 
 func HandleVarOrInst(pValue ssa.Value) string {
 	if pUnOp, ok := pValue.(*ssa.UnOp); ok {
@@ -33,7 +31,7 @@ func HandleVarOrInst(pValue ssa.Value) string {
 		return pGlobal.Name()
 	} else if pFunc, ok := pValue.(*ssa.Call); ok {
 		return HandleCall(pFunc)
-	} else if pField, ok := pValue.(* ssa.FieldAddr); ok {
+	} else if pField, ok := pValue.(*ssa.FieldAddr); ok {
 		return "&" + HandleVarOrInst(pField.X) + ".changes [" + strconv.Itoa(pField.Field) + "]"
 	}
 
@@ -41,13 +39,10 @@ func HandleVarOrInst(pValue ssa.Value) string {
 
 	panic("unhandled cases in HandleVarOrInst")
 
-
 	return ""
 }
 
-
-
-func HandleBinOp(pBinOp * ssa.BinOp) string {
+func HandleBinOp(pBinOp *ssa.BinOp) string {
 	aug0 := HandleVarOrInst(pBinOp.X)
 	aug1 := HandleVarOrInst(pBinOp.Y)
 
@@ -78,17 +73,16 @@ func HandleBinOp(pBinOp * ssa.BinOp) string {
 		}
 	}
 
-	return "(" + aug0 + " " + strOp  + " "  +  aug1 + ")"
+	return "(" + aug0 + " " + strOp + " " + aug1 + ")"
 }
 
-
-func ConvertCondsToContraints(conds [] stCond) string {
+func ConvertCondsToContraints(conds []stCond) string {
 
 	if len(conds) == 0 {
 		return ""
 	}
 
-	vecSubContraints := [] string {}
+	vecSubContraints := []string{}
 	for _, cond := range conds {
 		if pBinOp, ok := cond.Cond.(*ssa.BinOp); ok {
 			subConstraint := HandleBinOp(pBinOp)
@@ -102,15 +96,12 @@ func ConvertCondsToContraints(conds [] stCond) string {
 		}
 	}
 
-
-
 	sort.Strings(vecSubContraints)
 	strResult := vecSubContraints[0]
 
 	for _, strContraint := range vecSubContraints[1:] {
 		strResult = strResult + " && " + strContraint
 	}
-
 
 	return strResult
 }

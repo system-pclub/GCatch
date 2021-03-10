@@ -2,6 +2,7 @@ package syncgraph
 
 import (
 	"fmt"
+	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/output"
 )
@@ -12,7 +13,6 @@ type blockingPos struct {
 }
 
 func (g SyncGraph) CheckWithZ3() bool {
-
 
 	countBlockPoint := 0
 	// Main loop: for each pathCombination
@@ -45,103 +45,128 @@ func (g SyncGraph) CheckWithZ3() bool {
 		}
 
 		// List all blocking op of target channel on any path
-		allBlockPos := []blockingPos{}
+		pathId2AllBlockPos := make(map[int][]blockingPos)
 
+		const emptyPNodeId = -2
 		for i, pPath := range paths {
 			for j, pNode := range pPath.Path {
-				sync_node,ok := pNode.Node.(SyncOp)
+				syncNode, ok := pNode.Node.(SyncOp)
 				if !ok {
 					continue
 				}
-				if g.Task.IsPrimATarget(sync_node.Primitive()) {
-					if canSyncOpTriggerGl(sync_node) {
-						new_p_pos := blockingPos{
+				if g.Task.IsPrimATarget(syncNode.Primitive()) {
+					if canSyncOpTriggerGl(syncNode) {
+						newBlockPos := blockingPos{
 							pathId:  i,
 							pNodeId: j,
 						}
-						allBlockPos = append(allBlockPos, new_p_pos)
+						pathId2AllBlockPos[i] = append(pathId2AllBlockPos[i], newBlockPos)
 					}
 				}
+			}
+			emptyBlockPos := blockingPos{
+				pathId:  i,
+				pNodeId: emptyPNodeId,
+			}
+			pathId2AllBlockPos[i] = append(pathId2AllBlockPos[i], emptyBlockPos)
+		}
+
+		allBlockPosComb := []map[int]blockingPos{}
+
+		mapIndices := make(map[int]int)
+		for pathId, _ := range pathId2AllBlockPos {
+			mapIndices[pathId] = 0
+		}
+		for {
+			newComb := make(map[int]blockingPos)
+			boolCanSync := false
+			for pathId, indice := range mapIndices {
+				blockPos := pathId2AllBlockPos[pathId][indice]
+				if blockPos.pNodeId != emptyPNodeId {
+					// check if blockPos can sync with a previous blockPos
+					thisSyncNode, ok := paths[pathId].Path[blockPos.pNodeId].Node.(SyncOp)
+					if !ok {
+						fmt.Println("Panic when enumerate blockPos combination: Node is not SyncOp")
+						panic(1)
+					}
+					for pathId, otherBlockPos := range newComb {
+						if otherBlockPos.pNodeId == emptyPNodeId {
+							continue
+						}
+						pPath := paths[pathId]
+						otherSyncNode, ok := pPath.Path[otherBlockPos.pNodeId].Node.(SyncOp)
+						if !ok {
+							fmt.Println("Panic when enumerate blockPos combination: Node is not SyncOp")
+							panic(1)
+						}
+						if thisSyncNode.Primitive() != otherSyncNode.Primitive() {
+							continue
+						}
+						if canSync(thisSyncNode, otherSyncNode) {
+							boolCanSync = true
+							break
+						}
+					}
+				}
+				newComb[pathId] = blockPos
+			}
+			if boolCanSync == false {
+				boolAllEmpty := true
+				for _, blockPos := range newComb {
+					if blockPos.pNodeId != emptyPNodeId {
+						boolAllEmpty = false
+						break
+					}
+				}
+				if boolAllEmpty == false {
+					allBlockPosComb = append(allBlockPosComb, newComb)
+				}
+			}
+
+			nextPathId := -1
+			for pathId, indice := range mapIndices {
+				if indice >= len(pathId2AllBlockPos[pathId])-1 {
+					continue
+				} else {
+					nextPathId = pathId
+					break
+				}
+			}
+
+			if nextPathId == -1 {
+				break
+			}
+
+			mapIndices[nextPathId] += 1
+
+			for pathId, _ := range mapIndices {
+				if pathId == nextPathId {
+					break
+				}
+				mapIndices[pathId] = 0
 			}
 		}
 
 		// For every blocking op of target channel on any path
-		for _, blockPos := range allBlockPos {
-			// Make it block and other paths exit
-			for i,path := range paths {
-				if i == blockPos.pathId {
+		for _, blockPosComb := range allBlockPosComb {
+			for _, blockPos := range blockPosComb {
+				if blockPos.pNodeId != emptyPNodeId {
+					inst := paths[blockPos.pathId].Path[blockPos.pNodeId].Node.Instruction()
+					str := output.StringIISrc(inst)
+					if _, printed := PrintedBlockPosStr[str]; printed {
+						return false
+					}
+				}
+			}
+			// Make some paths block and other paths exit
+			for i, path := range paths {
+				blockPos := blockPosComb[i]
+				if blockPos.pNodeId != emptyPNodeId {
 					path.SetBlockAt(blockPos.pNodeId)
 				} else {
 					path.SetAllReached()
 				}
 			}
-
-			//// See if Go-rule is satisfied. Go-rule: A. if the goroutine is g.MainGoroutine, its path mustn't be nil
-			////										 B. if a goroutine has no nil path, its creation must be on another path in pathCombination
-			////										 C. if a Go is reached, the goroutine created must not be nil
-			////										 TODO: number of goroutines need to be the same as the number of Go (think of Go in loop)
-			//flag_Go_rule_satisfied := true
-			//outer:
-			//for i := 0; i < len(goroutines); i++ {
-			//	goroutine := goroutines[i]
-			//	path := paths[i]
-			//
-			//	// check A
-			//	if goroutine == g.MainGoroutine && path.LocalPath.IsEmpty() {
-			//		flag_Go_rule_satisfied = false
-			//		break outer
-			//	}
-			//
-			//	// check B
-			//	if path.LocalPath.IsEmpty() == false && goroutine.Creator != nil { // No nil path, and not main goroutine.
-			//		// Need to verify this goroutine is created by another path
-			//		flag_found_creator := false
-			//		for j, other := range paths {
-			//			if i == j {
-			//				continue
-			//			}
-			//			if other.IsNodeIn(goroutine.Creator) {
-			//				flag_found_creator = true
-			//				break
-			//			}
-			//		}
-			//		if flag_found_creator == false {
-			//			flag_Go_rule_satisfied = false
-			//			break outer
-			//		}
-			//	}
-			//
-			//	// check C
-			//	for _,node := range path.Path {
-			//		node_go,ok := node.Node.(*Go)
-			//		if !ok {
-			//			continue
-			//		}
-			//
-			//		flag_found_created_goroutine := false
-			//		for j,_ := range goroutines {
-			//			other := goroutines[j]
-			//			other_path := paths[j]
-			//			if other == goroutine {
-			//				continue
-			//			}
-			//			if other.Creator == node_go	{ // this goroutine is created by our Go
-			//				flag_found_created_goroutine = true
-			//				if other_path.LocalPath.IsEmpty() {
-			//					flag_Go_rule_satisfied = false
-			//					break outer
-			//				}
-			//			}
-			//		}
-			//		if flag_found_created_goroutine == false {
-			//			flag_Go_rule_satisfied = false
-			//			break
-			//		}
-			//	}
-			//}
-			//if flag_Go_rule_satisfied == false {
-			//	continue
-			//}
 
 			// See if Sync-rule is satisfied. Sync-rule: the number of ops of one prim must match, except the blocking one
 			flagSyncRuleSatisfied := true
@@ -150,7 +175,7 @@ func (g SyncGraph) CheckWithZ3() bool {
 			for i := 0; i < len(goroutines); i++ {
 				path := paths[i]
 				for _, pNode := range path.Path {
-					syncNode,ok := pNode.Node.(SyncOp)
+					syncNode, ok := pNode.Node.(SyncOp)
 					if !ok {
 						continue
 					}
@@ -173,7 +198,7 @@ func (g SyncGraph) CheckWithZ3() bool {
 
 				switch prim := p.(type) {
 				case *instinfo.Channel:
-					flagSyncRuleSatisfied = checkChOpsLegal(prim,nodes)
+					flagSyncRuleSatisfied = checkChOpsLegal(prim, nodes)
 				case *instinfo.Locker:
 					// Do we really need a rule for Locker?
 				}
@@ -186,28 +211,45 @@ func (g SyncGraph) CheckWithZ3() bool {
 				continue
 			}
 
-			vecBlockingPos := []blockingPos{blockPos}
+			vecBlockingPos := []blockingPos{}
+			for _, blockPos := range blockPosComb {
+				if blockPos.pNodeId == emptyPNodeId {
+					continue
+				}
+				vecBlockingPos = append(vecBlockingPos, blockPos)
+			}
 			z3Sys := NewZ3ForGl()
 			z3Sat := z3Sys.Z3Main(paths, vecBlockingPos)
 
 			// Report a bug
 			if z3Sat {
-				z3Sys.PrintAssert()
-				fmt.Println("-------Confirmed blocking path ")
+				//z3Sys.PrintAssert()
+				config.BugIndexMu.Lock()
+				config.BugIndex++
+				fmt.Print("----------Bug[")
+				fmt.Print(config.BugIndex)
+				config.BugIndexMu.Unlock()
+				fmt.Print("]----------\n\tType: BMOC \tReason: One or multiple channel operation is blocked.\n")
 				fmt.Println("-----Blocking at:")
-				inst := paths[blockPos.pathId].Path[blockPos.pNodeId].Node.Instruction()
-				output.PrintIISrc(inst)
-
-				fmt.Println("-----Blocking Path:")
-				paths[blockPos.pathId].PrintPPath()
-
-				for i, path := range paths {
-					if i == blockPos.pathId {
-						continue
+				for _, blockPos := range blockPosComb {
+					if blockPos.pNodeId != emptyPNodeId {
+						inst := paths[blockPos.pathId].Path[blockPos.pNodeId].Node.Instruction()
+						str := output.StringIISrc(inst)
+						fmt.Print(str)
+						PrintedBlockPosStr[str] = struct{}{}
 					}
-					fmt.Println("-----Path NO.",i,"\tEntry func at:",goroutines[i].EntryFn.String())
-					path.PrintPPath()
 				}
+
+				for _, blockPos := range blockPosComb {
+					if blockPos.pNodeId != emptyPNodeId {
+						fmt.Println("-----Blocking Path NO.", blockPos.pathId)
+						paths[blockPos.pathId].PrintPPath()
+					} else {
+						fmt.Println("-----Path NO.", blockPos.pathId, "\tEntry func at:", goroutines[blockPos.pathId].EntryFn.String())
+						paths[blockPos.pathId].PrintPPath()
+					}
+				}
+
 				fmt.Println()
 
 				return true
@@ -221,3 +263,5 @@ func (g SyncGraph) CheckWithZ3() bool {
 	//output.Wait_for_input()
 	return false
 }
+
+var PrintedBlockPosStr map[string]struct{} = make(map[string]struct{})

@@ -50,14 +50,14 @@ func checkNodesNumber(newGraph *SyncGraph) {
 }
 
 const (
-	chan_make      = 0
-	chan_send      = 1
-	chan_recv      = 2
-	chan_close     = 3
-	lock           = 4
-	unlock         = 5
-	rlock          = 6
-	runlock        = 7
+	chan_make  = 0
+	chan_send  = 1
+	chan_recv  = 2
+	chan_close = 3
+	lock       = 4
+	unlock     = 5
+	rlock      = 6
+	runlock    = 7
 )
 
 func opType(op SyncOp) int {
@@ -161,7 +161,6 @@ func isSpecialPrim(prim interface{}) bool {
 	return false
 }
 
-
 type WalkConfig struct {
 	NoBackedge bool
 	NoCallee   bool
@@ -195,7 +194,6 @@ func Walk(node Node, cfg *WalkConfig) {
 }
 
 var intNextId int
-
 
 // Walk through node and its succs, to update node.In, node.Out and node.Num_Paths. Don't walk through backedge.
 // Don't walk into callee, just append them to head_of_fn
@@ -408,7 +406,6 @@ func (g *SyncGraph) BuildNodeInOut() {
 	}
 }
 
-
 func TypeMsgForNode(node Node) string {
 	strNodeType := ""
 	switch node.(type) {
@@ -594,7 +591,7 @@ func isFatal(call ssa.CallInstruction) bool {
 	if call.Common().IsInvoke() {
 		return false
 	}
-	fn,ok := call.Common().Value.(*ssa.Function)
+	fn, ok := call.Common().Value.(*ssa.Function)
 	if !ok {
 		return false
 	}
@@ -609,21 +606,67 @@ func isFatal(call ssa.CallInstruction) bool {
 	var listFatal []string
 
 	if pkgName == "testing" {
-		listFatal = []string{"Fatal","Fatalf","FailNow"} // "Skip","Skipf","SkipNow" are not considered here, because we want to check test functions that start with a Skip
-
+		listFatal = []string{"Fatal", "Fatalf", "FailNow"} // "Skip","Skipf","SkipNow" are not considered here, because we want to check test functions that start with a Skip
 
 	} else if pkgName == "assert" { // github.com/stretchr/testify/assert
 		listFatal = []string{"Fail"}
 
-
 		//} else if pkg_path == "github.com/cockroachdb/cockroach/pkg/testutils"{
 		//	listFatal = []string{"SucceedsSoon"}
-	} else{
+	} else {
 		return false
 	}
-	for _,fatal := range listFatal {
+	for _, fatal := range listFatal {
 		if fatal == fnName {
 			return true
+		}
+	}
+	return false
+}
+
+func canSync(op1, op2 SyncOp) bool {
+	switch op1Concrete := op1.(type) {
+	case *ChanOp:
+		op2Concrete, isOp2Chan := op2.(*ChanOp)
+		if isOp2Chan == false {
+			return false
+		}
+		switch op1Concrete.Op.(type) {
+		case *instinfo.ChSend:
+			_, isOp2Recv := op2Concrete.Op.(*instinfo.ChRecv)
+			if isOp2Recv {
+				return true
+			} else {
+				return false
+			}
+		case *instinfo.ChRecv:
+			_, isOp2Send := op2Concrete.Op.(*instinfo.ChSend)
+			if isOp2Send {
+				return true
+			} else {
+				return false
+			}
+		}
+	case *LockerOp:
+		op2Concrete, isOp2Locker := op2.(*LockerOp)
+		if isOp2Locker == false {
+			return false
+		}
+		switch op1Concrete.Op.(type) {
+		case *instinfo.LockOp:
+			_, isOp2UnLock := op2Concrete.Op.(*instinfo.UnlockOp)
+			if isOp2UnLock {
+				return true
+			} else {
+				return false
+			}
+		case *instinfo.UnlockOp:
+			_, isOp2Lock := op2Concrete.Op.(*instinfo.LockOp)
+			if isOp2Lock {
+				return true
+			} else {
+				return false
+			}
 		}
 	}
 	return false
@@ -695,7 +738,6 @@ func checkChOpsLegal(ch *instinfo.Channel, ops []Node) bool {
 
 	return true
 }
-
 
 func fnsForInstsNoDupli(insts []ssa.Instruction) []*ssa.Function {
 	result := []*ssa.Function{}

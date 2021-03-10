@@ -2,6 +2,7 @@ package syncgraph
 
 import (
 	"fmt"
+	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/tools/github.com/aclements/go-z3/z3"
 )
@@ -75,15 +76,15 @@ type ZNodeNbRecv struct {
 }
 
 type ZNodeBSend struct {
-	Buffer z3.Int
+	Buffer   z3.Int
 	Other_SR []ZNode
 	ZNodeBasic
 }
 
 type ZNodeBRecv struct {
-	Buffer z3.Int
-	Other_SR []ZNode
-	Closes []*ZNodeClose
+	Buffer     z3.Int
+	Other_SR   []ZNode
+	Closes     []*ZNodeClose
 	From_close z3.Bool
 	ZNodeBasic
 }
@@ -107,9 +108,9 @@ type Z3System struct {
 	countUniqueName int
 
 	Warnings []string
-	Config *Z3Cfg
-	Z3Ctx *z3.Context
-	Solver *z3.Solver
+	Config   *Z3Cfg
+	Z3Ctx    *z3.Context
+	Solver   *z3.Solver
 }
 
 type AllConstraints struct {
@@ -121,7 +122,7 @@ type AllConstraints struct {
 
 const (
 	WARNING_met_chan_var_buf = "WARNING_met_chan_var_buf"
-	WARNING_met_nil_chan = "WARNING_met_nil_chan"
+	WARNING_met_nil_chan     = "WARNING_met_nil_chan"
 )
 
 var (
@@ -178,14 +179,16 @@ func (z *Z3System) Z3Main(p_paths []*PPath, block_poses []blockingPos) bool {
 	}
 
 	// found a trace!
-	fmt.Println("Satisfiable!")
-	model := z.Solver.Model()
-	for i, zthread := range z.vecZGoroutines {
-		fmt.Println("------Thread ", i)
-		for j, znode := range zthread.Nodes {
-			fmt.Println("Node ", j, ":", TypeMsgForNode(znode.PNode().Node))
-			order := model.Eval(znode.TraceOrder(), true)
-			fmt.Println("\tOrder: ", order.String())
+	if config.Print_Debug_Info {
+		fmt.Println("Satisfiable!")
+		model := z.Solver.Model()
+		for i, zthread := range z.vecZGoroutines {
+			fmt.Println("------Thread ", i)
+			for j, znode := range zthread.Nodes {
+				fmt.Println("Node ", j, ":", TypeMsgForNode(znode.PNode().Node))
+				order := model.Eval(znode.TraceOrder(), true)
+				fmt.Println("\tOrder: ", order.String())
+			}
 		}
 	}
 
@@ -253,7 +256,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 					}
 
 					// check if this is a special channel
-					if prim == &instinfo.ChanNotDepend ||  prim == &instinfo.ChanTimer ||  prim == &instinfo.ChanContext {
+					if prim == &instinfo.ChanNotDepend || prim == &instinfo.ChanTimer || prim == &instinfo.ChanContext {
 						continue
 					}
 
@@ -346,7 +349,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 					// see if send already has the pair to recv
 					if concrete.hasPairWith(recv) == false {
 						// create *Pair for this send and recv
-						boolUseThisPair := z.Z3Ctx.BoolConst("Pair_" + znode_name(concrete) + znode_name(recv) +"_use")
+						boolUseThisPair := z.Z3Ctx.BoolConst("Pair_" + znode_name(concrete) + znode_name(recv) + "_use")
 						newPair := &ZSendRecvPair{
 							boolUseThisPair: boolUseThisPair,
 							Send:            concrete,
@@ -365,7 +368,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 					// see if recv already has the pair to send
 					if concrete.hasPairWith(send) == false {
 						// create *Pair for this send and recv
-						useThisPair := z.Z3Ctx.BoolConst("Pair_" + znode_name(send) + znode_name(concrete) +"_use")
+						useThisPair := z.Z3Ctx.BoolConst("Pair_" + znode_name(send) + znode_name(concrete) + "_use")
 						newPair := &ZSendRecvPair{
 							boolUseThisPair: useThisPair,
 							Send:            send,
@@ -418,7 +421,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 			}
 
 			if j > 0 {
-				prevNode := Zthread.Nodes[j - 1]
+				prevNode := Zthread.Nodes[j-1]
 				if prevNode == nil {
 					continue
 				}
@@ -502,12 +505,11 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 				} else {
 					syncWithSend := z.onlyOneTrue(allPairChosen)
 
-
 					var allCloses []ZNode
 					for _, zclose := range concrete.Closes {
 						allCloses = append(allCloses, zclose)
 					}
-					anyCloseAlreadyHappen := z.anyNodeInListHappenBefore(allCloses,concrete)
+					anyCloseAlreadyHappen := z.anyNodeInListHappenBefore(allCloses, concrete)
 					concrete.FromClose = anyCloseAlreadyHappen
 
 					syncOfThisRecv = syncWithSend.Xor(concrete.FromClose)
@@ -529,7 +531,6 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 					z.Constraints.SyncOfOp = append(z.Constraints.SyncOfOp, lessThanBufferSize)
 				}
 
-
 			case *ZNodeBRecv:
 				if znode.IsBlocking() {
 					continue
@@ -543,7 +544,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 					for _, zclose := range concrete.Closes {
 						allCloses = append(allCloses, zclose)
 					}
-					anyCloseAlreadyHappen := z.anyNodeInListHappenBefore(allCloses,concrete)
+					anyCloseAlreadyHappen := z.anyNodeInListHappenBefore(allCloses, concrete)
 					concrete.From_close = anyCloseAlreadyHappen
 
 					syncOfThisRecv := largerThanZero.Or(anyCloseAlreadyHappen)
@@ -569,7 +570,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 			for _, zclose := range concrete.Closes {
 				allCloses = append(allCloses, zclose)
 			}
-			anyCloseAlreadyHappen := z.anyNodeInListHappenBefore(allCloses,concrete)
+			anyCloseAlreadyHappen := z.anyNodeInListHappenBefore(allCloses, concrete)
 			allCloseNotHappen := anyCloseAlreadyHappen.Not()
 			z.Constraints.Blocking = append(z.Constraints.Blocking, allCloseNotHappen)
 		case *ZNodeBSend:
@@ -588,7 +589,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 			for _, zclose := range concrete.Closes {
 				allCloses = append(allCloses, zclose)
 			}
-			anyCloseAlreadyHappen := z.anyNodeInListHappenBefore(allCloses,concrete)
+			anyCloseAlreadyHappen := z.anyNodeInListHappenBefore(allCloses, concrete)
 			allCloseNotHappen := anyCloseAlreadyHappen.Not()
 			z.Constraints.Blocking = append(z.Constraints.Blocking, allCloseNotHappen)
 		}
@@ -628,4 +629,3 @@ func (z *Z3System) PrintAssert() {
 		fmt.Println(blockingC.String())
 	}
 }
-

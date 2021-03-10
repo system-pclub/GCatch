@@ -1,19 +1,17 @@
 package fatal
 
-
-
 import (
 	"fmt"
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/output"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
-	"strings"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa/ssautil"
+	"strings"
 )
 
 var C8_done_fn []string
 
-func init(){
+func init() {
 	C8_done_fn = []string{}
 }
 
@@ -41,7 +39,7 @@ func report(inst ssa.Instruction, parent *ssa.Function) {
 func loop_fns() {
 
 fn_loop:
-	for fn,_ := range ssautil.AllFunctions(config.Prog) {
+	for fn, _ := range ssautil.AllFunctions(config.Prog) {
 
 		if fn == nil {
 			continue
@@ -54,12 +52,12 @@ fn_loop:
 		//	continue
 		//}
 		fn_str := fn.String()
-		for _,done_fn := range C8_done_fn {
+		for _, done_fn := range C8_done_fn {
 			if done_fn == fn_str {
 				continue fn_loop
 			}
 		}
-		C8_done_fn = append(C8_done_fn,fn.String())
+		C8_done_fn = append(C8_done_fn, fn.String())
 
 		inside_func(fn)
 	}
@@ -67,11 +65,11 @@ fn_loop:
 
 func inside_func(fn *ssa.Function) {
 
-	for _,bb := range fn.Blocks {
-		for _,inst := range bb.Instrs {
+	for _, bb := range fn.Blocks {
+		for _, inst := range bb.Instrs {
 			//p := (config.Prog.Fset).Position(inst.Pos())
 
-			inst_go,ok := inst.(*ssa.Go)
+			inst_go, ok := inst.(*ssa.Go)
 			if !ok {
 				continue
 			}
@@ -88,20 +86,20 @@ func inside_func(fn *ssa.Function) {
 			case *ssa.Builtin:
 			case *ssa.MakeClosure:
 				var ok bool
-				interesting_fn,ok = concrete.Fn.(*ssa.Function)
+				interesting_fn, ok = concrete.Fn.(*ssa.Function)
 				if !ok {
-					fmt.Println("Warning in C8: Unknown MakeClosure callee in:", fn.String(),"\tinst:",inst)
+					fmt.Println("Warning in C8: Unknown MakeClosure callee in:", fn.String(), "\tinst:", inst)
 				}
 			default:
-				node,ok := config.CallGraph.Nodes[fn]
+				node, ok := config.CallGraph.Nodes[fn]
 				if !ok {
 					continue
 				}
-				for _,out := range node.Out {
+				for _, out := range node.Out {
 					if out.Site == inst {
 						if out.Callee.Func != nil {
-							if strings.Contains(out.Callee.Func.String(),fn.Name()) { // make sure the callee is created in this function, or there will be a lot of FPs
-								find_fatal_in_fn(out.Callee.Func,fn)
+							if strings.Contains(out.Callee.Func.String(), fn.Name()) { // make sure the callee is created in this function, or there will be a lot of FPs
+								find_fatal_in_fn(out.Callee.Func, fn)
 							}
 						}
 					}
@@ -111,16 +109,16 @@ func inside_func(fn *ssa.Function) {
 			if interesting_fn == nil {
 				continue
 			} else {
-				find_fatal_in_fn(interesting_fn,fn)
+				find_fatal_in_fn(interesting_fn, fn)
 			}
 		}
 	}
 }
 
 func find_fatal_in_fn(target, parent *ssa.Function) {
-	for _,bb := range target.Blocks {
-		for _,inst := range bb.Instrs {
-			inst_call,ok := inst.(*ssa.Call)
+	for _, bb := range target.Blocks {
+		for _, inst := range bb.Instrs {
+			inst_call, ok := inst.(*ssa.Call)
 			if !ok {
 				continue
 			}
@@ -129,22 +127,22 @@ func find_fatal_in_fn(target, parent *ssa.Function) {
 				continue
 			}
 
-			callee_fn,ok := inst_call.Call.Value.(*ssa.Function)
+			callee_fn, ok := inst_call.Call.Value.(*ssa.Function)
 			if !ok {
 				continue
 			}
 
 			if callee_fn.Name() == "Fatal" || callee_fn.Name() == "Fatalf" || callee_fn.Name() == "FailNow" ||
 				callee_fn.Name() == "Skip" || callee_fn.Name() == "Skipf" || callee_fn.Name() == "SkipNow" {
-				if strings.Contains(callee_fn.Pkg.String(),"package testing") == false {
+				if strings.Contains(callee_fn.Pkg.String(), "package testing") == false {
 					continue
 				}
-				report(inst,parent)
+				report(inst, parent)
 			}
 
 		}
 	}
-	for _,anony := range target.AnonFuncs {
-		find_fatal_in_fn(anony,parent)
+	for _, anony := range target.AnonFuncs {
+		find_fatal_in_fn(anony, parent)
 	}
 }

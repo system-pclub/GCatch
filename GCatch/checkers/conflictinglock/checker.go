@@ -10,18 +10,17 @@ import (
 	"strings"
 )
 
-var AnalyzedFNs map[string] bool
-var MapMutex map[string] * StMutex
+var AnalyzedFNs map[string]bool
+var MapMutex map[string]*StMutex
 
+var VecFNsWithLocking []*ssa.Function
 
-var VecFNsWithLocking   []* ssa.Function
+var mapIIStLockingOp map[ssa.Instruction]*StLockingOp
+var mapIIStUnlockingOp map[ssa.Instruction]*StUnlockingOp
 
-var mapIIStLockingOp map[ssa.Instruction] * StLockingOp
-var mapIIStUnlockingOp map[ssa.Instruction] * StUnlockingOp
+var mapCallSiteCallee map[ssa.Instruction]map[*ssa.Function]bool
 
-var mapCallSiteCallee map[ssa.Instruction] map[* ssa.Function] bool
-
-var mapIDCallChain map[int] [] * callgraph.Edge
+var mapIDCallChain map[int][]*callgraph.Edge
 
 var numCurrentCallChainID int
 
@@ -30,20 +29,19 @@ const MaxInspectedFun int = 100000
 
 var numInspectedFn int
 
-var mapPairIDMutexPair map[string] * stMutexPair
+var mapPairIDMutexPair map[string]*stMutexPair
 
-var reportedPairs map[string] bool
+var reportedPairs map[string]bool
 
+func printCallChain(callchain []*callgraph.Edge) {
 
-func printCallChain(callchain [] * callgraph.Edge) {
-
-	mapFun := make(map[string] bool)
+	mapFun := make(map[string]bool)
 	boolRecursive := false
 	containFnPointer := false
 	for index, e := range callchain {
 
-		if pCall, ok := e.Site.(* ssa.Call); ok {
-			if _, ok := pCall.Call.Value.(* ssa.Function); ok {
+		if pCall, ok := e.Site.(*ssa.Call); ok {
+			if _, ok := pCall.Call.Value.(*ssa.Function); ok {
 			} else if _, ok := pCall.Call.Value.(ssa.Instruction); ok {
 				containFnPointer = true
 			}
@@ -55,8 +53,7 @@ func printCallChain(callchain [] * callgraph.Edge) {
 			boolRecursive = true
 		}
 
-
-		if index == len(callchain) - 1 {
+		if index == len(callchain)-1 {
 			if _, ok := mapFun[e.Callee.Func.String()]; !ok {
 				mapFun[e.Callee.Func.String()] = true
 			} else {
@@ -86,14 +83,13 @@ func printCallChain(callchain [] * callgraph.Edge) {
 
 		fmt.Print(" -> ")
 
-		if index == len(callchain) - 1 {
+		if index == len(callchain)-1 {
 			fmt.Print(e.Callee.Func.Name())
 		}
 	}
 
 	fmt.Println()
 }
-
 
 func getFunctionWithLockingOps() {
 
@@ -112,9 +108,7 @@ func getFunctionWithLockingOps() {
 
 		AnalyzedFNs[fn.String()] = true
 
-
 		hasLockingOp := handleFN(fn)
-
 
 		if hasLockingOp {
 			VecFNsWithLocking = append(VecFNsWithLocking, fn)
@@ -123,7 +117,6 @@ func getFunctionWithLockingOps() {
 
 	//mapIIStLockingOp = make(map[ssa.Instruction] * StLockingOp)
 	//mapIIStUnlockingOp = make(map[ssa.Instruction] * StUnlockingOp)
-
 
 	for _, stMutex := range MapMutex {
 		for ii, l := range stMutex.MapLockingOps {
@@ -143,7 +136,7 @@ func getCallSiteCalleeMapping() {
 		for _, e := range node.Out {
 			if ii, ok := e.Site.(ssa.Instruction); ok {
 				if _, ok := mapCallSiteCallee[ii]; !ok {
-					mapCallSiteCallee[ii] = make(map[* ssa.Function] bool)
+					mapCallSiteCallee[ii] = make(map[*ssa.Function]bool)
 				}
 				mapCallSiteCallee[ii][e.Callee.Func] = true
 			}
@@ -151,16 +144,16 @@ func getCallSiteCalleeMapping() {
 	}
 }
 
-func collectLockingPair( vecLockingPair [] * StLockPair, callchain [] * callgraph.Edge) {
+func collectLockingPair(vecLockingPair []*StLockPair, callchain []*callgraph.Edge) {
 
 	if len(vecLockingPair) == 0 {
 		return
 	}
 
-	tmp := make([] * callgraph.Edge, 0)
+	tmp := make([]*callgraph.Edge, 0)
 
 	for _, c := range callchain {
-		tmp  = append(tmp, c)
+		tmp = append(tmp, c)
 	}
 
 	mapIDCallChain[numCurrentCallChainID] = tmp
@@ -178,21 +171,19 @@ func collectLockingPair( vecLockingPair [] * StLockPair, callchain [] * callgrap
 			mapPairIDMutexPair[pairID] = &stMutexPair{
 				PMutex1:        p.PLock1.Parent,
 				PMutex2:        p.PLock2.Parent,
-				VecLockingPair: make([] * StLockPair, 0),
+				VecLockingPair: make([]*StLockPair, 0),
 			}
 		}
 
 		mapPairIDMutexPair[pairID].VecLockingPair = append(mapPairIDMutexPair[pairID].VecLockingPair, p)
 	}
 
-	numCurrentCallChainID ++
+	numCurrentCallChainID++
 }
 
+func analyzeFN(fn *ssa.Function, callchain []*callgraph.Edge, context map[*StLockingOp]bool, depth int) {
 
-func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* StLockingOp] bool, depth int) {
-
-
-	numInspectedFn ++
+	numInspectedFn++
 
 	if numInspectedFn > MaxInspectedFun {
 		return
@@ -202,12 +193,12 @@ func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* St
 		return
 	}
 
-	vecNameChain := [] string {}
+	vecNameChain := []string{}
 
 	for index, e := range callchain {
 		vecNameChain = append(vecNameChain, e.Caller.Func.String())
 
-		if index == len(callchain) -1 {
+		if index == len(callchain)-1 {
 			vecNameChain = append(vecNameChain, e.Callee.Func.String())
 		}
 	}
@@ -225,9 +216,9 @@ func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* St
 		}
 
 		if len(vecIndex) == 2 {
-			if vecIndex[1] + 1 < len(vecNameChain) {
-				s1 := vecNameChain[vecIndex[0] + 1]
-				s2 := vecNameChain[vecIndex[1] + 1]
+			if vecIndex[1]+1 < len(vecNameChain) {
+				s1 := vecNameChain[vecIndex[0]+1]
+				s2 := vecNameChain[vecIndex[1]+1]
 				if s1 == s2 {
 					return
 				}
@@ -240,13 +231,13 @@ func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* St
 	collectLockingPair(newPair, callchain)
 
 	if node, ok := config.CallGraph.Nodes[fn]; ok {
-		mapIIContextLock := make(map[* callgraph.Edge] map[* StLockingOp] bool)
+		mapIIContextLock := make(map[*callgraph.Edge]map[*StLockingOp]bool)
 
 		for _, e := range node.Out {
 			if config.BoolDisableFnPointer {
 				//if mapCallSiteCallee[]
 				if ii, ok := e.Site.(ssa.Instruction); ok {
-					if  m, ok := mapCallSiteCallee[ii]; ok {
+					if m, ok := mapCallSiteCallee[ii]; ok {
 						if len(m) > 1 {
 							continue
 						}
@@ -254,7 +245,7 @@ func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* St
 				}
 			}
 
-			if _, ok := e.Site.(* ssa.Defer); ok {
+			if _, ok := e.Site.(*ssa.Defer); ok {
 				IIs := util.GetExitInsts(fn)
 				for _, ii := range IIs {
 					contextLock := GetLiveMutex(ii)
@@ -284,13 +275,13 @@ func analyzeFN(fn * ssa.Function, callchain []* callgraph.Edge, context map[* St
 
 		for e, contextLock := range mapIIContextLock {
 			callchain = append(callchain, e)
-			analyzeFN(e.Callee.Func, callchain, contextLock, depth + 1)
-			callchain = callchain[: len(callchain) - 1]
+			analyzeFN(e.Callee.Func, callchain, contextLock, depth+1)
+			callchain = callchain[:len(callchain)-1]
 		}
 	}
 }
 
-func analyzeEntryFN(fn * ssa.Function) {
+func analyzeEntryFN(fn *ssa.Function) {
 
 	//if fn.Name() != "Value" {
 	//	return
@@ -300,22 +291,21 @@ func analyzeEntryFN(fn * ssa.Function) {
 
 	numInspectedFn = 0
 	depth := 0
-	callchain := make([] * callgraph.Edge, 0)
-	contextLock := make(map[* StLockingOp] bool)
+	callchain := make([]*callgraph.Edge, 0)
+	contextLock := make(map[*StLockingOp]bool)
 
 	newPair := GenKillAnalysis(fn, contextLock)
 
 	//fmt.Println(len(newPair))
 	collectLockingPair(newPair, callchain)
 
-
 	if node, ok := config.CallGraph.Nodes[fn]; ok {
 
-		mapIIContextLock := make(map[* callgraph.Edge] map[* StLockingOp] bool)
+		mapIIContextLock := make(map[*callgraph.Edge]map[*StLockingOp]bool)
 		for _, e := range node.Out {
 			if config.BoolDisableFnPointer {
 				if ii, ok := e.Site.(ssa.Instruction); ok {
-					if  m, ok := mapCallSiteCallee[ii]; ok {
+					if m, ok := mapCallSiteCallee[ii]; ok {
 						if len(m) > 1 {
 							continue
 						}
@@ -323,7 +313,7 @@ func analyzeEntryFN(fn * ssa.Function) {
 				}
 			}
 
-			if _, ok := e.Site.(* ssa.Defer); ok {
+			if _, ok := e.Site.(*ssa.Defer); ok {
 				IIs := util.GetExitInsts(fn)
 				for _, ii := range IIs {
 					contextLock := GetLiveMutex(ii)
@@ -354,36 +344,34 @@ func analyzeEntryFN(fn * ssa.Function) {
 		for e, contextLock := range mapIIContextLock {
 			callchain = append(callchain, e)
 			analyzeFN(e.Callee.Func, callchain, contextLock, depth)
-			callchain = callchain[: len(callchain) -1]
+			callchain = callchain[:len(callchain)-1]
 		}
 	}
 }
 
 func Initialize() {
-	reportedPairs = make(map[string] bool)
+	reportedPairs = make(map[string]bool)
 }
-
 
 func Detect() {
 
-	MapMutex = make(map[string] * StMutex)
-	VecFNsWithLocking =  []* ssa.Function{}
-	AnalyzedFNs = make(map[string] bool)
+	MapMutex = make(map[string]*StMutex)
+	VecFNsWithLocking = []*ssa.Function{}
+	AnalyzedFNs = make(map[string]bool)
 
-	mapIIStLockingOp = make(map[ssa.Instruction] * StLockingOp)
-	mapIIStUnlockingOp =  make(map[ssa.Instruction] * StUnlockingOp)
+	mapIIStLockingOp = make(map[ssa.Instruction]*StLockingOp)
+	mapIIStUnlockingOp = make(map[ssa.Instruction]*StUnlockingOp)
 
-	mapCallSiteCallee = make(map[ssa.Instruction] map[* ssa.Function] bool)
+	mapCallSiteCallee = make(map[ssa.Instruction]map[*ssa.Function]bool)
 
-	mapIDCallChain = make(map[int] [] * callgraph.Edge)
+	mapIDCallChain = make(map[int][]*callgraph.Edge)
 
 	numCurrentCallChainID = 0
 
-	mapPairIDMutexPair = make(map[string] * stMutexPair)
+	mapPairIDMutexPair = make(map[string]*stMutexPair)
 	mapReportedPair = make(map[string]struct{})
 
 	getFunctionWithLockingOps()
-
 
 	if config.BoolDisableFnPointer {
 		getCallSiteCalleeMapping()

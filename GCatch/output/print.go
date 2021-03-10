@@ -94,9 +94,17 @@ func PrintFnSrc(fn * ssa.Function) {
 func PrintIISrc(ii ssa.Instruction) {
 	loc := GetLoc(ii)
 	if loc.Line != 0 {
-		fmt.Print("\tFile: ", loc.Filename,":", loc.Line) // print in this way will produce a link to file
-		fmt.Println()
+		fmt.Print("\tFile: ", loc.Filename,":", loc.Line, "\n") // print in this way will produce a link to file
 	}
+}
+
+func StringIISrc(ii ssa.Instruction) (result string) {
+	result = ""
+	loc := GetLoc(ii)
+	if loc.Line != 0 {
+		result += fmt.Sprint("\tFile: ", loc.Filename,":", loc.Line, "\n") // print in this way will produce a link to file
+	}
+	return
 }
 
 
