@@ -4,7 +4,7 @@ package st
 
 import (
 	"fmt"
-	"git.gradebot.org/zxl381/goconcurrencychecker/tools/github.com/aclements/go-z3/z3"
+	"github.com/system-pclub/GCatch/GCatch/tools/github.com/aclements/go-z3/z3"
 	"math/big"
 )
 

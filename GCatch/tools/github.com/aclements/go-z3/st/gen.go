@@ -35,7 +35,7 @@ package st
 import (
 	"fmt"
 	"math/big"
-	"git.gradebot.org/zxl381/goconcurrencychecker/tools/github.com/aclements/go-z3/z3"
+	"github.com/system-pclub/GCatch/GCatch/tools/github.com/aclements/go-z3/z3"
 )
 
 `)

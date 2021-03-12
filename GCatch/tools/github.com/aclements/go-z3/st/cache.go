@@ -4,7 +4,7 @@
 
 package st
 
-import "git.gradebot.org/zxl381/goconcurrencychecker/tools/github.com/aclements/go-z3/z3"
+import "github.com/system-pclub/GCatch/GCatch/tools/github.com/aclements/go-z3/z3"
 
 //go:generate go run gen.go -o types.go
 
