@@ -32,7 +32,7 @@ func main() {
 
 	pProjectPath := flag.String("path","","Full path of the target project")
 	pRelativePath := flag.String("include","","Relative path (what's after /src/) of the target project")
-	pCheckerName := flag.String("checker", "channel", "the checker to be used, divided by \":\"")
+	pCheckerName := flag.String("checker", "BMOC", "the checker to be used, divided by \":\"")
 	pShowCompileError := flag.Bool("compile-error", false, "If fail to compile a package, show the errors of compilation")
 	pExcludePath := flag.String("exclude", "vendor", "Name of directories that you want to ignore, divided by \":\"")
 	pRobustMod := flag.Bool("r", false, "If the main package can't pass compiler, check subdirectories one by one")
@@ -93,10 +93,9 @@ func main() {
 		switch strCheckerName {
 		case "unlock": forgetunlock.Initialize()
 		case "double": doublelock.Initialize()
-		case "conflict":
-		case "structfield":
-		case "fatal":
-		case "BMOC": // no need to initialize this checker
+		case "conflict", "structfield", "fatal", "BMOC": // no need to initialize these checkers
+		default:
+			fmt.Println("Warning, a not existing checker is in -checker= flag:", strCheckerName)
 		}
 	}
 
