@@ -44,15 +44,20 @@ func IsFnEnd(ii ssa.Instruction) bool {
 	return false
 }
 
-// according to the annotation of ssa.Function, a function only has one normal entry BB and one optional recover BB. So this function returns at most 2 inst
-func GetEntryInsts(fn * ssa.Function) [] ssa.Instruction {
+// according to the annotation of ssa.Function, a function only has one normal entry BB and one optional recover BB.
+// There is no need to analyze the recover BB. No BB can reach it and it reaches no BB
+func GetEntryInsts(fn *ssa.Function) [] ssa.Instruction {
 
 	vecResult := make([] ssa.Instruction, 0)
 
 	for _, bb := range fn.Blocks {
+		if bb.Comment == "recover" {
+			continue
+		}
 		if len(bb.Preds) == 0 {
 			if len(bb.Instrs) > 0 {
 				vecResult = append(vecResult, bb.Instrs[0])
+				break
 			}
 		}
 	}
