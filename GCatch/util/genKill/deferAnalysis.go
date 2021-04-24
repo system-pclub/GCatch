@@ -7,7 +7,6 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa/ssautil"
 	"github.com/system-pclub/GCatch/GCatch/util"
-	"reflect"
 )
 
 func ComputeDeferMap() (map[ssa.Instruction][]*ssa.Defer, map[*ssa.Defer][]ssa.Instruction) {
@@ -66,6 +65,7 @@ func (task *deferTask) Clear() {
 	task.mapKill = nil
 	task.mapBefore = nil
 	task.mapAfter = nil
+	task.vecWorkList = nil
 }
 
 func (task *deferTask) InitGenKillMap() {
@@ -84,6 +84,9 @@ func (task *deferTask) InitBeforeAfterMap() {
 }
 
 func (task *deferTask) Analyze() {
+	if task.fnTarget.Name() == "FormatValue" {
+		print()
+	}
 	task.InitMaps()
 	task.InitGenKillMap()
 	if len(task.mapGen) == 0 {
@@ -99,13 +102,6 @@ func (task *deferTask) Analyze() {
 		oldAfter, boolExist := task.mapAfter[instTarget]
 
 		newBefore := task.computePrevDefers(instTarget)
-
-		//DELETE
-		for _, d := range newBefore {
-			if d == nil {
-				fmt.Print()
-			}
-		}
 
 		task.mapBefore[instTarget] = newBefore
 
@@ -157,13 +153,10 @@ func (task *deferTask) computePrevDefers(instTarget ssa.Instruction) []*ssa.Defe
 	} else if len(vecPrevInsts) == 1 { // Inherit the defers from the previous inst
 		prev_defers, ok := task.mapAfter[vecPrevInsts[0]]
 		if ok {
-			///DELETE
-			for _, e := range prev_defers {
-				if e == nil {
-					fmt.Print()
-				}
+			// copy prev_defers into vecResult
+			for _, _defer := range prev_defers {
+				vecResult = append(vecResult, _defer)
 			}
-			vecResult = prev_defers
 		} // if !ok, then mapAfter is empty, do nothing
 	} else {					//Union the mapAfter of all previous inst
 		mapPrevDefer := make(map[*ssa.Defer]struct{})
@@ -177,17 +170,19 @@ func (task *deferTask) computePrevDefers(instTarget ssa.Instruction) []*ssa.Defe
 			}
 		}
 		for _defer, _ := range mapPrevDefer {
-			///DELETE
-			if _defer == nil {
-				fmt.Print()
-			}
 			vecResult = append(vecResult,_defer)
 		}
+		mapPrevDefer = nil
 	}
 	return vecResult
 }
 
 func (task *deferTask) computeAfter(instTarget ssa.Instruction, newBefore []*ssa.Defer) []*ssa.Defer {
+	vecResult := []*ssa.Defer{}
+	for _, _defer := range newBefore {
+		vecResult = append(vecResult, _defer)
+	}
+
 	genDefer := task.mapGen[instTarget]
 
 	boolAlreadyIn := false
@@ -198,9 +193,10 @@ func (task *deferTask) computeAfter(instTarget ssa.Instruction, newBefore []*ssa
 		}
 	}
 	if boolAlreadyIn || genDefer == nil {
-		return newBefore
+		return vecResult
 	} else {
-		return append(newBefore, genDefer)
+		vecResult = append(vecResult, genDefer)
+		return vecResult
 	}
 }
 
@@ -259,7 +255,20 @@ func isVecDefersEqual(vec1, vec2 []*ssa.Defer) bool {
 		map2[elem] = struct{}{}
 	}
 
-	// reflect.DeepEqual will compare two values. Comparison of slice, maps or pointers will be handled recursively
-	// Note that we can't directly compare slices here, because the order also matters
-	return reflect.DeepEqual(map1, map2)
+	if len(map1) != len(map2) {
+		return false
+	} else {
+		for elem, _ := range map1 {
+			_, exist := map2[elem]
+			if !exist {
+				return false
+			}
+		}
+	}
+
+	return true
+
+	//// reflect.DeepEqual will compare two values. Comparison of slice, maps or pointers will be handled recursively
+	//// Note that we can't directly compare slices here, because the order also matters
+	//return reflect.DeepEqual(map1, map2)
 }
