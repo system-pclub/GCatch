@@ -5,6 +5,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/output"
+	"os"
 )
 
 func ReportNoViolation() {
@@ -54,6 +55,40 @@ func (g SyncGraph) CheckWithZ3() bool {
 				localPath: goPath.path,
 			}
 			paths = append(paths, newPath)
+		}
+
+		// Check if the program has double close
+		vecClose := []*instinfo.ChClose{}
+		for _, pPath := range paths {
+			for _, pNode := range pPath.Path {
+				syncNode, ok := pNode.Node.(SyncOp)
+				if !ok {
+					continue
+				}
+				if g.Task.IsPrimATarget(syncNode.Primitive()) {
+					if op, ok := syncNode.(*ChanOp);ok {
+						if chClose, ok := op.Op.(*instinfo.ChClose); ok {
+							vecClose = append(vecClose, chClose)
+						}
+					}
+				}
+			}
+		}
+
+		for _, aClose := range vecClose {
+			for _, bClose := range vecClose {
+				if aClose == bClose {
+					continue
+				}
+				if aClose.Parent == bClose.Parent {
+					config.BugIndex++
+					fmt.Print("----------Bug[")
+					fmt.Print(config.BugIndex)
+					fmt.Print("]----------\n\tType: Channel Safety \tReason: Double close.\n")
+					ReportViolation()
+					os.Exit(1)
+				}
+			}
 		}
 
 		// List all blocking op of target channel on any path
