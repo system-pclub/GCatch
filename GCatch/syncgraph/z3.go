@@ -65,6 +65,7 @@ func (b *ZNodeBasic) UpdateOrder(i z3.Int) {
 
 type ZNodeNbSend struct {
 	ZNodeBasic
+	Closes []*ZNodeClose
 	Pairs []*ZSendRecvPair
 }
 
@@ -155,14 +156,14 @@ func NewZ3ForGl() *Z3System {
 	return newZ3Sys
 }
 
-func (z *Z3System) Z3Main(p_paths []*PPath, block_poses []blockingPos) bool {
+func (z *Z3System) Z3Main(p_paths []*PPath, block_poses []blockingPos, boolCheckPanic bool) bool {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovered from panic in Z3Main")
 		}
 	}()
 
-	err := z.Prepare(p_paths, block_poses)
+	err := z.Prepare(p_paths, block_poses, boolCheckPanic)
 	if err != nil {
 		return false
 	}
@@ -196,7 +197,7 @@ func (z *Z3System) Z3Main(p_paths []*PPath, block_poses []blockingPos) bool {
 }
 
 // Initialize z.vecZGoroutines; generate ZNodes on each ZGoroutine from p_paths; generate constraints
-func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
+func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolCheckPanic bool) error {
 
 	// init z.vecZGoroutines
 	for _, path := range vecPPath {
@@ -266,6 +267,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 							newZnode = &ZNodeNbSend{
 								ZNodeBasic: newBasic,
 								Pairs:      nil,
+								Closes:     nil,
 							}
 						case *instinfo.ChRecv:
 							newZnode = &ZNodeNbRecv{
@@ -337,11 +339,22 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 		}
 	}
 
+
+	// For a panic bug, we need at least one panic
+	ZBoolHasPanic := z.Z3Ctx.FromBool(false)
+
 	// fill Pairs for some ZNodes
 	// each blocking sync op need a list of pairing ops
 	for _, Zthread := range z.vecZGoroutines {
 		for _, znode := range Zthread.Nodes {
 			switch concrete := znode.(type) {
+			case *ZNodeClose:
+				if boolCheckPanic {
+					// If there are multiple closes, we already found a panic bug
+					if len(concrete.findAllThreadCloses()) > 1 {
+						ZBoolHasPanic = z.Z3Ctx.FromBool(true)
+					}
+				}
 			case *ZNodeNbSend:
 				// get recv of the same channel on other threads
 				vecOtherThreadRecvs := concrete.findOtherThreadRecvs()
@@ -359,6 +372,13 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 						concrete.Pairs = append(concrete.Pairs, newPair)
 						recv.Pairs = append(recv.Pairs, newPair)
 						z.vecZSendRecvPairs = append(z.vecZSendRecvPairs, newPair)
+					}
+				}
+				if boolCheckPanic {
+					// get closes of the same channel on any threads. Note that send will be influenced by close on the same thread
+					vecAllThreadCloses := concrete.findAllThreadCloses()
+					for _, zclose := range vecAllThreadCloses {
+						concrete.Closes = append(concrete.Closes, zclose)
 					}
 				}
 			case *ZNodeNbRecv:
@@ -482,8 +502,16 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 					allPairChosen = append(allPairChosen, pair.boolUseThisPair)
 				}
 				var syncOfThisSend z3.Bool
-				if znode.IsBlocking() { // a blocking op is not executed, and can't sync with anyone
+				if znode.IsBlocking() {
+					// a blocking op is not executed and can't sync with anyone
+					// it may panic
 					syncOfThisSend = z.noneIsTrue(allPairChosen)
+
+					for _, ZClose := range concrete.Closes {
+						ZBoolSendAfterClose := ZClose.Order.LE(concrete.Order)
+						ZBoolHasPanic = ZBoolHasPanic.Or(ZBoolSendAfterClose)
+					}
+
 				} else {
 					// sync of send == one and only one of pair.Sync is true
 					syncOfThisSend = z.onlyOneTrue(allPairChosen)
@@ -553,6 +581,11 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 			}
 		}
 	}
+	if boolCheckPanic { // requires a panic
+		z.Constraints.SyncOfOp = append(z.Constraints.SyncOfOp, ZBoolHasPanic)
+	}
+
+
 	for _, SRpair := range z.vecZSendRecvPairs {
 		// pair.Sync is true ==> (send.Order == recv.Order) && (send.Value == recv.Value)
 		infer := SRpair.boolUseThisPair.Implies(SRpair.Send.Order.Eq(SRpair.Recv.Order))

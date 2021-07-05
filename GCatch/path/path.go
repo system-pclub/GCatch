@@ -77,11 +77,8 @@ func cutChain(chain *EdgeChain, lca *ssa.Function) (newChain *EdgeChain) {
 	return
 }
 
-// Find the lowest common ancestors for target functions.
-// This function is used by two places: computing dependency and checking each channel. The configurations should be different
-// Note 1: we can't use some classic algorithms because in callgraph one child may have multiple parents, and there may be circles in the callgraph
-// Note 2: result is a map from one LCA to the targets it covers. It is possible that we can't find one LCA that covers every target
-// Note 3: intMaxLayer is used if boolGiveUpWhenMaxLayerIsReached is false
+// Since we are checking from the main function, the returned LCA is always main.
+// However, we still need this FindLCA to generate callchains from main to all targetFn, which contains all channel operations
 func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bool, boolGiveUpWhenMaxLayerIsReached bool, intMaxLayer int) (map[*ssa.Function][]*EdgeChain, error) {
 
 	// A map from each node to the number of chains according to the last map. If only have chains ABC and BCDE, then B:2, E:1
@@ -137,8 +134,8 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 		}
 
 		for node, intNumChains := range mapNode2NumChain {
-			if intNumChains == intActiveChains {
-				// Now we find one LCA that can cover every target
+			if intNumChains == intActiveChains && node.Func.Name() == "main" {
+				// Now we find one LCA main that can cover every target
 				oneLca := node.Func
 				result := make(map[*ssa.Function][]*EdgeChain)
 				vecEdgePaths := []*EdgeChain{}
@@ -297,13 +294,14 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 
 				if mapNode2NumChain[currentChampion] != 0 {
 					err := fmt.Errorf("Warning in FindLCA: a node's number of chains is not 0 after we find "+
-						"all chains containing it:", mapNode2NumChain[currentChampion])
+						"all chains containing it:%d. countDepth is :%d", mapNode2NumChain[currentChampion], countDepth)
 					return nil, err
 				}
 
 				result[currentChampion.Func] = vecCoveredEdgeChains
 			}
 
+			fmt.Println("Count Depth:", countDepth)
 			return result, LcaErrReachedMax
 		}
 
@@ -358,6 +356,11 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 						}
 					}
 					if boolInExist { // Avoid loop in callgraph
+						continue
+					}
+
+					if in.Caller.Func.Synthetic != "" && in.Caller.Func.Name() == in.Callee.Func.Name() {
+						// if A is interface call, we will have a synthetic A calls concrete A, and we don't want this
 						continue
 					}
 

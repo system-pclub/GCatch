@@ -1,24 +1,34 @@
-CURDIR=`pwd`
+#!/usr/bin/env bash
+#
+# Install GCatch
+# Before running this script, run installZ3.sh to install z3 from sources
+# GCatch assumes that it has been installed under GOPATH and sets GOPATH accordingly
+# GCatch currently only supports GOPATH instead of go.mod due to legacy issues
+# GCatch turns off the usage of go module
+# GCatch will be installed under GOPATH/bin/
+
+echo "Make sure you have run installZ3.sh"
+
+# cd script directory
+CURDIR="$(dirname "$(realpath "$0")")"
+cd "$CURDIR" || exit 1
+
+# check if under GOPATH
 REPATH='/src/github.com/system-pclub/GCatch/GCatch'
 if [[ "$CURDIR" != *"$REPATH"* ]]
 then
   echo "Please make sure the current directory is /SOME/PATH/src/github.com/system-pclub/GCatch/GCatch"
   echo "Current directory: $CURDIR"
-  exit 0
+  exit 1
 else
-  Z3=/usr/local/bin/z3
-  if test -f "$Z3"; then
-    echo "Z3 exists"
-  else
-    echo "Z3 is not installed in $Z3. Please run installZ3.sh with sudo or checkout https://github.com/Z3Prover/z3 to install Z3"
-    exit 1
-  fi
   echo "Step 1: setting GOPATH to install GCatch"
-  cd ../../../../..
-  export GOPATH=`pwd`
+  GOPATH=$(cd ../../../../.. || exit 1; pwd)
+  export GOPATH
   echo "GOPATH is set to $GOPATH"
   echo "Step 2: installing GCatch"
-  cd $CURDIR/cmd/GCatch
+  cd "$CURDIR"/cmd/GCatch || exit 1
+  # turn off go mod before installation
+  export GO111MODULE=off
   go install
   echo "GCatch is installed in $GOPATH/bin/GCatch"
 fi

@@ -9,24 +9,38 @@ import (
 	"strconv"
 )
 
+
+
 func Detect() {
 	stPtrResult, vecStOpValue := pointer.AnalyzeAllSyncOp()
 	if stPtrResult == nil || vecStOpValue == nil {
 		return
 	}
-	vecChannel := pointer.WithdrawAllChan(stPtrResult, vecStOpValue)
-	vecLocker := pointer.WithdrawAllTraditionals(stPtrResult, vecStOpValue)
 
-	mapDependency := syncgraph.GenDMap(vecChannel, vecLocker)
+	// When the pointer analysis has any uncertain alias relationship, report Not Sure.
+	// This is in GCatch/analysis/pointer/utils.go, func mergeAlias()
+	vecChannelOri := pointer.WithdrawAllChan(stPtrResult, vecStOpValue)
 
-	for _, ch := range vecChannel {
-		//p := config.Prog.Fset.Position(ch.MakeInst.Pos())
-		//_ = p
-		if OKToCheck(ch) == true {
-			CheckCh(ch, vecChannel, vecLocker, mapDependency)
+	vecLocker := pointer.WithdrawAllTraditionals(stPtrResult, vecStOpValue) // May delete
+
+	mapDependency := syncgraph.GenDMap(vecChannelOri, vecLocker) // May delete
+
+	vecChannel := []*instinfo.Channel{}
+	for _, ch := range vecChannelOri {
+		if OKToCheck(ch) == true { // some channels may come from SDK like testing. Ignore them
+			vecChannel = append(vecChannel, ch)
 		}
 	}
 
+	if len(vecChannel) == 0 { // Definitely no channel safety of liveness violations
+		syncgraph.ReportNoViolation()
+		return
+	}
+
+
+
+	// Check all channels together. We can just check the first channel from main(), and let all other channels be checked together with it
+	CheckCh(vecChannel[0], vecChannel, vecLocker, mapDependency)
 }
 
 var countCh int
@@ -75,6 +89,8 @@ func CheckCh(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker []*
 		if config.Print_Debug_Info {
 			fmt.Println("-----count_ch:", countCh)
 		}
+		fmt.Println("Error when building graph", err.Error())
+		syncgraph.ReportNotSure()
 		return
 	}
 
@@ -87,21 +103,14 @@ func CheckCh(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker []*
 
 	if ch.Buffer == instinfo.DynamicSize {
 		// If this is a buffered channel with dynamic size and no critical section is found, skip this channel
+		syncgraph.ReportNotSure()
 	} else {
-		found_GL := syncGraph.CheckWithZ3()
-		if found_GL {
-			if ch.Buffer == 0 {
-				countUnbufferBug++
-			} else {
-				countBufferBug++
-			}
+		foundBug := syncGraph.CheckWithZ3()
+		if foundBug {
+			syncgraph.ReportViolation()
+		} else {
+			syncgraph.ReportNoViolation()
 		}
-		if config.Print_Debug_Info {
-			fmt.Println("-----count_unbuffer_bug:", countUnbufferBug,"---buffer_bug:", countBufferBug)
-		}
-	}
-	if config.Print_Debug_Info {
-		fmt.Println("-----count_ch:", countCh)
 	}
 	return
 }

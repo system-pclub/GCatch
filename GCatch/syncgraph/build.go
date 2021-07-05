@@ -33,7 +33,7 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 	DependMap = DMap
 
 	// Before building: add ch into target primitive
-	boolGiveupIfCallgraphIsInaccurate := true // true means if callgraph is inaccurate, we giveup the building. This is consistent with our paper
+	boolGiveupIfCallgraphIsInaccurate := false // true means if callgraph is inaccurate, we giveup the building. This is consistent with our paper
 	task := newTask(boolGiveupIfCallgraphIsInaccurate)
 	task.Step1AddPrim(ch)
 	err := task.Step2CompletePrims()

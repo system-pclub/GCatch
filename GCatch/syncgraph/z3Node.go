@@ -30,6 +30,38 @@ func (s *ZNodeNbSend) findOtherThreadRecvs() (result []*ZNodeNbRecv) {
 	return
 }
 
+func (r *ZNodeNbSend) findAllThreadCloses() (result []*ZNodeClose) {
+	for _, zthread := range r.ZGoroutine.Z3Sys.vecZGoroutines {
+		for _, znode := range zthread.Nodes {
+			zclose, ok := znode.(*ZNodeClose)
+			if !ok {
+				continue
+			}
+			// different from other functions in this file, send and close can't sync; we just need them to be of the same primitive
+			if zclose.PtrPNode.Node.(SyncOp).MapAliasOp()[r.PtrPNode.Node.(SyncOp)] {
+				result = append(result, zclose)
+			}
+		}
+	}
+	return
+}
+
+func (r *ZNodeClose) findAllThreadCloses() (result []*ZNodeClose) {
+	for _, zthread := range r.ZGoroutine.Z3Sys.vecZGoroutines {
+		for _, znode := range zthread.Nodes {
+			zclose, ok := znode.(*ZNodeClose)
+			if !ok {
+				continue
+			}
+			// different from other functions in this file, close and close can't sync; we just need them to be of the same primitive
+			if zclose.PtrPNode.Node.(SyncOp).MapAliasOp()[r.PtrPNode.Node.(SyncOp)] {
+				result = append(result, zclose)
+			}
+		}
+	}
+	return
+}
+
 func (r *ZNodeNbRecv) hasPairWith(s *ZNodeNbSend) bool {
 	for _, pair := range r.Pairs {
 		if pair.Send == s {

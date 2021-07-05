@@ -1,42 +1,45 @@
-CURDIR=`pwd`
-REPATH='/src/github.com/system-pclub/GCatch/GCatch'
-if [[ "$CURDIR" != *"$REPATH"* ]]
-then
-  echo "Please make sure the current directory is /SOME/PATH/src/github.com/system-pclub/GCatch/GCatch"
-  echo "Current directory: $CURDIR"
-  exit 0
-else
-  Z3=/usr/local/bin/z3
-  if test -f "$Z3"; then
-    echo "Z3 exists"
-  else
-    echo "Z3 is not installed in $Z3. Please run installZ3.sh with sudo or checkout https://github.com/Z3Prover/z3 to install Z3"
-    exit 1
-  fi
-  cd ../../../../..
-  GCATCH=`pwd`
-  GCATCH=$GCATCH/bin/GCatch
-  if test -f "$GCATCH"; then
-    echo "GCatch exists"
-  else
-    echo "GCatch is not installed in $GCATCH. Please run install.sh to install GCatch"
-    exit 2
-  fi
-  echo "Step 1: setting GOPATH of the checked grpc"
-  export GOPATH=$CURDIR/testdata/grpc-buggy
-  echo "GOPATH is set to $GOPATH"
-  echo ""
-  echo "Description of flags of GCatch:"
-  echo "Required Flag: -path=Full path of the application to be checked"
-  echo "Required Flag: -include=Relative path (what's after /src/) of the application to be checked"
-  echo "Required Flag: -checker=The checkers you want to run, divided by \":\".    Default value:BMOC"
-  echo "Optional Flag: -r    Whether all children packages should also be checked recursively"
-  echo "Optional Flag: -compile-error    Whether compilation errors should be printed, if there are any"
-  echo "Optional Flag: -vendor=Packages that will be ignored, divided by \":\".    Default value:vendor"
-  echo ""
-  echo "Step 2: running GCatch on a buggy version of grpc in testdata"
-  echo "Note: all bugs reported below should be real BMOC bugs"
-  echo "$GCATCH -path=$GOPATH/src/google.golang.org/grpc -include=google.golang.org/grpc -checker=BMOC -r"
-  $GCATCH -path=$GOPATH/src/google.golang.org/grpc -include=google.golang.org/grpc -checker=BMOC -r
+#!/usr/bin/env bash
+#
+# Run GCatch to check the buggy grpc
+# Before running this script, run installZ3.sh and then install.sh
+# GCatch currently only supports GOPATH instead of go.mod due to legacy issues
+# GCatch turns off the usage of go module
+# The project to be checked must be located in the corresponding GOPATH
 
+echo "Make sure you have run installZ3.sh and then install.sh"
+echo "This script takes two parameters:"
+echo "\tThe first parameter should be the GOPATH of the target program you want to verify"
+echo "\tThe second parameter should be the relative path (what is after GOPATH/src/) of the target program"
+
+# check if z3 installed
+if ! command -v z3 >/dev/null; then
+  echo "Cannot detect z3. Run installZ3.sh to install z3 from sources"
 fi
+
+# check if z3 header installed
+if ! echo '#include <z3.h>' | gcc -H -fsyntax-only -E - 1>/dev/null 2>&1; then
+  echo "Cannot detect <z3.h>. Run installZ3.sh to install z3 from sources"
+fi
+
+# cd script directory
+CURDIR="$(dirname "$(realpath "$0")")"
+cd "$CURDIR" || exit 1
+
+GCATCH="$(cd ../../../../.. || exit 1; pwd)/bin/GCatch"
+
+# check if GCatch installed
+if ! test -f "$GCATCH"; then
+  echo "GCatch is not installed. Run install.sh to install it under $GCATCH"
+  exit 1
+fi
+
+# turn off go mod before checking
+export GO111MODULE=off
+
+echo "Step 1: setting GOPATH"
+export GOPATH=$1
+echo "GOPATH is set to $GOPATH"
+echo ""
+echo "Step 2: running GCatch on the input program"
+echo "$GCATCH -path=$GOPATH/src/$2 -include=$2 -checker=BMOC -compile-error"
+$GCATCH -path="$GOPATH"/src/$2 -include=$2 -checker=BMOC -compile-error

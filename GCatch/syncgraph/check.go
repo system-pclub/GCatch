@@ -7,6 +7,18 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/output"
 )
 
+func ReportNoViolation() {
+	fmt.Println("Finished verification: The program has no channel safety or liveness violations")
+}
+
+func ReportNotSure() {
+	fmt.Println("Finished verification: Can't decide whether the program has channel safety or liveness violations")
+}
+
+func ReportViolation() {
+	fmt.Println("Finished verification: The program has channel safety or liveness violations")
+}
+
 type blockingPos struct {
 	pathId  int
 	pNodeId int
@@ -148,7 +160,10 @@ func (g SyncGraph) CheckWithZ3() bool {
 		}
 
 		// For every blocking op of target channel on any path
-		for _, blockPosComb := range allBlockPosComb {
+		for i := 0; i < len(allBlockPosComb); i++ {
+			var blockPosComb map[int]blockingPos
+			blockPosComb = allBlockPosComb[i]
+
 			for _, blockPos := range blockPosComb {
 				if blockPos.pNodeId != emptyPNodeId {
 					inst := paths[blockPos.pathId].Path[blockPos.pNodeId].Node.Instruction()
@@ -160,8 +175,8 @@ func (g SyncGraph) CheckWithZ3() bool {
 			}
 			// Make some paths block and other paths exit
 			for i, path := range paths {
-				blockPos := blockPosComb[i]
-				if blockPos.pNodeId != emptyPNodeId {
+				blockPos, exist := blockPosComb[i]
+				if exist && blockPos.pNodeId != emptyPNodeId {
 					path.SetBlockAt(blockPos.pNodeId)
 				} else {
 					path.SetAllReached()
@@ -218,18 +233,26 @@ func (g SyncGraph) CheckWithZ3() bool {
 				}
 				vecBlockingPos = append(vecBlockingPos, blockPos)
 			}
-			z3Sys := NewZ3ForGl()
-			z3Sat := z3Sys.Z3Main(paths, vecBlockingPos)
+
+			z3Sys_block := NewZ3ForGl()
+			z3Sat_block := z3Sys_block.Z3Main(paths, vecBlockingPos, false) // only check liveness problem
+
+			z3Sys_panic := NewZ3ForGl()
+			z3Sat_panic := z3Sys_panic.Z3Main(paths, vecBlockingPos, true) // check safety problem
 
 			// Report a bug
-			if z3Sat {
+			if z3Sat_block || z3Sat_panic {
 				//z3Sys.PrintAssert()
 				config.BugIndexMu.Lock()
 				config.BugIndex++
 				fmt.Print("----------Bug[")
 				fmt.Print(config.BugIndex)
 				config.BugIndexMu.Unlock()
-				fmt.Print("]----------\n\tType: BMOC \tReason: One or multiple channel operation is blocked.\n")
+				if z3Sat_panic { // panic bugs have priority, because they may be misunderstood by Z3 as blocking bugs
+					fmt.Print("]----------\n\tType: Channel Safety \tReason: Send after close or double close.\n")
+				} else {
+					fmt.Print("]----------\n\tType: BMOC \tReason: One or multiple channel operation is blocked.\n")
+				}
 				fmt.Println("-----Blocking at:")
 				for _, blockPos := range blockPosComb {
 					if blockPos.pNodeId != emptyPNodeId {
