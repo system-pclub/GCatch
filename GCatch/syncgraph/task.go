@@ -104,7 +104,7 @@ func (t *Task) Step2CompletePrims() error {
 		}
 	}
 
-	LCA2paths, err := path.FindLCA(fnsForInstsNoDupli(vecOpInsts), t.BoolGiveupIfCallgraphInaccurate, true, config.MAX_LCA_LAYER)
+	LCA2paths, err := path.FindLCA(fnsForInstsNoDupli(vecOpInsts), t.BoolGiveupIfCallgraphInaccurate, true, 20)
 	if err != nil {
 		//if err == path.ErrInaccurateCallgraph {
 		//	fmt.Println("Task: Give up LCA because callgraph is inaccurate. Count:", countInaccurateCall)

@@ -4,10 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/system-pclub/GCatch/GCatch/checkers/bmoc"
-	"github.com/system-pclub/GCatch/GCatch/checkers/conflictinglock"
 	"github.com/system-pclub/GCatch/GCatch/checkers/doublelock"
-	"github.com/system-pclub/GCatch/GCatch/checkers/fatal"
-	"github.com/system-pclub/GCatch/GCatch/checkers/structfield"
 	"github.com/system-pclub/GCatch/GCatch/ssabuild"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/mypointer"
@@ -175,33 +172,14 @@ func main() {
 
 func detect(mapCheckerName map[string]bool) {
 
-	config.Inst2Defers, config.Defer2Insts = genKill.ComputeDeferMap()
+	config.Inst2Defers, config.Defer2Insts = genKill.ComputeDeferMap() // May remove since FCG doesn't contain defer
 
-	boolNeedCallGraph := mapCheckerName["double"] || mapCheckerName["conflict"] || mapCheckerName["structfield"]  ||
-		mapCheckerName["fatal"]  || mapCheckerName["BMOC"]
-	if boolNeedCallGraph {
-		config.CallGraph = BuildCallGraph()
-		if config.CallGraph == nil {
-			return
-		}
+	config.CallGraph = BuildCallGraph()
+	if config.CallGraph == nil {
+		return
 	}
 
-	for strCheckerName, _ := range mapCheckerName {
-		switch strCheckerName {
-		case "unlock":
-			forgetunlock.Detect()
-		case "double":
-			doublelock.Detect()
-		case "conflict":
-			conflictinglock.Detect()
-		case "structfield":
-			structfield.Detect()
-		case "fatal":
-			fatal.Detect()
-		case "BMOC":
-			bmoc.Detect()
-		}
-	}
+	bmoc.Detect()
 }
 
 

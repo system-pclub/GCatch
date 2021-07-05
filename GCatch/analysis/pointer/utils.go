@@ -1,9 +1,14 @@
 package pointer
 
 import (
+	"fmt"
+	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
+	"github.com/system-pclub/GCatch/GCatch/syncgraph"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/mypointer"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+	"os"
+	"strconv"
 	"strings"
 )
 
@@ -11,6 +16,38 @@ func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *mypointer.Resul
 	result = make(map[mypointer.Label][]*instinfo.StOpValue)
 	for _, instValue := range vecinstValue {
 		labels := stPtrResult.Queries[instValue.Value].PointsTo().Labels()
+		if len(labels) > 1 {
+			boolNotSure := false
+			strDebugNotSure := ""
+			for _, label := range labels {
+				if value := label.Value(); value == nil {
+					continue
+				}
+				if parent := label.Value().Parent(); parent == nil {
+					continue
+				}
+				pkg := label.Value().Parent().Pkg
+				if pkg == nil {
+					continue
+				}
+				pkgOfPkg := pkg.Pkg
+				if pkgOfPkg == nil {
+					continue
+				}
+				if config.IsPathIncluded(pkgOfPkg.Path()) {
+					boolNotSure = true
+					p := config.Prog.Fset.Position(label.Value().Pos())
+					strDebugNotSure = p.Filename + ":" + strconv.Itoa(p.Line)
+					break
+				}
+			}
+			if boolNotSure {
+				syncgraph.ReportNotSure()
+				fmt.Println("Verification reports not sure because of inaccurate pointer analysis in:\n" + strDebugNotSure)
+
+				os.Exit(1)
+			}
+		}
 		for _, label := range labels {
 			_, ok := result[*label]
 			if ok {
