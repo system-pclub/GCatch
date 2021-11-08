@@ -441,6 +441,7 @@ var marshalingTests = []struct {
 		`{"mBoolSimple":{"true":{"oInt32":1}}}`},
 	{"oneof, not set", marshaler, &pb2.MsgWithOneof{}, `{}`},
 	{"oneof, set", marshaler, &pb2.MsgWithOneof{Union: &pb2.MsgWithOneof_Title{"Grand Poobah"}}, `{"title":"Grand Poobah"}`},
+	{"oneof NullValue", marshaler, &pb2.MsgWithOneof{Union: &pb2.MsgWithOneof_NullValue{stpb.NullValue_NULL_VALUE}}, `{"nullValue":null}`},
 	{"force orig_name", Marshaler{OrigName: true}, &pb2.Simple{OInt32: proto.Int32(4)},
 		`{"o_int32":4}`},
 	{"proto2 extension", marshaler, realNumber, realNumberJSON},
@@ -448,10 +449,17 @@ var marshalingTests = []struct {
 	{"Any with message and indent", marshalerAllOptions, anySimple, anySimplePrettyJSON},
 	{"Any with WKT", marshaler, anyWellKnown, anyWellKnownJSON},
 	{"Any with WKT and indent", marshalerAllOptions, anyWellKnown, anyWellKnownPrettyJSON},
-	{"Duration", marshaler, &pb2.KnownTypes{Dur: &durpb.Duration{Seconds: 3}}, `{"dur":"3s"}`},
-	{"Duration", marshaler, &pb2.KnownTypes{Dur: &durpb.Duration{Seconds: 3, Nanos: 1e6}}, `{"dur":"3.001s"}`},
-	{"Duration beyond float64 precision", marshaler, &pb2.KnownTypes{Dur: &durpb.Duration{Seconds: 100000000, Nanos: 1}}, `{"dur":"100000000.000000001s"}`},
-	{"negative Duration", marshaler, &pb2.KnownTypes{Dur: &durpb.Duration{Seconds: -123, Nanos: -456}}, `{"dur":"-123.000000456s"}`},
+	{"Duration empty", marshaler, &durpb.Duration{}, `"0s"`},
+	{"Duration with secs", marshaler, &durpb.Duration{Seconds: 3}, `"3s"`},
+	{"Duration with -secs", marshaler, &durpb.Duration{Seconds: -3}, `"-3s"`},
+	{"Duration with nanos", marshaler, &durpb.Duration{Nanos: 1e6}, `"0.001s"`},
+	{"Duration with -nanos", marshaler, &durpb.Duration{Nanos: -1e6}, `"-0.001s"`},
+	{"Duration with large secs", marshaler, &durpb.Duration{Seconds: 1e10, Nanos: 1}, `"10000000000.000000001s"`},
+	{"Duration with 6-digit nanos", marshaler, &durpb.Duration{Nanos: 1e4}, `"0.000010s"`},
+	{"Duration with 3-digit nanos", marshaler, &durpb.Duration{Nanos: 1e6}, `"0.001s"`},
+	{"Duration with -secs -nanos", marshaler, &durpb.Duration{Seconds: -123, Nanos: -450}, `"-123.000000450s"`},
+	{"Duration max value", marshaler, &durpb.Duration{Seconds: 315576000000, Nanos: 999999999}, `"315576000000.999999999s"`},
+	{"Duration min value", marshaler, &durpb.Duration{Seconds: -315576000000, Nanos: -999999999}, `"-315576000000.999999999s"`},
 	{"Struct", marshaler, &pb2.KnownTypes{St: &stpb.Struct{
 		Fields: map[string]*stpb.Value{
 			"one": {Kind: &stpb.Value_StringValue{"loneliest number"}},
@@ -524,15 +532,17 @@ func TestMarshalIllegalTime(t *testing.T) {
 		pb   proto.Message
 		fail bool
 	}{
-		{&pb2.KnownTypes{Dur: &durpb.Duration{Seconds: 1, Nanos: 0}}, false},
-		{&pb2.KnownTypes{Dur: &durpb.Duration{Seconds: -1, Nanos: 0}}, false},
-		{&pb2.KnownTypes{Dur: &durpb.Duration{Seconds: 1, Nanos: -1}}, true},
-		{&pb2.KnownTypes{Dur: &durpb.Duration{Seconds: -1, Nanos: 1}}, true},
-		{&pb2.KnownTypes{Dur: &durpb.Duration{Seconds: 1, Nanos: 1000000000}}, true},
-		{&pb2.KnownTypes{Dur: &durpb.Duration{Seconds: -1, Nanos: -1000000000}}, true},
-		{&pb2.KnownTypes{Ts: &tspb.Timestamp{Seconds: 1, Nanos: 1}}, false},
-		{&pb2.KnownTypes{Ts: &tspb.Timestamp{Seconds: 1, Nanos: -1}}, true},
-		{&pb2.KnownTypes{Ts: &tspb.Timestamp{Seconds: 1, Nanos: 1000000000}}, true},
+		{&durpb.Duration{Seconds: 1, Nanos: 0}, false},
+		{&durpb.Duration{Seconds: -1, Nanos: 0}, false},
+		{&durpb.Duration{Seconds: 1, Nanos: -1}, true},
+		{&durpb.Duration{Seconds: -1, Nanos: 1}, true},
+		{&durpb.Duration{Seconds: 315576000001}, true},
+		{&durpb.Duration{Seconds: -315576000001}, true},
+		{&durpb.Duration{Seconds: 1, Nanos: 1000000000}, true},
+		{&durpb.Duration{Seconds: -1, Nanos: -1000000000}, true},
+		{&tspb.Timestamp{Seconds: 1, Nanos: 1}, false},
+		{&tspb.Timestamp{Seconds: 1, Nanos: -1}, true},
+		{&tspb.Timestamp{Seconds: 1, Nanos: 1000000000}, true},
 	}
 	for _, tt := range tests {
 		_, err := marshaler.MarshalToString(tt.pb)
@@ -729,6 +739,7 @@ var unmarshalingTests = []struct {
 	{"oneof orig_name", Unmarshaler{}, `{"Country":"Australia"}`, &pb2.MsgWithOneof{Union: &pb2.MsgWithOneof_Country{"Australia"}}},
 	{"oneof spec name2", Unmarshaler{}, `{"homeAddress":"Australia"}`, &pb2.MsgWithOneof{Union: &pb2.MsgWithOneof_HomeAddress{"Australia"}}},
 	{"oneof orig_name2", Unmarshaler{}, `{"home_address":"Australia"}`, &pb2.MsgWithOneof{Union: &pb2.MsgWithOneof_HomeAddress{"Australia"}}},
+	{"oneof NullValue", Unmarshaler{}, `{"nullValue":null}`, &pb2.MsgWithOneof{Union: &pb2.MsgWithOneof_NullValue{stpb.NullValue_NULL_VALUE}}},
 	{"orig_name input", Unmarshaler{}, `{"o_bool":true}`, &pb2.Simple{OBool: proto.Bool(true)}},
 	{"camelName input", Unmarshaler{}, `{"oBool":true}`, &pb2.Simple{OBool: proto.Bool(true)}},
 
@@ -1000,7 +1011,7 @@ func TestUnmarshalNullWithJSONPBUnmarshaler(t *testing.T) {
 		t.Errorf("unmarshal error: %v", err)
 	}
 
-	want := ptrFieldMessage{}
+	want := ptrFieldMessage{StringField: &stringField{IsSet: true, StringValue: "null"}}
 	if !proto.Equal(&ptrFieldMsg, &want) {
 		t.Errorf("unmarshal result StringField: got %v, want %v", ptrFieldMsg, want)
 	}

@@ -15,45 +15,41 @@
  * limitations under the License.
  */
 
+// Package internal contains functions/structs shared by xds
+// balancers/resolvers.
 package internal
 
 import (
+	"encoding/json"
 	"fmt"
-
-	corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
 )
 
-type clientID string
-
-// XDSClientID is the attributes key used to pass the address of the xdsClient
-// object shared between the resolver and the balancer. The xdsClient object is
-// created by the resolver and passed to the balancer.
-const XDSClientID = clientID("xdsClientID")
-
-// Locality is xds.Locality without XXX fields, so it can be used as map
+// LocalityID is xds.Locality without XXX fields, so it can be used as map
 // keys.
 //
 // xds.Locality cannot be map keys because one of the XXX fields is a slice.
-//
-// This struct should only be used as map keys. Use the proto message directly
-// in all other places.
-//
-// TODO: rename to LocalityID.
-type Locality struct {
-	Region  string
-	Zone    string
-	SubZone string
+type LocalityID struct {
+	Region  string `json:"region,omitempty"`
+	Zone    string `json:"zone,omitempty"`
+	SubZone string `json:"subZone,omitempty"`
 }
 
-func (lamk Locality) String() string {
-	return fmt.Sprintf("%s-%s-%s", lamk.Region, lamk.Zone, lamk.SubZone)
-}
-
-// ToProto convert Locality to the proto representation.
-func (lamk Locality) ToProto() *corepb.Locality {
-	return &corepb.Locality{
-		Region:  lamk.Region,
-		Zone:    lamk.Zone,
-		SubZone: lamk.SubZone,
+// ToString generates a string representation of LocalityID by marshalling it into
+// json. Not calling it String() so printf won't call it.
+func (l LocalityID) ToString() (string, error) {
+	b, err := json.Marshal(l)
+	if err != nil {
+		return "", err
 	}
+	return string(b), nil
+}
+
+// LocalityIDFromString converts a json representation of locality, into a
+// LocalityID struct.
+func LocalityIDFromString(s string) (ret LocalityID, _ error) {
+	err := json.Unmarshal([]byte(s), &ret)
+	if err != nil {
+		return LocalityID{}, fmt.Errorf("%s is not a well formatted locality ID, error: %v", s, err)
+	}
+	return ret, nil
 }

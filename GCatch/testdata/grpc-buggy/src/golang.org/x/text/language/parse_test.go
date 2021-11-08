@@ -101,13 +101,13 @@ func parseTests() []parseTest {
 		{in: "en-9-aa-0-aa-z-bb-x-a", lang: "en", extList: []string{"0-aa", "9-aa", "z-bb", "x-a"}, changed: true},
 		{in: "en-u-c", lang: "en", ext: "", invalid: true},
 		{in: "en-u-co-phonebk", lang: "en", ext: "u-co-phonebk"},
-		{in: "en-u-co-phonebk-ca", lang: "en", ext: "u-co-phonebk", invalid: true},
-		{in: "en-u-nu-arabic-co-phonebk-ca", lang: "en", ext: "u-co-phonebk-nu-arabic", invalid: true, changed: true},
-		{in: "en-u-nu-arabic-co-phonebk-ca-x", lang: "en", ext: "u-co-phonebk-nu-arabic", invalid: true, changed: true},
-		{in: "en-u-nu-arabic-co-phonebk-ca-s", lang: "en", ext: "u-co-phonebk-nu-arabic", invalid: true, changed: true},
-		{in: "en-u-nu-arabic-co-phonebk-ca-a12345678", lang: "en", ext: "u-co-phonebk-nu-arabic", invalid: true, changed: true},
-		{in: "en-u-co-phonebook", lang: "en", ext: "", invalid: true},
-		{in: "en-u-co-phonebook-cu-xau", lang: "en", ext: "u-cu-xau", invalid: true, changed: true},
+		{in: "en-u-co-phonebk-ca", lang: "en", ext: "u-ca-co-phonebk", invalid: true},
+		{in: "en-u-nu-arabic-co-phonebk-ca", lang: "en", ext: "u-ca-co-phonebk-nu-arabic", invalid: true, changed: true},
+		{in: "en-u-nu-arabic-co-phonebk-ca-x", lang: "en", ext: "u-ca-co-phonebk-nu-arabic", invalid: true, changed: true},
+		{in: "en-u-nu-arabic-co-phonebk-ca-s", lang: "en", ext: "u-ca-co-phonebk-nu-arabic", invalid: true, changed: true},
+		{in: "en-u-nu-arabic-co-phonebk-ca-a12345678", lang: "en", ext: "u-ca-co-phonebk-nu-arabic", invalid: true, changed: true},
+		{in: "en-u-co-phonebook", lang: "en", ext: "u-co", invalid: true},
+		{in: "en-u-co-phonebook-cu-xau", lang: "en", ext: "u-co-cu-xau", invalid: true, changed: true},
 		{in: "en-Cyrl-u-co-phonebk", lang: "en", script: "Cyrl", ext: "u-co-phonebk"},
 		{in: "en-US-u-co-phonebk", lang: "en", region: "US", ext: "u-co-phonebk"},
 		{in: "en-US-u-co-phonebk-cu-xau", lang: "en", region: "US", ext: "u-co-phonebk-cu-xau"},
@@ -117,8 +117,8 @@ func parseTests() []parseTest {
 		{in: "en-u-def-abc", lang: "en", ext: "u-abc-def", changed: true},
 		{in: "en-u-cu-xua-co-phonebk-a-cd", lang: "en", extList: []string{"a-cd", "u-co-phonebk-cu-xua"}, changed: true},
 		// Invalid "u" extension. Drop invalid parts.
-		{in: "en-u-cu-co-phonebk", lang: "en", extList: []string{"u-co-phonebk"}, invalid: true, changed: true},
-		{in: "en-u-cu-xau-co", lang: "en", extList: []string{"u-cu-xau"}, invalid: true},
+		{in: "en-u-cu-co-phonebk", lang: "en", extList: []string{"u-co-phonebk-cu"}, invalid: true, changed: true},
+		{in: "en-u-cu-xau-co", lang: "en", extList: []string{"u-co-cu-xau"}, invalid: true},
 		// We allow duplicate keys as the LDML spec does not explicitly prohibit it.
 		// TODO: Consider eliminating duplicates and returning an error.
 		{in: "en-u-cu-xau-co-phonebk-cu-xau", lang: "en", ext: "u-co-phonebk-cu-xau", changed: true},
@@ -129,6 +129,11 @@ func parseTests() []parseTest {
 		{in: "en-t-nl-abcd", lang: "en", ext: "t-nl", invalid: true},
 		{in: "en-t-nl-latn", lang: "en", ext: "t-nl-latn"},
 		{in: "en-t-t0-abcd-x-a", lang: "en", extList: []string{"t-t0-abcd", "x-a"}},
+		{in: "en_t_pt_MLt", lang: "en", ext: "t-pt-mlt", changed: true},
+		{in: "en-t-fr-est", lang: "en", ext: "t-fr-est", changed: false},
+		{in: "fr-est", lang: "et", changed: true},
+		{in: "fr-est-t-fr-est", lang: "et", ext: "t-fr-est", changed: true},
+		{in: "fr-est-Cyrl", lang: "et", script: "Cyrl", changed: true},
 		// invalid
 		{in: "", lang: "und", invalid: true},
 		{in: "-", lang: "und", invalid: true},
@@ -219,8 +224,8 @@ func TestErrors(t *testing.T) {
 		{"aa-AB", mkInvalid("AB")},
 		// ill-formed wins over invalid.
 		{"ac-u", errSyntax},
-		{"ac-u-ca", errSyntax},
-		{"ac-u-ca-co-pinyin", errSyntax},
+		{"ac-u-ca", mkInvalid("ac")},
+		{"ac-u-ca-co-pinyin", mkInvalid("ac")},
 		{"noob", errSyntax},
 	}
 	for _, tt := range tests {
@@ -318,6 +323,7 @@ func TestParseAcceptLanguage(t *testing.T) {
 		{nil, "aa;q", false},
 		{nil, "aa;q=", false},
 		{nil, "aa;q=.", false},
+		{nil, "00-t-0o", false},
 
 		// odd fallbacks
 		{

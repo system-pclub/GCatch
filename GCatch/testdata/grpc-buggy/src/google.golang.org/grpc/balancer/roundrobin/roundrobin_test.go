@@ -32,11 +32,17 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/internal/grpctest"
+	imetadata "google.golang.org/grpc/internal/metadata"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
 	"google.golang.org/grpc/status"
 	testpb "google.golang.org/grpc/test/grpc_testing"
+)
+
+const (
+	testMDKey = "test-md"
 )
 
 type s struct {
@@ -49,9 +55,23 @@ func Test(t *testing.T) {
 
 type testServer struct {
 	testpb.UnimplementedTestServiceServer
+
+	testMDChan chan []string
+}
+
+func newTestServer() *testServer {
+	return &testServer{testMDChan: make(chan []string, 1)}
 }
 
 func (s *testServer) EmptyCall(ctx context.Context, in *testpb.Empty) (*testpb.Empty, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok && len(md[testMDKey]) != 0 {
+		select {
+		case s.testMDChan <- md[testMDKey]:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 	return &testpb.Empty{}, nil
 }
 
@@ -60,8 +80,9 @@ func (s *testServer) FullDuplexCall(stream testpb.TestService_FullDuplexCallServ
 }
 
 type test struct {
-	servers   []*grpc.Server
-	addresses []string
+	servers     []*grpc.Server
+	serverImpls []*testServer
+	addresses   []string
 }
 
 func (t *test) cleanup() {
@@ -85,8 +106,10 @@ func startTestServers(count int) (_ *test, err error) {
 		}
 
 		s := grpc.NewServer()
-		testpb.RegisterTestServiceServer(s, &testServer{})
+		sImpl := newTestServer()
+		testpb.RegisterTestServiceServer(s, sImpl)
 		t.servers = append(t.servers, s)
+		t.serverImpls = append(t.serverImpls, sImpl)
 		t.addresses = append(t.addresses, lis.Addr().String())
 
 		go func(s *grpc.Server, l net.Listener) {
@@ -98,8 +121,7 @@ func startTestServers(count int) (_ *test, err error) {
 }
 
 func (s) TestOneBackend(t *testing.T) {
-	r, cleanup := manual.GenerateAndRegisterManualResolver()
-	defer cleanup()
+	r := manual.NewBuilderWithScheme("whatever")
 
 	test, err := startTestServers(1)
 	if err != nil {
@@ -107,7 +129,7 @@ func (s) TestOneBackend(t *testing.T) {
 	}
 	defer test.cleanup()
 
-	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithBalancerName(roundrobin.Name))
+	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithResolvers(r), grpc.WithBalancerName(roundrobin.Name))
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -128,8 +150,7 @@ func (s) TestOneBackend(t *testing.T) {
 }
 
 func (s) TestBackendsRoundRobin(t *testing.T) {
-	r, cleanup := manual.GenerateAndRegisterManualResolver()
-	defer cleanup()
+	r := manual.NewBuilderWithScheme("whatever")
 
 	backendCount := 5
 	test, err := startTestServers(backendCount)
@@ -138,7 +159,7 @@ func (s) TestBackendsRoundRobin(t *testing.T) {
 	}
 	defer test.cleanup()
 
-	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithBalancerName(roundrobin.Name))
+	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithResolvers(r), grpc.WithBalancerName(roundrobin.Name))
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -187,8 +208,7 @@ func (s) TestBackendsRoundRobin(t *testing.T) {
 }
 
 func (s) TestAddressesRemoved(t *testing.T) {
-	r, cleanup := manual.GenerateAndRegisterManualResolver()
-	defer cleanup()
+	r := manual.NewBuilderWithScheme("whatever")
 
 	test, err := startTestServers(1)
 	if err != nil {
@@ -196,7 +216,7 @@ func (s) TestAddressesRemoved(t *testing.T) {
 	}
 	defer test.cleanup()
 
-	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithBalancerName(roundrobin.Name))
+	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithResolvers(r), grpc.WithBalancerName(roundrobin.Name))
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -233,8 +253,7 @@ func (s) TestAddressesRemoved(t *testing.T) {
 }
 
 func (s) TestCloseWithPendingRPC(t *testing.T) {
-	r, cleanup := manual.GenerateAndRegisterManualResolver()
-	defer cleanup()
+	r := manual.NewBuilderWithScheme("whatever")
 
 	test, err := startTestServers(1)
 	if err != nil {
@@ -242,7 +261,7 @@ func (s) TestCloseWithPendingRPC(t *testing.T) {
 	}
 	defer test.cleanup()
 
-	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithBalancerName(roundrobin.Name))
+	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithResolvers(r), grpc.WithBalancerName(roundrobin.Name))
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -266,8 +285,7 @@ func (s) TestCloseWithPendingRPC(t *testing.T) {
 }
 
 func (s) TestNewAddressWhileBlocking(t *testing.T) {
-	r, cleanup := manual.GenerateAndRegisterManualResolver()
-	defer cleanup()
+	r := manual.NewBuilderWithScheme("whatever")
 
 	test, err := startTestServers(1)
 	if err != nil {
@@ -275,7 +293,7 @@ func (s) TestNewAddressWhileBlocking(t *testing.T) {
 	}
 	defer test.cleanup()
 
-	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithBalancerName(roundrobin.Name))
+	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithResolvers(r), grpc.WithBalancerName(roundrobin.Name))
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -313,8 +331,7 @@ func (s) TestNewAddressWhileBlocking(t *testing.T) {
 }
 
 func (s) TestOneServerDown(t *testing.T) {
-	r, cleanup := manual.GenerateAndRegisterManualResolver()
-	defer cleanup()
+	r := manual.NewBuilderWithScheme("whatever")
 
 	backendCount := 3
 	test, err := startTestServers(backendCount)
@@ -323,7 +340,7 @@ func (s) TestOneServerDown(t *testing.T) {
 	}
 	defer test.cleanup()
 
-	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithBalancerName(roundrobin.Name))
+	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithResolvers(r), grpc.WithBalancerName(roundrobin.Name))
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -410,8 +427,7 @@ func (s) TestOneServerDown(t *testing.T) {
 }
 
 func (s) TestAllServersDown(t *testing.T) {
-	r, cleanup := manual.GenerateAndRegisterManualResolver()
-	defer cleanup()
+	r := manual.NewBuilderWithScheme("whatever")
 
 	backendCount := 3
 	test, err := startTestServers(backendCount)
@@ -420,7 +436,7 @@ func (s) TestAllServersDown(t *testing.T) {
 	}
 	defer test.cleanup()
 
-	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithBalancerName(roundrobin.Name))
+	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithResolvers(r), grpc.WithBalancerName(roundrobin.Name))
 	if err != nil {
 		t.Fatalf("failed to dial: %v", err)
 	}
@@ -479,4 +495,55 @@ func (s) TestAllServersDown(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 	t.Fatalf("Failfast RPCs didn't fail with Unavailable after all servers are stopped")
+}
+
+func (s) TestUpdateAddressAttributes(t *testing.T) {
+	r := manual.NewBuilderWithScheme("whatever")
+
+	test, err := startTestServers(1)
+	if err != nil {
+		t.Fatalf("failed to start servers: %v", err)
+	}
+	defer test.cleanup()
+
+	cc, err := grpc.Dial(r.Scheme()+":///test.server", grpc.WithInsecure(), grpc.WithResolvers(r), grpc.WithBalancerName(roundrobin.Name))
+	if err != nil {
+		t.Fatalf("failed to dial: %v", err)
+	}
+	defer cc.Close()
+	testc := testpb.NewTestServiceClient(cc)
+	// The first RPC should fail because there's no address.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	defer cancel()
+	if _, err := testc.EmptyCall(ctx, &testpb.Empty{}); err == nil || status.Code(err) != codes.DeadlineExceeded {
+		t.Fatalf("EmptyCall() = _, %v, want _, DeadlineExceeded", err)
+	}
+
+	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: test.addresses[0]}}})
+	// The second RPC should succeed.
+	if _, err := testc.EmptyCall(context.Background(), &testpb.Empty{}); err != nil {
+		t.Fatalf("EmptyCall() = _, %v, want _, <nil>", err)
+	}
+	// The second RPC should not set metadata, so there's no md in the channel.
+	select {
+	case md1 := <-test.serverImpls[0].testMDChan:
+		t.Fatalf("got md: %v, want empty metadata", md1)
+	case <-time.After(time.Microsecond * 100):
+	}
+
+	const testMDValue = "test-md-value"
+	// Update metadata in address.
+	r.UpdateState(resolver.State{Addresses: []resolver.Address{
+		imetadata.Set(resolver.Address{Addr: test.addresses[0]}, metadata.Pairs(testMDKey, testMDValue)),
+	}})
+	// The third RPC should succeed.
+	if _, err := testc.EmptyCall(context.Background(), &testpb.Empty{}); err != nil {
+		t.Fatalf("EmptyCall() = _, %v, want _, <nil>", err)
+	}
+
+	// The third RPC should send metadata with it.
+	md2 := <-test.serverImpls[0].testMDChan
+	if len(md2) == 0 || md2[0] != testMDValue {
+		t.Fatalf("got md: %v, want %v", md2, []string{testMDValue})
+	}
 }

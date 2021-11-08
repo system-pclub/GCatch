@@ -1,0 +1,286 @@
+
+// This file is concatenated by three runs of GCatch on grpc (version 9280052d36656451dd7568a18a836c2a74edaf6c)
+// I concatenated the three runs because the kernel killed GCatch after a few minutes, so I used "-skip=" flag to let GCatch continue its work after each run, and concatenate the results of all three runs
+
+
+
+// There are 3 bugs
+
+// Bug 1: /home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:957
+// 		is real bug
+//		not found by GFuzz? need to validate
+
+
+// Bug 2: /home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:200
+// 		is real bug
+//		is also found by GFuzz
+
+// Bug 3: /home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:116
+// 		is real bug
+//		not found by GFuzz? need to validate
+
+
+
+
+
+
+
+
+
+
+
+
+Successfully built whole program. Now running checkers
+----------Bug[1]----------
+	Type: BMOC 	Reason: One or multiple channel operation is blocked.
+-----Blocking at:
+	File: /home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:957
+-----Path NO. 3 	Entry func at: (google.golang.org/grpc.s).TestUpdateAddresses_RetryFromFirstAddr$3
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:967:14	 '✓'
+Chan_op :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:968:8	 '✓'
+Return :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:968:8	 '✓'
+-----Path NO. 0 	Entry func at: (google.golang.org/grpc.s).TestUpdateAddresses_RetryFromFirstAddr
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:873:25	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:874:9	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:879:25	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:880:9	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:885:25	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:886:9	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:891:22	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:892:35	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:893:36	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:894:35	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:895:36	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:896:26	 '✓'
+Go :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:899:2	 '✓'
+Go :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:945:2	 '✓'
+Go :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:965:2	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:972:19	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:972:28	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:973:19	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:973:28	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:974:19	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:974:28	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:976:35	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:977:17	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:980:15	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:981:16	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:982:14	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:983:19	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:984:25	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:979:21	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:985:9	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:990:23	 '✓'
+Select :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:994:2	 '✓'
+Select_case :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:994:2	 '✓'
+Select :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:999:2	 '✓'
+Select_case :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:999:2	 '✓'
+Kill :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:1002:10	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:988:2	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:877:2	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:889:2	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:883:2	 '✓'
+End :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:883:2	 '✓'
+-----Path NO. 1 	Entry func at: (google.golang.org/grpc.s).TestUpdateAddresses_RetryFromFirstAddr$1
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:903:28	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:904:10	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:905:11	 '✓'
+Return :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:906:4	 '✓'
+-----Blocking Path NO. 2
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:950:27	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:951:10	 '✓'
+Chan_op :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:956:8	 '✓'
+Chan_op :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:957:3	 Blocking
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:958:13	 '✗'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:961:14	 '✗'
+Chan_op :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:962:8	 '✗'
+Return :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn_test.go:962:8	 '✗'
+
+Now trying to build unchecked packages separately...
+Successful. Package NO. 0 : google.golang.org/grpc/xds  Num of Lock & <-: 404
+
+
+Time passed for seconds 175.648736879
+Successful. Package NO. 1 : google.golang.org/grpc/xds/internal  Num of Lock & <-: 396
+
+
+Time passed for seconds 180.878955666
+Successful. Package NO. 2 : google.golang.org/grpc/internal  Num of Lock & <-: 354
+
+
+Time passed for seconds 182.630116025
+Successful. Package NO. 3 : google.golang.org/grpc/xds/internal/balancer  Num of Lock & <-: 317
+
+
+Time passed for seconds 216.223313367
+Successful. Package NO. 4 : google.golang.org/grpc/internal/transport  Num of Lock & <-: 216
+----------Bug[2]----------
+	Type: BMOC 	Reason: One or multiple channel operation is blocked.
+-----Blocking at:
+	File: /home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:200
+-----Path NO. 0 	Entry func at: (google.golang.org/grpc/internal/transport.s).TestKeepaliveServerClosesUnresponsiveClient
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:170:44	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:177:21	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:178:23	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:179:9	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:184:25	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:184:46	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:184:64	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:184:58	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:187:21	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:188:35	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:188:58	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:191:21	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:195:15	 '✓'
+Go :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:196:2	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:208:26	 '✓'
+Select :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:209:2	 '✓'
+Select_case :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:209:2	 '✓'
+Kill :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:216:11	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:182:2	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:171:2	 '✓'
+End :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:171:2	 '✓'
+-----Blocking Path NO. 1
+Jump :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:197:3	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:199:25	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:199:34	 '✓'
+Chan_op :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:200:11	 Blocking
+Return :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/transport/keepalive_test.go:201:5	 '✗'
+
+
+
+Time passed for seconds 229.611751335
+Successful. Package NO. 5 : google.golang.org/grpc/test  Num of Lock & <-: 174
+Error when querying all channel values:
+ internal error in pointer analysis: not a tagged object: n121226 (please report this bug)
+
+
+Time passed for seconds 244.403408358
+Successful. Package NO. 6 : google.golang.org/grpc/xds/internal/balancer/edsbalancer  Num of Lock & <-: 171
+
+
+Time passed for seconds 280.645575563
+Successful. Package NO. 7 : google.golang.org/grpc/balancer  Num of Lock & <-: 105
+
+
+Time passed for seconds 285.744807552
+Successful. Package NO. 8 : google.golang.org/grpc/xds/internal/balancer/balancergroup  Num of Lock & <-: 91
+
+ow trying to build unchecked packages separately...
+Successful. Package NO. 7 : google.golang.org/grpc/balancer  Num of Lock & <-: 105
+
+
+Time passed for seconds 144.557422311
+Successful. Package NO. 8 : google.golang.org/grpc/xds/internal/balancer/balancergroup  Num of Lock & <-: 91
+
+
+Time passed for seconds 170.552730957
+Successful. Package NO. 9 : google.golang.org/grpc/balancer/grpclb  Num of Lock & <-: 75
+Error when building callgraph with nil Queries:
+ internal error in pointer analysis: not a tagged object: n134746 (please report this bug)
+
+
+Time passed for seconds 176.962283454
+Successful. Package NO. 10 : google.golang.org/grpc/credentials  Num of Lock & <-: 57
+
+
+Time passed for seconds 181.707174687
+Fail. Package NO. 11 : google.golang.org/grpc/xds/internal/client  Num of Lock & <-: 54  error: type_err
+	Successfully built sub-Package NO. 0 :	 google.golang.org/grpc/xds/internal/client/v2  Num of Lock & <-: 10
+	Successfully built sub-Package NO. 1 :	 google.golang.org/grpc/xds/internal/client/load  Num of Lock & <-: 5
+Successful. Package NO. 12 : google.golang.org/grpc/internal/resolver  Num of Lock & <-: 45
+----------Bug[2]----------
+	Type: BMOC 	Reason: One or multiple channel operation is blocked.
+-----Blocking at:
+	File: /home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:116
+-----Path NO. 2 	Entry func at: (google.golang.org/grpc/internal/resolver.s).TestSafeConfigSelector$4
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:103:13	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:104:27	 '✓'
+Chan_op :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:105:8	 '✓'
+Return :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:105:8	 '✓'
+-----Blocking Path NO. 3
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:115:30	 '✓'
+Chan_op :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:116:18	 Blocking
+Return :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:116:18	 '✗'
+-----Path NO. 4 	Entry func at: (google.golang.org/grpc/internal/resolver.s).TestSafeConfigSelector$6
+-----Path NO. 0 	Entry func at: (google.golang.org/grpc/internal/resolver.s).TestSafeConfigSelector
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:49:18	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:50:18	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:58:19	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:59:19	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:81:26	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:83:21	 '✓'
+Go :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:84:2	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:94:19	 '✓'
+Select :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:93:2	 '✓'
+Select_case :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:93:2	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:100:19	 '✓'
+Go :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:101:2	 '✓'
+Chan_op :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:109:11	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:112:20	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:112:26	 '✓'
+Jump :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:112:6	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:112:61	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:112:69	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:112:69	 '✓'
+ChanMake :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:113:24	 '✓'
+Go :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:114:3	 '✓'
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:119:20	 '✓'
+Select :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:118:3	 '✓'
+Select_case :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:118:3	 '✓'
+Kill :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:120:12	 '✓'
+-----Path NO. 1 	Entry func at: (google.golang.org/grpc/internal/resolver.s).TestSafeConfigSelector$3
+Call :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:85:31	 '✓'
+If :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:86:10	 '✓'
+Chan_op :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:89:8	 '✓'
+Return :/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/resolver/config_selector_test.go:89:8	 '✓'
+
+
+
+Time passed for seconds 230.72834319
+Successful. Package NO. 13 : google.golang.org/grpc/benchmark  Num of Lock & <-: 42
+
+
+Time passed for seconds 242.983423183
+Successful. Package NO. 14 : google.golang.org/grpc/xds/internal/balancer/clustermanager  Num of Lock & <-: 27
+
+Now trying to build unchecked packages separately...
+Successful. Package NO. 14 : google.golang.org/grpc/xds/internal/balancer/clustermanager  Num of Lock & <-: 27
+Warning in ProcessInstGetNode: can't find op for a close(chan)
+	File: /home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn.go:1420
+Recovered in BuildGraph  1
+Warning in ProcessInstGetNode: a select has no corresponding OP
+	File: /home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/testutils/pipe_listener.go:85
+Recovered in BuildGraph  1
+
+
+Time passed for seconds 288.995254618
+Successful. Package NO. 15 : google.golang.org/grpc/internal/testutils  Num of Lock & <-: 25
+
+
+Time passed for seconds 296.367090642
+Successful. Package NO. 16 : google.golang.org/grpc/internal/resolver/dns  Num of Lock & <-: 25
+
+
+Time passed for seconds 301.449760199
+Successful. Package NO. 17 : google.golang.org/grpc/balancer/rls/internal  Num of Lock & <-: 24
+
+
+Time passed for seconds 314.844129869
+Successful. Package NO. 18 : google.golang.org/grpc/internal/cache  Num of Lock & <-: 20
+
+
+Time passed for seconds 316.549298924
+Successful. Package NO. 19 : google.golang.org/grpc/credentials/tls/certprovider  Num of Lock & <-: 20
+
+
+Time passed for seconds 324.318266547
+Successful. Package NO. 20 : google.golang.org/grpc/xds/internal/testutils  Num of Lock & <-: 17
+
+
+Time passed for seconds 348.796254766
+Successful. Package NO. 21 : google.golang.org/grpc/benchmark/primitives  Num of Lock & <-: 17
+
+
+Time passed for seconds 350.526034978
+Successful. Package NO. 22 : google.golang.org/grpc/xds/internal/balancer/weightedtarget  Num of Lock & <-: 16

@@ -16,6 +16,7 @@
  *
  */
 
+// Binary client is an example client.
 package main
 
 import (
@@ -53,8 +54,7 @@ func callUnaryEcho(c pb.EchoClient) {
 func main() {
 	flag.Parse()
 
-	r, cleanup := manual.GenerateAndRegisterManualResolver()
-	defer cleanup()
+	r := manual.NewBuilderWithScheme("whatever")
 	r.InitialState(resolver.State{
 		Addresses: []resolver.Address{
 			{Addr: "localhost:50051"},
@@ -67,6 +67,7 @@ func main() {
 	options := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
+		grpc.WithResolvers(r),
 		grpc.WithDefaultServiceConfig(serviceConfig),
 	}
 

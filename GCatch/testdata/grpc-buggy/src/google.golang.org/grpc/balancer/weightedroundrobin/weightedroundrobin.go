@@ -19,11 +19,43 @@
 // Package weightedroundrobin defines a weighted roundrobin balancer.
 package weightedroundrobin
 
+import (
+	"google.golang.org/grpc/resolver"
+)
+
 // Name is the name of weighted_round_robin balancer.
 const Name = "weighted_round_robin"
 
-// AddrInfo will be stored inside Address metadata in order to use weighted roundrobin
-// balancer.
+// attributeKey is the type used as the key to store AddrInfo in the Attributes
+// field of resolver.Address.
+type attributeKey struct{}
+
+// AddrInfo will be stored inside Address metadata in order to use weighted
+// roundrobin balancer.
 type AddrInfo struct {
 	Weight uint32
+}
+
+// SetAddrInfo returns a copy of addr in which the Attributes field is updated
+// with addrInfo.
+//
+// Experimental
+//
+// Notice: This API is EXPERIMENTAL and may be changed or removed in a
+// later release.
+func SetAddrInfo(addr resolver.Address, addrInfo AddrInfo) resolver.Address {
+	addr.Attributes = addr.Attributes.WithValues(attributeKey{}, addrInfo)
+	return addr
+}
+
+// GetAddrInfo returns the AddrInfo stored in the Attributes fields of addr.
+//
+// Experimental
+//
+// Notice: This API is EXPERIMENTAL and may be changed or removed in a
+// later release.
+func GetAddrInfo(addr resolver.Address) AddrInfo {
+	v := addr.Attributes.Value(attributeKey{})
+	ai, _ := v.(AddrInfo)
+	return ai
 }

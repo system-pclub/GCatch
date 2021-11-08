@@ -16,30 +16,35 @@
  *
  */
 
+// Package testutils provides utility types, for use in xds tests.
 package testutils
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"sync"
 	"testing"
 
-	envoy_api_v2_core "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/internal/wrr"
 	"google.golang.org/grpc/resolver"
-	"google.golang.org/grpc/xds/internal"
 )
 
-const testSubConnsCount = 16
+// TestSubConnsCount is the number of TestSubConns initialized as part of
+// package init.
+const TestSubConnsCount = 16
+
+// testingLogger wraps the logging methods from testing.T.
+type testingLogger interface {
+	Log(args ...interface{})
+	Logf(format string, args ...interface{})
+}
 
 // TestSubConns contains a list of SubConns to be used in tests.
 var TestSubConns []*TestSubConn
 
 func init() {
-	for i := 0; i < testSubConnsCount; i++ {
+	for i := 0; i < TestSubConnsCount; i++ {
 		TestSubConns = append(TestSubConns, &TestSubConn{
 			id: fmt.Sprintf("sc%d", i),
 		})
@@ -51,8 +56,8 @@ type TestSubConn struct {
 	id string
 }
 
-// UpdateAddresses panics.
-func (tsc *TestSubConn) UpdateAddresses([]resolver.Address) { panic("not implemented") }
+// UpdateAddresses is a no-op.
+func (tsc *TestSubConn) UpdateAddresses([]resolver.Address) {}
 
 // Connect is a no-op.
 func (tsc *TestSubConn) Connect() {}
@@ -64,13 +69,13 @@ func (tsc *TestSubConn) String() string {
 
 // TestClientConn is a mock balancer.ClientConn used in tests.
 type TestClientConn struct {
-	t *testing.T // For logging only.
+	logger testingLogger
 
 	NewSubConnAddrsCh chan []resolver.Address // the last 10 []Address to create subconn.
 	NewSubConnCh      chan balancer.SubConn   // the last 10 subconn created.
 	RemoveSubConnCh   chan balancer.SubConn   // the last 10 subconn removed.
 
-	NewPickerCh chan balancer.V2Picker  // the last picker updated.
+	NewPickerCh chan balancer.Picker    // the last picker updated.
 	NewStateCh  chan connectivity.State // the last state.
 
 	subConnIdx int
@@ -79,13 +84,13 @@ type TestClientConn struct {
 // NewTestClientConn creates a TestClientConn.
 func NewTestClientConn(t *testing.T) *TestClientConn {
 	return &TestClientConn{
-		t: t,
+		logger: t,
 
 		NewSubConnAddrsCh: make(chan []resolver.Address, 10),
 		NewSubConnCh:      make(chan balancer.SubConn, 10),
 		RemoveSubConnCh:   make(chan balancer.SubConn, 10),
 
-		NewPickerCh: make(chan balancer.V2Picker, 1),
+		NewPickerCh: make(chan balancer.Picker, 1),
 		NewStateCh:  make(chan connectivity.State, 1),
 	}
 }
@@ -95,7 +100,7 @@ func (tcc *TestClientConn) NewSubConn(a []resolver.Address, o balancer.NewSubCon
 	sc := TestSubConns[tcc.subConnIdx]
 	tcc.subConnIdx++
 
-	tcc.t.Logf("testClientConn: NewSubConn(%v, %+v) => %s", a, o, sc)
+	tcc.logger.Logf("testClientConn: NewSubConn(%v, %+v) => %s", a, o, sc)
 	select {
 	case tcc.NewSubConnAddrsCh <- a:
 	default:
@@ -111,22 +116,16 @@ func (tcc *TestClientConn) NewSubConn(a []resolver.Address, o balancer.NewSubCon
 
 // RemoveSubConn removes the SubConn.
 func (tcc *TestClientConn) RemoveSubConn(sc balancer.SubConn) {
-	tcc.t.Logf("testClientCOnn: RemoveSubConn(%p)", sc)
+	tcc.logger.Logf("testClientConn: RemoveSubConn(%p)", sc)
 	select {
 	case tcc.RemoveSubConnCh <- sc:
 	default:
 	}
 }
 
-// UpdateBalancerState implements balancer.Balancer API. It will be removed when
-// switching to the new balancer interface.
-func (tcc *TestClientConn) UpdateBalancerState(s connectivity.State, p balancer.Picker) {
-	tcc.t.Fatal("not implemented")
-}
-
 // UpdateState updates connectivity state and picker.
 func (tcc *TestClientConn) UpdateState(bs balancer.State) {
-	tcc.t.Logf("testClientConn: UpdateState(%v)", bs)
+	tcc.logger.Logf("testClientConn: UpdateState(%v)", bs)
 	select {
 	case <-tcc.NewStateCh:
 	default:
@@ -150,47 +149,19 @@ func (tcc *TestClientConn) Target() string {
 	panic("not implemented")
 }
 
-// TestServerLoad is testing Load for testing LRS.
-type TestServerLoad struct {
-	Name string
-	D    float64
-}
-
-// TestLoadStore is a load store to be used in tests.
-type TestLoadStore struct {
-	CallsStarted []internal.Locality
-	CallsEnded   []internal.Locality
-	CallsCost    []TestServerLoad
-}
-
-// NewTestLoadStore creates a new TestLoadStore.
-func NewTestLoadStore() *TestLoadStore {
-	return &TestLoadStore{}
-}
-
-// CallDropped records a call dropped.
-func (*TestLoadStore) CallDropped(category string) {
-	panic("not implemented")
-}
-
-// CallStarted records a call started.
-func (tls *TestLoadStore) CallStarted(l internal.Locality) {
-	tls.CallsStarted = append(tls.CallsStarted, l)
-}
-
-// CallFinished records a call finished.
-func (tls *TestLoadStore) CallFinished(l internal.Locality, err error) {
-	tls.CallsEnded = append(tls.CallsEnded, l)
-}
-
-// CallServerLoad records a call server load.
-func (tls *TestLoadStore) CallServerLoad(l internal.Locality, name string, d float64) {
-	tls.CallsCost = append(tls.CallsCost, TestServerLoad{Name: name, D: d})
-}
-
-// ReportTo panics.
-func (*TestLoadStore) ReportTo(ctx context.Context, cc *grpc.ClientConn, clusterName string, node *envoy_api_v2_core.Node) {
-	panic("not implemented")
+// WaitForErrPicker waits until an error picker is pushed to this ClientConn.
+// Returns error if the provided context expires or a non-error picker is pushed
+// to the ClientConn.
+func (tcc *TestClientConn) WaitForErrPicker(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return errors.New("timeout when waiting for an error picker")
+	case picker := <-tcc.NewPickerCh:
+		if _, perr := picker.Pick(balancer.PickInfo{}); perr == nil {
+			return fmt.Errorf("balancer returned a picker which is not an error picker")
+		}
+	}
+	return nil
 }
 
 // IsRoundRobin checks whether f's return value is roundrobin of elements from
@@ -261,43 +232,8 @@ func (tc *testClosure) next() balancer.SubConn {
 	return ret
 }
 
-func init() {
-	balancer.Register(&TestConstBalancerBuilder{})
-}
-
 // ErrTestConstPicker is error returned by test const picker.
 var ErrTestConstPicker = fmt.Errorf("const picker error")
-
-// TestConstBalancerBuilder is a balancer builder for tests.
-type TestConstBalancerBuilder struct{}
-
-// Build builds a test const balancer.
-func (*TestConstBalancerBuilder) Build(cc balancer.ClientConn, opts balancer.BuildOptions) balancer.Balancer {
-	return &testConstBalancer{cc: cc}
-}
-
-// Name returns test-const-balancer name.
-func (*TestConstBalancerBuilder) Name() string {
-	return "test-const-balancer"
-}
-
-type testConstBalancer struct {
-	cc balancer.ClientConn
-}
-
-func (tb *testConstBalancer) HandleSubConnStateChange(sc balancer.SubConn, state connectivity.State) {
-	tb.cc.UpdateState(balancer.State{ConnectivityState: connectivity.Ready, Picker: &TestConstPicker{Err: ErrTestConstPicker}})
-}
-
-func (tb *testConstBalancer) HandleResolvedAddrs(a []resolver.Address, err error) {
-	if len(a) == 0 {
-		return
-	}
-	tb.cc.NewSubConn(a, balancer.NewSubConnOptions{})
-}
-
-func (*testConstBalancer) Close() {
-}
 
 // TestConstPicker is a const picker for tests.
 type TestConstPicker struct {
@@ -311,47 +247,4 @@ func (tcp *TestConstPicker) Pick(info balancer.PickInfo) (balancer.PickResult, e
 		return balancer.PickResult{}, tcp.Err
 	}
 	return balancer.PickResult{SubConn: tcp.SC}, nil
-}
-
-// testWRR is a deterministic WRR implementation.
-//
-// The real implementation does random WRR. testWRR makes the balancer behavior
-// deterministic and easier to test.
-//
-// With {a: 2, b: 3}, the Next() results will be {a, a, b, b, b}.
-type testWRR struct {
-	itemsWithWeight []struct {
-		item   interface{}
-		weight int64
-	}
-	length int
-
-	mu    sync.Mutex
-	idx   int   // The index of the item that will be picked
-	count int64 // The number of times the current item has been picked.
-}
-
-// NewTestWRR return a WRR for testing. It's deterministic instead random.
-func NewTestWRR() wrr.WRR {
-	return &testWRR{}
-}
-
-func (twrr *testWRR) Add(item interface{}, weight int64) {
-	twrr.itemsWithWeight = append(twrr.itemsWithWeight, struct {
-		item   interface{}
-		weight int64
-	}{item: item, weight: weight})
-	twrr.length++
-}
-
-func (twrr *testWRR) Next() interface{} {
-	twrr.mu.Lock()
-	iww := twrr.itemsWithWeight[twrr.idx]
-	twrr.count++
-	if twrr.count >= iww.weight {
-		twrr.idx = (twrr.idx + 1) % twrr.length
-		twrr.count = 0
-	}
-	twrr.mu.Unlock()
-	return iww.item
 }

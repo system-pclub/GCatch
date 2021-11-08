@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2019 gRPC authors.
+ * Copyright 2020 gRPC authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,68 +13,72 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
  */
 
 package client
 
 import (
-	"errors"
 	"fmt"
+	"net"
+	"strconv"
 	"testing"
-	"time"
 
-	xdspb "github.com/envoyproxy/go-control-plane/envoy/api/v2"
-	corepb "github.com/envoyproxy/go-control-plane/envoy/api/v2/core"
-	"github.com/golang/protobuf/ptypes"
+	v3corepb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	v3endpointpb "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	v3typepb "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"github.com/golang/protobuf/proto"
 	anypb "github.com/golang/protobuf/ptypes/any"
+	wrapperspb "github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/grpc/xds/internal"
-	"google.golang.org/grpc/xds/internal/testutils"
+	"google.golang.org/grpc/xds/internal/version"
 )
 
 func (s) TestEDSParseRespProto(t *testing.T) {
 	tests := []struct {
 		name    string
-		m       *xdspb.ClusterLoadAssignment
-		want    *EDSUpdate
+		m       *v3endpointpb.ClusterLoadAssignment
+		want    EndpointsUpdate
 		wantErr bool
 	}{
 		{
 			name: "missing-priority",
-			m: func() *xdspb.ClusterLoadAssignment {
-				clab0 := NewClusterLoadAssignmentBuilder("test", nil)
-				clab0.AddLocality("locality-1", 1, 0, []string{"addr1:314"}, nil)
-				clab0.AddLocality("locality-2", 1, 2, []string{"addr2:159"}, nil)
+			m: func() *v3endpointpb.ClusterLoadAssignment {
+				clab0 := newClaBuilder("test", nil)
+				clab0.addLocality("locality-1", 1, 0, []string{"addr1:314"}, nil)
+				clab0.addLocality("locality-2", 1, 2, []string{"addr2:159"}, nil)
 				return clab0.Build()
 			}(),
-			want:    nil,
+			want:    EndpointsUpdate{},
 			wantErr: true,
 		},
 		{
 			name: "missing-locality-ID",
-			m: func() *xdspb.ClusterLoadAssignment {
-				clab0 := NewClusterLoadAssignmentBuilder("test", nil)
-				clab0.AddLocality("", 1, 0, []string{"addr1:314"}, nil)
+			m: func() *v3endpointpb.ClusterLoadAssignment {
+				clab0 := newClaBuilder("test", nil)
+				clab0.addLocality("", 1, 0, []string{"addr1:314"}, nil)
 				return clab0.Build()
 			}(),
-			want:    nil,
+			want:    EndpointsUpdate{},
 			wantErr: true,
 		},
 		{
 			name: "good",
-			m: func() *xdspb.ClusterLoadAssignment {
-				clab0 := NewClusterLoadAssignmentBuilder("test", nil)
-				clab0.AddLocality("locality-1", 1, 1, []string{"addr1:314"}, &AddLocalityOptions{
-					Health: []corepb.HealthStatus{corepb.HealthStatus_UNHEALTHY},
+			m: func() *v3endpointpb.ClusterLoadAssignment {
+				clab0 := newClaBuilder("test", nil)
+				clab0.addLocality("locality-1", 1, 1, []string{"addr1:314"}, &addLocalityOptions{
+					Health: []v3corepb.HealthStatus{v3corepb.HealthStatus_UNHEALTHY},
 					Weight: []uint32{271},
 				})
-				clab0.AddLocality("locality-2", 1, 0, []string{"addr2:159"}, &AddLocalityOptions{
-					Health: []corepb.HealthStatus{corepb.HealthStatus_DRAINING},
+				clab0.addLocality("locality-2", 1, 0, []string{"addr2:159"}, &addLocalityOptions{
+					Health: []v3corepb.HealthStatus{v3corepb.HealthStatus_DRAINING},
 					Weight: []uint32{828},
 				})
 				return clab0.Build()
 			}(),
-			want: &EDSUpdate{
+			want: EndpointsUpdate{
 				Drops: nil,
 				Localities: []Locality{
 					{
@@ -83,7 +87,7 @@ func (s) TestEDSParseRespProto(t *testing.T) {
 							HealthStatus: EndpointHealthStatusUnhealthy,
 							Weight:       271,
 						}},
-						ID:       internal.Locality{SubZone: "locality-1"},
+						ID:       internal.LocalityID{SubZone: "locality-1"},
 						Priority: 1,
 						Weight:   1,
 					},
@@ -93,7 +97,7 @@ func (s) TestEDSParseRespProto(t *testing.T) {
 							HealthStatus: EndpointHealthStatusDraining,
 							Weight:       828,
 						}},
-						ID:       internal.Locality{SubZone: "locality-2"},
+						ID:       internal.LocalityID{SubZone: "locality-2"},
 						Priority: 0,
 						Weight:   1,
 					},
@@ -104,185 +108,205 @@ func (s) TestEDSParseRespProto(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseEDSRespProto(tt.m)
+			got, err := parseEDSRespProto(tt.m)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseEDSRespProto() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("parseEDSRespProto() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if d := cmp.Diff(got, tt.want); d != "" {
-				t.Errorf("ParseEDSRespProto() got = %v, want %v, diff: %v", got, tt.want, d)
+				t.Errorf("parseEDSRespProto() got = %v, want %v, diff: %v", got, tt.want, d)
 			}
 		})
 	}
 }
 
-var (
-	badlyMarshaledEDSResponse = &xdspb.DiscoveryResponse{
-		Resources: []*anypb.Any{
-			{
-				TypeUrl: edsURL,
-				Value:   []byte{1, 2, 3, 4},
-			},
-		},
-		TypeUrl: edsURL,
-	}
-	badResourceTypeInEDSResponse = &xdspb.DiscoveryResponse{
-		Resources: []*anypb.Any{
-			{
-				TypeUrl: httpConnManagerURL,
-				Value:   marshaledConnMgr1,
-			},
-		},
-		TypeUrl: edsURL,
-	}
-	goodEDSResponse1 = &xdspb.DiscoveryResponse{
-		Resources: []*anypb.Any{
-			func() *anypb.Any {
-				clab0 := NewClusterLoadAssignmentBuilder(goodEDSName, nil)
-				clab0.AddLocality("locality-1", 1, 1, []string{"addr1:314"}, nil)
-				clab0.AddLocality("locality-2", 1, 0, []string{"addr2:159"}, nil)
-				a, _ := ptypes.MarshalAny(clab0.Build())
-				return a
-			}(),
-		},
-		TypeUrl: edsURL,
-	}
-	goodEDSResponse2 = &xdspb.DiscoveryResponse{
-		Resources: []*anypb.Any{
-			func() *anypb.Any {
-				clab0 := NewClusterLoadAssignmentBuilder("not-goodEDSName", nil)
-				clab0.AddLocality("locality-1", 1, 1, []string{"addr1:314"}, nil)
-				clab0.AddLocality("locality-2", 1, 0, []string{"addr2:159"}, nil)
-				a, _ := ptypes.MarshalAny(clab0.Build())
-				return a
-			}(),
-		},
-		TypeUrl: edsURL,
-	}
-)
-
-func (s) TestEDSHandleResponse(t *testing.T) {
-	fakeServer, cc, cleanup := startServerAndGetCC(t)
-	defer cleanup()
-
-	v2c := newV2Client(cc, goodNodeProto, func(int) time.Duration { return 0 }, nil)
-	defer v2c.close()
-
+func (s) TestUnmarshalEndpoints(t *testing.T) {
 	tests := []struct {
-		name          string
-		edsResponse   *xdspb.DiscoveryResponse
-		wantErr       bool
-		wantUpdate    *EDSUpdate
-		wantUpdateErr bool
+		name       string
+		resources  []*anypb.Any
+		wantUpdate map[string]EndpointsUpdate
+		wantErr    bool
 	}{
-		// Any in resource is badly marshaled.
 		{
-			name:          "badly-marshaled_response",
-			edsResponse:   badlyMarshaledEDSResponse,
-			wantErr:       true,
-			wantUpdate:    nil,
-			wantUpdateErr: false,
+			name:      "non-clusterLoadAssignment resource type",
+			resources: []*anypb.Any{{TypeUrl: version.V3HTTPConnManagerURL}},
+			wantErr:   true,
 		},
-		// Response doesn't contain resource with the right type.
 		{
-			name:          "no-config-in-response",
-			edsResponse:   badResourceTypeInEDSResponse,
-			wantErr:       true,
-			wantUpdate:    nil,
-			wantUpdateErr: false,
+			name: "badly marshaled clusterLoadAssignment resource",
+			resources: []*anypb.Any{
+				{
+					TypeUrl: version.V3EndpointsURL,
+					Value:   []byte{1, 2, 3, 4},
+				},
+			},
+			wantErr: true,
 		},
-		// Response contains one uninteresting ClusterLoadAssignment.
 		{
-			name:          "one-uninterestring-assignment",
-			edsResponse:   goodEDSResponse2,
-			wantErr:       false,
-			wantUpdate:    nil,
-			wantUpdateErr: false,
+			name: "bad endpoints resource",
+			resources: []*anypb.Any{
+				{
+					TypeUrl: version.V3EndpointsURL,
+					Value: func() []byte {
+						clab0 := newClaBuilder("test", nil)
+						clab0.addLocality("locality-1", 1, 0, []string{"addr1:314"}, nil)
+						clab0.addLocality("locality-2", 1, 2, []string{"addr2:159"}, nil)
+						e := clab0.Build()
+						me, _ := proto.Marshal(e)
+						return me
+					}(),
+				},
+			},
+			wantErr: true,
 		},
-		// Response contains one good ClusterLoadAssignment.
 		{
-			name:        "one-good-assignment",
-			edsResponse: goodEDSResponse1,
-			wantErr:     false,
-			wantUpdate: &EDSUpdate{
-				Localities: []Locality{
-					{
-						Endpoints: []Endpoint{{Address: "addr1:314"}},
-						ID:        internal.Locality{SubZone: "locality-1"},
-						Priority:  1,
-						Weight:    1,
-					},
-					{
-						Endpoints: []Endpoint{{Address: "addr2:159"}},
-						ID:        internal.Locality{SubZone: "locality-2"},
-						Priority:  0,
-						Weight:    1,
+			name: "v3 endpoints",
+			resources: []*anypb.Any{
+				{
+					TypeUrl: version.V3EndpointsURL,
+					Value: func() []byte {
+						clab0 := newClaBuilder("test", nil)
+						clab0.addLocality("locality-1", 1, 1, []string{"addr1:314"}, &addLocalityOptions{
+							Health: []v3corepb.HealthStatus{v3corepb.HealthStatus_UNHEALTHY},
+							Weight: []uint32{271},
+						})
+						clab0.addLocality("locality-2", 1, 0, []string{"addr2:159"}, &addLocalityOptions{
+							Health: []v3corepb.HealthStatus{v3corepb.HealthStatus_DRAINING},
+							Weight: []uint32{828},
+						})
+						e := clab0.Build()
+						me, _ := proto.Marshal(e)
+						return me
+					}(),
+				},
+			},
+			wantUpdate: map[string]EndpointsUpdate{
+				"test": {
+					Drops: nil,
+					Localities: []Locality{
+						{
+							Endpoints: []Endpoint{{
+								Address:      "addr1:314",
+								HealthStatus: EndpointHealthStatusUnhealthy,
+								Weight:       271,
+							}},
+							ID:       internal.LocalityID{SubZone: "locality-1"},
+							Priority: 1,
+							Weight:   1,
+						},
+						{
+							Endpoints: []Endpoint{{
+								Address:      "addr2:159",
+								HealthStatus: EndpointHealthStatusDraining,
+								Weight:       828,
+							}},
+							ID:       internal.LocalityID{SubZone: "locality-2"},
+							Priority: 0,
+							Weight:   1,
+						},
 					},
 				},
 			},
-			wantUpdateErr: false,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			testWatchHandle(t, &watchHandleTestcase{
-				responseToHandle: test.edsResponse,
-				wantHandleErr:    test.wantErr,
-				wantUpdate:       test.wantUpdate,
-				wantUpdateErr:    test.wantUpdateErr,
-
-				edsWatch:      v2c.watchEDS,
-				watchReqChan:  fakeServer.XDSRequestChan,
-				handleXDSResp: v2c.handleEDSResponse,
-			})
+			update, err := UnmarshalEndpoints(test.resources, nil)
+			if ((err != nil) != test.wantErr) || !cmp.Equal(update, test.wantUpdate, cmpopts.EquateEmpty()) {
+				t.Errorf("UnmarshalEndpoints(%v) = (%+v, %v) want (%+v, %v)", test.resources, update, err, test.wantUpdate, test.wantErr)
+			}
 		})
 	}
 }
 
-// TestEDSHandleResponseWithoutWatch tests the case where the v2Client
-// receives an EDS response without a registered EDS watcher.
-func (s) TestEDSHandleResponseWithoutWatch(t *testing.T) {
-	_, cc, cleanup := startServerAndGetCC(t)
-	defer cleanup()
+// claBuilder builds a ClusterLoadAssignment, aka EDS
+// response.
+type claBuilder struct {
+	v *v3endpointpb.ClusterLoadAssignment
+}
 
-	v2c := newV2Client(cc, goodNodeProto, func(int) time.Duration { return 0 }, nil)
-	defer v2c.close()
+// newClaBuilder creates a claBuilder.
+func newClaBuilder(clusterName string, dropPercents []uint32) *claBuilder {
+	var drops []*v3endpointpb.ClusterLoadAssignment_Policy_DropOverload
+	for i, d := range dropPercents {
+		drops = append(drops, &v3endpointpb.ClusterLoadAssignment_Policy_DropOverload{
+			Category: fmt.Sprintf("test-drop-%d", i),
+			DropPercentage: &v3typepb.FractionalPercent{
+				Numerator:   d,
+				Denominator: v3typepb.FractionalPercent_HUNDRED,
+			},
+		})
+	}
 
-	if v2c.handleEDSResponse(goodEDSResponse1) == nil {
-		t.Fatal("v2c.handleEDSResponse() succeeded, should have failed")
+	return &claBuilder{
+		v: &v3endpointpb.ClusterLoadAssignment{
+			ClusterName: clusterName,
+			Policy: &v3endpointpb.ClusterLoadAssignment_Policy{
+				DropOverloads: drops,
+			},
+		},
 	}
 }
 
-func (s) TestEDSWatchExpiryTimer(t *testing.T) {
-	oldWatchExpiryTimeout := defaultWatchExpiryTimeout
-	defaultWatchExpiryTimeout = 500 * time.Millisecond
-	defer func() {
-		defaultWatchExpiryTimeout = oldWatchExpiryTimeout
-	}()
+// addLocalityOptions contains options when adding locality to the builder.
+type addLocalityOptions struct {
+	Health []v3corepb.HealthStatus
+	Weight []uint32
+}
 
-	fakeServer, cc, cleanup := startServerAndGetCC(t)
-	defer cleanup()
-
-	v2c := newV2Client(cc, goodNodeProto, func(int) time.Duration { return 0 }, nil)
-	defer v2c.close()
-	t.Log("Started xds v2Client...")
-
-	callbackCh := testutils.NewChannel()
-	v2c.watchEDS(goodRouteName1, func(u *EDSUpdate, err error) {
-		t.Logf("Received callback with edsUpdate {%+v} and error {%v}", u, err)
-		if u != nil {
-			callbackCh.Send(fmt.Errorf("received EDSUpdate %v in edsCallback, wanted nil", u))
+// addLocality adds a locality to the builder.
+func (clab *claBuilder) addLocality(subzone string, weight uint32, priority uint32, addrsWithPort []string, opts *addLocalityOptions) {
+	var lbEndPoints []*v3endpointpb.LbEndpoint
+	for i, a := range addrsWithPort {
+		host, portStr, err := net.SplitHostPort(a)
+		if err != nil {
+			panic("failed to split " + a)
 		}
-		if err == nil {
-			callbackCh.Send(errors.New("received nil error in edsCallback"))
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			panic("failed to atoi " + portStr)
 		}
-		callbackCh.Send(nil)
-	})
 
-	// Wait till the request makes it to the fakeServer. This ensures that
-	// the watch request has been processed by the v2Client.
-	if _, err := fakeServer.XDSRequestChan.Receive(); err != nil {
-		t.Fatalf("Timeout expired when expecting an CDS request")
+		lbe := &v3endpointpb.LbEndpoint{
+			HostIdentifier: &v3endpointpb.LbEndpoint_Endpoint{
+				Endpoint: &v3endpointpb.Endpoint{
+					Address: &v3corepb.Address{
+						Address: &v3corepb.Address_SocketAddress{
+							SocketAddress: &v3corepb.SocketAddress{
+								Protocol: v3corepb.SocketAddress_TCP,
+								Address:  host,
+								PortSpecifier: &v3corepb.SocketAddress_PortValue{
+									PortValue: uint32(port)}}}}}},
+		}
+		if opts != nil {
+			if i < len(opts.Health) {
+				lbe.HealthStatus = opts.Health[i]
+			}
+			if i < len(opts.Weight) {
+				lbe.LoadBalancingWeight = &wrapperspb.UInt32Value{Value: opts.Weight[i]}
+			}
+		}
+		lbEndPoints = append(lbEndPoints, lbe)
 	}
-	waitForNilErr(t, callbackCh)
+
+	var localityID *v3corepb.Locality
+	if subzone != "" {
+		localityID = &v3corepb.Locality{
+			Region:  "",
+			Zone:    "",
+			SubZone: subzone,
+		}
+	}
+
+	clab.v.Endpoints = append(clab.v.Endpoints, &v3endpointpb.LocalityLbEndpoints{
+		Locality:            localityID,
+		LbEndpoints:         lbEndPoints,
+		LoadBalancingWeight: &wrapperspb.UInt32Value{Value: weight},
+		Priority:            priority,
+	})
+}
+
+// Build builds ClusterLoadAssignment.
+func (clab *claBuilder) Build() *v3endpointpb.ClusterLoadAssignment {
+	return clab.v
 }

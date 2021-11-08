@@ -1,5 +1,3 @@
-// +build go1.10
-
 /*
  *
  * Copyright 2020 gRPC authors.
@@ -30,8 +28,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"google.golang.org/grpc/balancer"
-	_ "google.golang.org/grpc/balancer/grpclb" // grpclb for config parsing.
-	rlspb "google.golang.org/grpc/balancer/rls/internal/proto/grpc_lookup_v1"
+	_ "google.golang.org/grpc/balancer/grpclb"               // grpclb for config parsing.
 	_ "google.golang.org/grpc/internal/resolver/passthrough" // passthrough resolver.
 )
 
@@ -49,20 +46,21 @@ func init() {
 	balancer.Register(&dummyBB{})
 }
 
-func (lbCfg *lbConfig) Equal(other *lbConfig) bool {
-	// This only ignores the keyBuilderMap field because its internals are not
-	// exported, and hence not possible to specify in the want section of the
-	// test.
-	return lbCfg.lookupService == other.lookupService &&
-		lbCfg.lookupServiceTimeout == other.lookupServiceTimeout &&
-		lbCfg.maxAge == other.maxAge &&
-		lbCfg.staleAge == other.staleAge &&
-		lbCfg.cacheSizeBytes == other.cacheSizeBytes &&
-		lbCfg.rpStrategy == other.rpStrategy &&
-		lbCfg.defaultTarget == other.defaultTarget &&
-		lbCfg.cpName == other.cpName &&
-		lbCfg.cpTargetField == other.cpTargetField &&
-		cmp.Equal(lbCfg.cpConfig, other.cpConfig)
+// testEqual reports whether the lbCfgs a and b are equal. This is to be used
+// only from tests. This ignores the keyBuilderMap field because its internals
+// are not exported, and hence not possible to specify in the want section of
+// the test. This is fine because we already have tests to make sure that the
+// keyBuilder is parsed properly from the service config.
+func testEqual(a, b *lbConfig) bool {
+	return a.lookupService == b.lookupService &&
+		a.lookupServiceTimeout == b.lookupServiceTimeout &&
+		a.maxAge == b.maxAge &&
+		a.staleAge == b.staleAge &&
+		a.cacheSizeBytes == b.cacheSizeBytes &&
+		a.defaultTarget == b.defaultTarget &&
+		a.cpName == b.cpName &&
+		a.cpTargetField == b.cpTargetField &&
+		cmp.Equal(a.cpConfig, b.cpConfig)
 }
 
 func TestParseConfig(t *testing.T) {
@@ -91,7 +89,6 @@ func TestParseConfig(t *testing.T) {
 					"maxAge" : "500s",
 					"staleAge": "600s",
 					"cacheSizeBytes": 1000,
-					"request_processing_strategy": "ASYNC_LOOKUP_DEFAULT_TARGET_ON_MISS",
 					"defaultTarget": "passthrough:///default"
 				},
 				"childPolicy": [
@@ -107,7 +104,6 @@ func TestParseConfig(t *testing.T) {
 				maxAge:               5 * time.Minute,  // This is max maxAge.
 				staleAge:             time.Duration(0), // StaleAge is ignore because it was higher than maxAge.
 				cacheSizeBytes:       1000,
-				rpStrategy:           rlspb.RouteLookupConfig_ASYNC_LOOKUP_DEFAULT_TARGET_ON_MISS,
 				defaultTarget:        "passthrough:///default",
 				cpName:               "grpclb",
 				cpTargetField:        "service_name",
@@ -127,7 +123,6 @@ func TestParseConfig(t *testing.T) {
 					"maxAge": "60s",
 					"staleAge" : "50s",
 					"cacheSizeBytes": 1000,
-					"request_processing_strategy": "ASYNC_LOOKUP_DEFAULT_TARGET_ON_MISS",
 					"defaultTarget": "passthrough:///default"
 				},
 				"childPolicy": [{"grpclb": {"childPolicy": [{"pickfirst": {}}]}}],
@@ -139,7 +134,6 @@ func TestParseConfig(t *testing.T) {
 				maxAge:               60 * time.Second,
 				staleAge:             50 * time.Second,
 				cacheSizeBytes:       1000,
-				rpStrategy:           rlspb.RouteLookupConfig_ASYNC_LOOKUP_DEFAULT_TARGET_ON_MISS,
 				defaultTarget:        "passthrough:///default",
 				cpName:               "grpclb",
 				cpTargetField:        "service_name",
@@ -152,7 +146,7 @@ func TestParseConfig(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			lbCfg, err := builder.ParseConfig(test.input)
-			if err != nil || !cmp.Equal(lbCfg, test.wantCfg) {
+			if err != nil || !testEqual(lbCfg.(*lbConfig), test.wantCfg) {
 				t.Errorf("ParseConfig(%s) = {%+v, %v}, want {%+v, nil}", string(test.input), lbCfg, err, test.wantCfg)
 			}
 		})
@@ -289,41 +283,6 @@ func TestParseConfigErrors(t *testing.T) {
 			wantErr: "rls: cache_size_bytes must be greater than 0 in service config",
 		},
 		{
-			desc: "invalid request processing strategy",
-			input: []byte(`{
-				"routeLookupConfig": {
-					"grpcKeybuilders": [{
-						"names": [{"service": "service", "method": "method"}],
-						"headers": [{"key": "k1", "names": ["v1"]}]
-					}],
-					"lookupService": "passthrough:///target",
-					"lookupServiceTimeout" : "10s",
-					"maxAge": "30s",
-					"staleAge" : "25s",
-					"cacheSizeBytes": 1000
-				}
-			}`),
-			wantErr: "rls: request_processing_strategy cannot be left unspecified in service config",
-		},
-		{
-			desc: "request processing strategy without default target",
-			input: []byte(`{
-				"routeLookupConfig": {
-					"grpcKeybuilders": [{
-						"names": [{"service": "service", "method": "method"}],
-						"headers": [{"key": "k1", "names": ["v1"]}]
-					}],
-					"lookupService": "passthrough:///target",
-					"lookupServiceTimeout" : "10s",
-					"maxAge": "30s",
-					"staleAge" : "25s",
-					"cacheSizeBytes": 1000,
-					"request_processing_strategy": "ASYNC_LOOKUP_DEFAULT_TARGET_ON_MISS"
-				}
-			}`),
-			wantErr: "default_target is not set",
-		},
-		{
 			desc: "no child policy",
 			input: []byte(`{
 				"routeLookupConfig": {
@@ -336,7 +295,6 @@ func TestParseConfigErrors(t *testing.T) {
 					"maxAge": "30s",
 					"staleAge" : "25s",
 					"cacheSizeBytes": 1000,
-					"request_processing_strategy": "ASYNC_LOOKUP_DEFAULT_TARGET_ON_MISS",
 					"defaultTarget": "passthrough:///default"
 				}
 			}`),
@@ -355,7 +313,6 @@ func TestParseConfigErrors(t *testing.T) {
 					"maxAge": "30s",
 					"staleAge" : "25s",
 					"cacheSizeBytes": 1000,
-					"request_processing_strategy": "ASYNC_LOOKUP_DEFAULT_TARGET_ON_MISS",
 					"defaultTarget": "passthrough:///default"
 				},
 				"childPolicy": [
@@ -378,7 +335,6 @@ func TestParseConfigErrors(t *testing.T) {
 					"maxAge": "30s",
 					"staleAge" : "25s",
 					"cacheSizeBytes": 1000,
-					"request_processing_strategy": "ASYNC_LOOKUP_DEFAULT_TARGET_ON_MISS",
 					"defaultTarget": "passthrough:///default"
 				},
 				"childPolicy": [
@@ -402,7 +358,6 @@ func TestParseConfigErrors(t *testing.T) {
 					"maxAge": "30s",
 					"staleAge" : "25s",
 					"cacheSizeBytes": 1000,
-					"request_processing_strategy": "ASYNC_LOOKUP_DEFAULT_TARGET_ON_MISS",
 					"defaultTarget": "passthrough:///default"
 				},
 				"childPolicy": [

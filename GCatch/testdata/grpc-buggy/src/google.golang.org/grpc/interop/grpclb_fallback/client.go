@@ -1,6 +1,4 @@
-// +build linux
-// +build !appengine
-// +build go1.11
+// +build linux,!appengine
 
 /*
  *
@@ -20,6 +18,7 @@
  *
  */
 
+// Binary grpclb_fallback is an interop test client for grpclb fallback.
 package main
 
 import (
@@ -38,6 +37,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/alts"
 	"google.golang.org/grpc/credentials/google"
+
+	testgrpc "google.golang.org/grpc/interop/grpc_testing"
 	testpb "google.golang.org/grpc/interop/grpc_testing"
 )
 
@@ -56,7 +57,7 @@ var (
 	errorLog = log.New(os.Stderr, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 )
 
-func doRPCAndGetPath(client testpb.TestServiceClient, timeout time.Duration) testpb.GrpclbRouteType {
+func doRPCAndGetPath(client testgrpc.TestServiceClient, timeout time.Duration) testpb.GrpclbRouteType {
 	infoLog.Printf("doRPCAndGetPath timeout:%v\n", timeout)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -129,7 +130,7 @@ func runCmd(command string) {
 	}
 }
 
-func waitForFallbackAndDoRPCs(client testpb.TestServiceClient, fallbackDeadline time.Time) {
+func waitForFallbackAndDoRPCs(client testgrpc.TestServiceClient, fallbackDeadline time.Time) {
 	fallbackRetryCount := 0
 	fellBack := false
 	for time.Now().Before(fallbackDeadline) {
@@ -161,7 +162,7 @@ func doFastFallbackBeforeStartup() {
 	fallbackDeadline := time.Now().Add(5 * time.Second)
 	conn := createTestConn()
 	defer conn.Close()
-	client := testpb.NewTestServiceClient(conn)
+	client := testgrpc.NewTestServiceClient(conn)
 	waitForFallbackAndDoRPCs(client, fallbackDeadline)
 }
 
@@ -170,14 +171,14 @@ func doSlowFallbackBeforeStartup() {
 	fallbackDeadline := time.Now().Add(20 * time.Second)
 	conn := createTestConn()
 	defer conn.Close()
-	client := testpb.NewTestServiceClient(conn)
+	client := testgrpc.NewTestServiceClient(conn)
 	waitForFallbackAndDoRPCs(client, fallbackDeadline)
 }
 
 func doFastFallbackAfterStartup() {
 	conn := createTestConn()
 	defer conn.Close()
-	client := testpb.NewTestServiceClient(conn)
+	client := testgrpc.NewTestServiceClient(conn)
 	if g := doRPCAndGetPath(client, 20*time.Second); g != testpb.GrpclbRouteType_GRPCLB_ROUTE_TYPE_BACKEND {
 		errorLog.Fatalf("Expected RPC to take grpclb route type BACKEND. Got: %v", g)
 	}
@@ -189,7 +190,7 @@ func doFastFallbackAfterStartup() {
 func doSlowFallbackAfterStartup() {
 	conn := createTestConn()
 	defer conn.Close()
-	client := testpb.NewTestServiceClient(conn)
+	client := testgrpc.NewTestServiceClient(conn)
 	if g := doRPCAndGetPath(client, 20*time.Second); g != testpb.GrpclbRouteType_GRPCLB_ROUTE_TYPE_BACKEND {
 		errorLog.Fatalf("Expected RPC to take grpclb route type BACKEND. Got: %v", g)
 	}

@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build !go1.10
 // +build !go1.10
 
 package idna
@@ -31,6 +32,12 @@ func TestLabelErrors(t *testing.T) {
 	lengthA := kind{"CheckLengthA", p.ToASCII}
 	p = New(MapForLookup(), StrictDomainName(false))
 	std3 := kind{"STD3", p.ToASCII}
+	p = New(MapForLookup(), CheckHyphens(false))
+	hyphens := kind{"CheckHyphens", p.ToASCII}
+	p = New(MapForLookup(), Transitional(true))
+	transitional := kind{"Transitional", p.ToASCII}
+	p = New(MapForLookup(), Transitional(false))
+	nontransitional := kind{"Nontransitional", p.ToASCII}
 
 	testCases := []struct {
 		kind
@@ -81,14 +88,22 @@ func TestLabelErrors(t *testing.T) {
 		{display, "*.foo.com", "*.foo.com", "P1"},
 		{std3, "*.foo.com", "*.foo.com", ""},
 
+		// Hyphens
+		{display, "r3---sn-apo3qvuoxuxbt-j5pe.googlevideo.com", "r3---sn-apo3qvuoxuxbt-j5pe.googlevideo.com", "V2"},
+		{hyphens, "r3---sn-apo3qvuoxuxbt-j5pe.googlevideo.com", "r3---sn-apo3qvuoxuxbt-j5pe.googlevideo.com", ""},
+		{display, "-label-.com", "-label-.com", "V3"},
+		{hyphens, "-label-.com", "-label-.com", ""},
+
 		// Don't map U+2490 (DIGIT NINE FULL STOP). This is the behavior of
-		// Chrome, Safari, and IE. Firefox will first map ⒐ to 9. and return
-		// lab9.be.
+		// Chrome, modern Firefox, Safari, and IE.
 		{resolve, "lab⒐be", "xn--labbe-zh9b", "P1"}, // encode("lab⒐be")
 		{display, "lab⒐be", "lab⒐be", "P1"},
-
 		{resolve, "plan⒐faß.de", "xn--planfass-c31e.de", "P1"}, // encode("plan⒐fass") + ".de"
 		{display, "Plan⒐faß.de", "plan⒐faß.de", "P1"},
+
+		// Transitional vs Nontransitional processing
+		{transitional, "Plan9faß.de", "plan9fass.de", ""},
+		{nontransitional, "Plan9faß.de", "xn--plan9fa-6va.de", ""},
 
 		// Chrome 54.0 recognizes the error and treats this input verbatim as a
 		// search string.

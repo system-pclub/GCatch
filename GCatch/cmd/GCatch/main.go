@@ -109,7 +109,7 @@ func main() {
 		// Step 2.1, Case 1: built SSA successfully, run the checkers in process()
 		fmt.Println("Successfully built whole program. Now running checkers")
 
-		detect(mapCheckerName)
+		// detect(mapCheckerName)
 
 	} else {
 		// Step 2.1, Case 2: building SSA failed

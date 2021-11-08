@@ -1,0 +1,56 @@
+Make sure you have run installZ3.sh and then install.sh
+Step 1: setting GOPATH of the checked grpc
+GOPATH is set to /home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy
+
+Description of flags of GCatch:
+Required Flag: -path=Full path of the application to be checked
+Required Flag: -include=Relative path (what's after /src/) of the application to be checked
+Required Flag: -checker=The checkers you want to run, divided by ":".    Default value:BMOC
+Optional Flag: -r    Whether all children packages should also be checked recursively
+Optional Flag: -compile-error    Whether compilation errors should be printed, if there are any
+Optional Flag: -vendor=Packages that will be ignored, divided by ":".    Default value:vendor
+
+Step 2: running GCatch on a buggy version of grpc in testdata
+Note: all bugs reported below should be real BMOC bugs
+/home/ziheng/Go/gcatch/bin/GCatch -path=/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc -include=google.golang.org/grpc -checker=BMOC -r -compile-error
+Successfully built whole program. Now running checkers
+Now trying to build unchecked packages separately...
+Successful. Package NO. 14 : google.golang.org/grpc/xds/internal/balancer/clustermanager  Num of Lock & <-: 27
+Warning in ProcessInstGetNode: can't find op for a close(chan)
+	File: /home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/clientconn.go:1420
+Recovered in BuildGraph  1
+Warning in ProcessInstGetNode: a select has no corresponding OP
+	File: /home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/testdata/grpc-buggy/src/google.golang.org/grpc/internal/testutils/pipe_listener.go:85
+Recovered in BuildGraph  1
+
+
+Time passed for seconds 288.995254618
+Successful. Package NO. 15 : google.golang.org/grpc/internal/testutils  Num of Lock & <-: 25
+
+
+Time passed for seconds 296.367090642
+Successful. Package NO. 16 : google.golang.org/grpc/internal/resolver/dns  Num of Lock & <-: 25
+
+
+Time passed for seconds 301.449760199
+Successful. Package NO. 17 : google.golang.org/grpc/balancer/rls/internal  Num of Lock & <-: 24
+
+
+Time passed for seconds 314.844129869
+Successful. Package NO. 18 : google.golang.org/grpc/internal/cache  Num of Lock & <-: 20
+
+
+Time passed for seconds 316.549298924
+Successful. Package NO. 19 : google.golang.org/grpc/credentials/tls/certprovider  Num of Lock & <-: 20
+
+
+Time passed for seconds 324.318266547
+Successful. Package NO. 20 : google.golang.org/grpc/xds/internal/testutils  Num of Lock & <-: 17
+
+
+Time passed for seconds 348.796254766
+Successful. Package NO. 21 : google.golang.org/grpc/benchmark/primitives  Num of Lock & <-: 17
+
+
+Time passed for seconds 350.526034978
+Successful. Package NO. 22 : google.golang.org/grpc/xds/internal/balancer/weightedtarget  Num of Lock & <-: 16

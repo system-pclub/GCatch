@@ -23,34 +23,10 @@ import (
 	"reflect"
 	"testing"
 	"time"
-)
 
-func (s) TestTimeoutEncode(t *testing.T) {
-	for _, test := range []struct {
-		in  string
-		out string
-	}{
-		{"12345678ns", "12345678n"},
-		{"123456789ns", "123457u"},
-		{"12345678us", "12345678u"},
-		{"123456789us", "123457m"},
-		{"12345678ms", "12345678m"},
-		{"123456789ms", "123457S"},
-		{"12345678s", "12345678S"},
-		{"123456789s", "2057614M"},
-		{"12345678m", "12345678M"},
-		{"123456789m", "2057614H"},
-	} {
-		d, err := time.ParseDuration(test.in)
-		if err != nil {
-			t.Fatalf("failed to parse duration string %s: %v", test.in, err)
-		}
-		out := encodeTimeout(d)
-		if out != test.out {
-			t.Fatalf("timeoutEncode(%s) = %s, want %s", test.in, out, test.out)
-		}
-	}
-}
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/hpack"
+)
 
 func (s) TestTimeoutDecode(t *testing.T) {
 	for _, test := range []struct {
@@ -68,29 +44,6 @@ func (s) TestTimeoutDecode(t *testing.T) {
 		d, err := decodeTimeout(test.s)
 		if d != test.d || fmt.Sprint(err) != fmt.Sprint(test.err) {
 			t.Fatalf("timeoutDecode(%q) = %d, %v, want %d, %v", test.s, int64(d), err, int64(test.d), test.err)
-		}
-	}
-}
-
-func (s) TestContentSubtype(t *testing.T) {
-	tests := []struct {
-		contentType string
-		want        string
-		wantValid   bool
-	}{
-		{"application/grpc", "", true},
-		{"application/grpc+", "", true},
-		{"application/grpc+blah", "blah", true},
-		{"application/grpc;", "", true},
-		{"application/grpc;blah", "blah", true},
-		{"application/grpcd", "", false},
-		{"application/grpd", "", false},
-		{"application/grp", "", false},
-	}
-	for _, tt := range tests {
-		got, gotValid := contentSubtype(tt.contentType)
-		if got != tt.want || gotValid != tt.wantValid {
-			t.Errorf("contentSubtype(%q) = (%v, %v); want (%v, %v)", tt.contentType, got, gotValid, tt.want, tt.wantValid)
 		}
 	}
 }
@@ -192,7 +145,7 @@ func (s) TestDecodeEncodeGrpcMessage(t *testing.T) {
 	}
 }
 
-const binaryValue = string(128)
+const binaryValue = "\u0080"
 
 func (s) TestEncodeMetadataHeader(t *testing.T) {
 	for _, test := range []struct {
@@ -232,6 +185,97 @@ func (s) TestDecodeMetadataHeader(t *testing.T) {
 		v, err := decodeMetadataHeader(test.kin, test.vin)
 		if !reflect.DeepEqual(v, test.vout) || !reflect.DeepEqual(err, test.err) {
 			t.Fatalf("decodeMetadataHeader(%q, %q) = %q, %v, want %q, %v", test.kin, test.vin, v, err, test.vout, test.err)
+		}
+	}
+}
+
+func (s) TestDecodeHeaderH2ErrCode(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		// input
+		metaHeaderFrame *http2.MetaHeadersFrame
+		serverSide      bool
+		// output
+		wantCode http2.ErrCode
+	}{
+		{
+			name: "valid header",
+			metaHeaderFrame: &http2.MetaHeadersFrame{Fields: []hpack.HeaderField{
+				{Name: "content-type", Value: "application/grpc"},
+			}},
+			wantCode: http2.ErrCodeNo,
+		},
+		{
+			name: "valid header serverSide",
+			metaHeaderFrame: &http2.MetaHeadersFrame{Fields: []hpack.HeaderField{
+				{Name: "content-type", Value: "application/grpc"},
+			}},
+			serverSide: true,
+			wantCode:   http2.ErrCodeNo,
+		},
+		{
+			name: "invalid grpc status header field",
+			metaHeaderFrame: &http2.MetaHeadersFrame{Fields: []hpack.HeaderField{
+				{Name: "content-type", Value: "application/grpc"},
+				{Name: "grpc-status", Value: "xxxx"},
+			}},
+			wantCode: http2.ErrCodeProtocol,
+		},
+		{
+			name: "invalid http content type",
+			metaHeaderFrame: &http2.MetaHeadersFrame{Fields: []hpack.HeaderField{
+				{Name: "content-type", Value: "application/json"},
+			}},
+			wantCode: http2.ErrCodeProtocol,
+		},
+		{
+			name: "http fallback and invalid http status",
+			metaHeaderFrame: &http2.MetaHeadersFrame{Fields: []hpack.HeaderField{
+				// No content type provided then fallback into handling http error.
+				{Name: ":status", Value: "xxxx"},
+			}},
+			wantCode: http2.ErrCodeProtocol,
+		},
+		{
+			name:            "http2 frame size exceeds",
+			metaHeaderFrame: &http2.MetaHeadersFrame{Fields: nil, Truncated: true},
+			wantCode:        http2.ErrCodeFrameSize,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			state := &decodeState{serverSide: test.serverSide}
+			if h2code, _ := state.decodeHeader(test.metaHeaderFrame); h2code != test.wantCode {
+				t.Fatalf("decodeState.decodeHeader(%v) = %v, want %v", test.metaHeaderFrame, h2code, test.wantCode)
+			}
+		})
+	}
+}
+
+func (s) TestParseDialTarget(t *testing.T) {
+	for _, test := range []struct {
+		target, wantNet, wantAddr string
+	}{
+		{"unix:a", "unix", "a"},
+		{"unix:a/b/c", "unix", "a/b/c"},
+		{"unix:/a", "unix", "/a"},
+		{"unix:/a/b/c", "unix", "/a/b/c"},
+		{"unix://a", "unix", "a"},
+		{"unix://a/b/c", "unix", "/b/c"},
+		{"unix:///a", "unix", "/a"},
+		{"unix:///a/b/c", "unix", "/a/b/c"},
+		{"unix:etcd:0", "unix", "etcd:0"},
+		{"unix:///tmp/unix-3", "unix", "/tmp/unix-3"},
+		{"unix://domain", "unix", "domain"},
+		{"unix://etcd:0", "unix", "etcd:0"},
+		{"unix:///etcd:0", "unix", "/etcd:0"},
+		{"passthrough://unix://domain", "tcp", "passthrough://unix://domain"},
+		{"https://google.com:443", "tcp", "https://google.com:443"},
+		{"dns:///google.com", "tcp", "dns:///google.com"},
+		{"/unix/socket/address", "tcp", "/unix/socket/address"},
+	} {
+		gotNet, gotAddr := parseDialTarget(test.target)
+		if gotNet != test.wantNet || gotAddr != test.wantAddr {
+			t.Errorf("parseDialTarget(%q) = %s, %s want %s, %s", test.target, gotNet, gotAddr, test.wantNet, test.wantAddr)
 		}
 	}
 }

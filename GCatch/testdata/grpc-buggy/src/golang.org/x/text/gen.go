@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build ignore
 // +build ignore
 
 // gen runs go generate on Unicode- and CLDR-related package in the text
@@ -110,7 +111,8 @@ pkg unicode, var <new script or property> *RangeTable
 
 	var (
 		cldr       = generate("./unicode/cldr", unicode)
-		compact    = generate("./internal/language/compact", cldr)
+		intlang    = generate("./internal/language", cldr)
+		compact    = generate("./internal/language/compact", intlang, cldr)
 		language   = generate("./language", cldr, compact)
 		internal   = generate("./internal", unicode, language)
 		norm       = generate("./unicode/norm", unicode)
@@ -253,12 +255,6 @@ func copyPackage(dirSrc, dirDst, search, replace string) {
 			// Don't process subdirectories.
 			filepath.Dir(file) != dirSrc {
 			return nil
-		}
-		if strings.HasPrefix(base, "tables") {
-			if !strings.HasSuffix(base, gen.UnicodeVersion()+".go") {
-				return nil
-			}
-			base = "tables.go"
 		}
 		b, err := ioutil.ReadFile(file)
 		if err != nil || bytes.Contains(b, []byte("\n// +build ignore")) {

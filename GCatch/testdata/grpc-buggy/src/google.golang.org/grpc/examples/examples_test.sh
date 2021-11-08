@@ -15,7 +15,7 @@
 #  limitations under the License.
 #
 
-set +e -x
+set +e
 
 export TMPDIR=$(mktemp -d)
 trap "rm -rf ${TMPDIR}" EXIT
@@ -70,14 +70,14 @@ declare -A EXPECTED_SERVER_OUTPUT=(
     ["features/errors"]=""
     ["features/interceptor"]="unary echoing message \"hello world\""
     ["features/load_balancing"]="serving on :50051"
-    ["features/metadata"]="message:\"this is examples/metadata\" , sending echo"
+    ["features/metadata"]="message:\"this is examples/metadata\", sending echo"
     ["features/multiplex"]=":50051"
     ["features/name_resolving"]="serving on localhost:50051"
 )
 
 declare -A EXPECTED_CLIENT_OUTPUT=(
     ["helloworld"]="Greeting: Hello world"
-    ["route_guide"]="location:<latitude:416851321 longitude:-742674555 >"
+    ["route_guide"]="Feature: name: \"\", point:(416851321, -742674555)"
     ["features/authentication"]="UnaryEcho:  hello world"
     ["features/compression"]="UnaryEcho call returned \"compress\", <nil>"
     ["features/deadline"]="wanted = DeadlineExceeded, got = DeadlineExceeded"
@@ -90,18 +90,20 @@ declare -A EXPECTED_CLIENT_OUTPUT=(
     ["features/name_resolving"]="calling helloworld.Greeter/SayHello to \"example:///resolver.example.grpc.io\""
 )
 
+cd ./examples
+
 for example in ${EXAMPLES[@]}; do
     echo "$(tput setaf 4) testing: ${example} $(tput sgr 0)"
 
     # Build server
-    if ! go build -o /dev/null ./examples/${example}/*server/*.go; then
+    if ! go build -o /dev/null ./${example}/*server/*.go; then
         fail "failed to build server"
     else
         pass "successfully built server"
     fi
 
     # Build client
-    if ! go build -o /dev/null ./examples/${example}/*client/*.go; then
+    if ! go build -o /dev/null ./${example}/*client/*.go; then
         fail "failed to build client"
     else
         pass "successfully built client"
@@ -109,10 +111,10 @@ for example in ${EXAMPLES[@]}; do
 
     # Start server
     SERVER_LOG="$(mktemp)"
-    go run ./examples/$example/*server/*.go &> $SERVER_LOG  &
+    go run ./$example/*server/*.go &> $SERVER_LOG  &
 
     CLIENT_LOG="$(mktemp)"
-    if ! timeout 20 go run examples/${example}/*client/*.go &> $CLIENT_LOG; then
+    if ! timeout 20 go run ${example}/*client/*.go &> $CLIENT_LOG; then
         fail "client failed to communicate with server
         got server log:
         $(cat $SERVER_LOG)
@@ -152,6 +154,6 @@ for example in ${EXAMPLES[@]}; do
             pass "client log contains expected output: ${EXPECTED_CLIENT_OUTPUT[$example]}"
         fi
     fi
-
     clean
+    echo ""
 done

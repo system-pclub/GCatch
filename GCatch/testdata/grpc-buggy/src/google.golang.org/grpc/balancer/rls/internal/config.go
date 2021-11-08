@@ -1,5 +1,3 @@
-// +build go1.10
-
 /*
  *
  * Copyright 2020 gRPC authors.
@@ -32,7 +30,6 @@ import (
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/rls/internal/keys"
 	rlspb "google.golang.org/grpc/balancer/rls/internal/proto/grpc_lookup_v1"
-	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/internal/grpcutil"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/serviceconfig"
@@ -64,11 +61,43 @@ type lbConfig struct {
 	maxAge               time.Duration
 	staleAge             time.Duration
 	cacheSizeBytes       int64
-	rpStrategy           rlspb.RouteLookupConfig_RequestProcessingStrategy
 	defaultTarget        string
 	cpName               string
 	cpTargetField        string
 	cpConfig             map[string]json.RawMessage
+}
+
+func (lbCfg *lbConfig) Equal(other *lbConfig) bool {
+	return lbCfg.kbMap.Equal(other.kbMap) &&
+		lbCfg.lookupService == other.lookupService &&
+		lbCfg.lookupServiceTimeout == other.lookupServiceTimeout &&
+		lbCfg.maxAge == other.maxAge &&
+		lbCfg.staleAge == other.staleAge &&
+		lbCfg.cacheSizeBytes == other.cacheSizeBytes &&
+		lbCfg.defaultTarget == other.defaultTarget &&
+		lbCfg.cpName == other.cpName &&
+		lbCfg.cpTargetField == other.cpTargetField &&
+		cpConfigEqual(lbCfg.cpConfig, other.cpConfig)
+}
+
+func cpConfigEqual(am, bm map[string]json.RawMessage) bool {
+	if (bm == nil) != (am == nil) {
+		return false
+	}
+	if len(bm) != len(am) {
+		return false
+	}
+
+	for k, jsonA := range am {
+		jsonB, ok := bm[k]
+		if !ok {
+			return false
+		}
+		if !bytes.Equal(jsonA, jsonB) {
+			return false
+		}
+	}
+	return true
 }
 
 // This struct resembles the JSON respresentation of the loadBalancing config
@@ -136,11 +165,6 @@ func (l *loadBalancingConfig) UnmarshalJSON(data []byte) error {
 //      - must be greater than zero
 //      - TODO(easwars): Define a minimum value for this field, to be used when
 //        left unspecified
-//   ** request_processing_strategy field:
-//      - must have a value other than STRATEGY_UNSPECIFIED
-//      - if set to SYNC_LOOKUP_DEFAULT_TARGET_ON_ERROR or
-//        ASYNC_LOOKUP_DEFAULT_TARGET_ON_MISS, the default_target field must be
-//        set to a non-empty value
 // * childPolicy field:
 //  - must find a valid child policy with a valid config (the child policy must
 //    be able to parse the provided config successfully when we pass it a dummy
@@ -177,7 +201,7 @@ func (*rlsBB) ParseConfig(c json.RawMessage) (serviceconfig.LoadBalancingConfig,
 	if lookupService == "" {
 		return nil, fmt.Errorf("rls: empty lookup_service in service config {%+v}", string(c))
 	}
-	parsedTarget := grpcutil.ParseTarget(lookupService)
+	parsedTarget := grpcutil.ParseTarget(lookupService, false)
 	if parsedTarget.Scheme == "" {
 		parsedTarget.Scheme = resolver.GetDefaultScheme()
 	}
@@ -204,29 +228,17 @@ func (*rlsBB) ParseConfig(c json.RawMessage) (serviceconfig.LoadBalancingConfig,
 		return nil, fmt.Errorf("rls: stale_age is set, but max_age is not in service config {%+v}", string(c))
 	}
 	if staleAge >= maxAge {
-		grpclog.Info("rls: stale_age {%v} is greater than max_age {%v}, ignoring it", staleAge, maxAge)
+		logger.Info("rls: stale_age {%v} is greater than max_age {%v}, ignoring it", staleAge, maxAge)
 		staleAge = 0
 	}
 	if maxAge == 0 || maxAge > maxMaxAge {
-		grpclog.Infof("rls: max_age in service config is %v, using %v", maxAge, maxMaxAge)
+		logger.Infof("rls: max_age in service config is %v, using %v", maxAge, maxMaxAge)
 		maxAge = maxMaxAge
 	}
-
 	cacheSizeBytes := rlsProto.GetCacheSizeBytes()
 	if cacheSizeBytes <= 0 {
 		return nil, fmt.Errorf("rls: cache_size_bytes must be greater than 0 in service config {%+v}", string(c))
 	}
-
-	rpStrategy := rlsProto.GetRequestProcessingStrategy()
-	if rpStrategy == rlspb.RouteLookupConfig_STRATEGY_UNSPECIFIED {
-		return nil, fmt.Errorf("rls: request_processing_strategy cannot be left unspecified in service config {%+v}", string(c))
-	}
-	defaultTarget := rlsProto.GetDefaultTarget()
-	if (rpStrategy == rlspb.RouteLookupConfig_SYNC_LOOKUP_DEFAULT_TARGET_ON_ERROR ||
-		rpStrategy == rlspb.RouteLookupConfig_ASYNC_LOOKUP_DEFAULT_TARGET_ON_MISS) && defaultTarget == "" {
-		return nil, fmt.Errorf("rls: request_processing_strategy is %s, but default_target is not set", rpStrategy.String())
-	}
-
 	if childPolicy == nil {
 		return nil, fmt.Errorf("rls: childPolicy is invalid in service config {%+v}", string(c))
 	}
@@ -252,8 +264,7 @@ func (*rlsBB) ParseConfig(c json.RawMessage) (serviceconfig.LoadBalancingConfig,
 		maxAge:               maxAge,
 		staleAge:             staleAge,
 		cacheSizeBytes:       cacheSizeBytes,
-		rpStrategy:           rpStrategy,
-		defaultTarget:        defaultTarget,
+		defaultTarget:        rlsProto.GetDefaultTarget(),
 		// TODO(easwars): Once we refactor validateChildPolicyConfig and make
 		// it a method on the lbConfig object, we could directly store the
 		// balancer.Builder and/or balancer.ConfigParser here instead of the
