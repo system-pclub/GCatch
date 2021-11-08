@@ -8,7 +8,7 @@ installZ3() {
   echo "Installing z3 to a default position, normally $Z3"
   echo "Could fail if run without sudo"
   cd ./tools/z3 || exit 1
-  python3 scripts/mk_make.py
+  python scripts/mk_make.py
   cd build || exit 1
   make
   sudo make install
