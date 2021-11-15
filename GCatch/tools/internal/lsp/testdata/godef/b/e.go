@@ -19,3 +19,13 @@ godef(bMember, Member)
 godef(bVar, Other)
 godef(bFunc, Things)
 */
+
+func _() {
+	var x interface{}      //@mark(eInterface, "interface{}")
+	switch x := x.(type) { //@hoverdef("x", eInterface)
+	case string: //@mark(eString, "string")
+		fmt.Println(x) //@hoverdef("x", eString)
+	case int: //@mark(eInt, "int")
+		fmt.Println(x) //@hoverdef("x", eInt)
+	}
+}

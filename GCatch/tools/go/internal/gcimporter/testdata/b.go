@@ -4,7 +4,7 @@
 
 // Input for TestIssue13566
 
-package a
+package b
 
 import "./a"
 

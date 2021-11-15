@@ -40,7 +40,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		(*ast.StructType)(nil),
 	}
 	inspect.Preorder(nodeFilter, func(n ast.Node) {
-		styp := pass.TypesInfo.Types[n.(*ast.StructType)].Type.(*types.Struct)
+		styp, ok := pass.TypesInfo.Types[n.(*ast.StructType)].Type.(*types.Struct)
+		// Type information may be incomplete.
+		if !ok {
+			return
+		}
 		var seen namesSeen
 		for i := 0; i < styp.NumFields(); i++ {
 			field := styp.Field(i)
@@ -112,7 +116,11 @@ func checkCanonicalFieldTag(pass *analysis.Pass, field *types.Var, tag string, s
 	}
 
 	for _, enc := range [...]string{"json", "xml"} {
-		if reflect.StructTag(tag).Get(enc) != "" {
+		switch reflect.StructTag(tag).Get(enc) {
+		// Ignore warning if the field not exported and the tag is marked as
+		// ignored.
+		case "", "-":
+		default:
 			pass.Reportf(field.Pos(), "struct field %s has %s tag but is not exported", field.Name(), enc)
 			return
 		}

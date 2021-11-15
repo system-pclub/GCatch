@@ -1,0 +1,42 @@
+package importedcomplit
+
+import (
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/foo"
+
+	// import completions
+	"fm" //@complete("\" //", fmtImport)
+	"go/pars" //@complete("\" //", parserImport)
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/signa" //@complete("na\" //", signatureImport)
+	"golang.org/x/too" //@complete("\" //", toolsImport)
+	"crypto/elli" //@complete("\" //", cryptoImport)
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/sign" //@complete("\" //", signatureImport)
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/sign" //@complete("ols", toolsImport)
+	namedParser "go/pars" //@complete("\" //", parserImport)
+)
+
+func _() {
+	var V int //@item(icVVar, "V", "int", "var")
+	_ = foo.StructFoo{V} //@complete("}", Value, icVVar)
+}
+
+func _() {
+	var (
+		aa string //@item(icAAVar, "aa", "string", "var")
+		ab int    //@item(icABVar, "ab", "int", "var")
+	)
+
+	_ = foo.StructFoo{a} //@complete("}", abVar, aaVar)
+
+	var s struct {
+		AA string //@item(icFieldAA, "AA", "string", "field")
+		AB int    //@item(icFieldAB, "AB", "int", "field")
+	}
+
+	_ = foo.StructFoo{s.} //@complete("}", icFieldAB, icFieldAA)
+}
+
+/* "fmt" */ //@item(fmtImport, "fmt", "\"fmt\"", "package")
+/* "go/parser" */ //@item(parserImport, "parser", "\"go/parser\"", "package")
+/* "github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/signature" */ //@item(signatureImport, "signature", "\"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/signature\"", "package")
+/* "github.com/system-pclub/GCatch/GCatch/tools/" */ //@item(toolsImport, "tools/", "\"github.com/system-pclub/GCatch/GCatch/tools/\"", "package")
+/* "crypto/elliptic" */ //@item(cryptoImport, "elliptic", "\"crypto/elliptic\"", "package")

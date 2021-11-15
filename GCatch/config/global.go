@@ -15,6 +15,8 @@ var StrAbsolutePath string // /home/song/work/go-workspace/code/src/
 var StrRelativePath string // github.com/etcd-io/etcd
 var MapPrintMod map[string]bool // a map indicates which information will be printed
 
+var BoolGoMod bool
+
 var BoolDisableFnPointer bool
 
 

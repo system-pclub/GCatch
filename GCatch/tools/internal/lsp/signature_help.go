@@ -7,55 +7,25 @@ package lsp
 import (
 	"context"
 
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/event"
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/debug/tag"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/protocol"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/source"
-	"github.com/system-pclub/GCatch/GCatch/tools/internal/span"
 )
 
-func (s *Server) signatureHelp(ctx context.Context, params *protocol.TextDocumentPositionParams) (*protocol.SignatureHelp, error) {
-	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
-	f, m, err := getGoFile(ctx, view, uri)
-	if err != nil {
+func (s *Server) signatureHelp(ctx context.Context, params *protocol.SignatureHelpParams) (*protocol.SignatureHelp, error) {
+	snapshot, fh, ok, release, err := s.beginFileRequest(ctx, params.TextDocument.URI, source.Go)
+	defer release()
+	if !ok {
 		return nil, err
 	}
-	spn, err := m.PointSpan(params.Position)
+	info, activeParameter, err := source.SignatureHelp(ctx, snapshot, fh, params.Position)
 	if err != nil {
-		return nil, err
-	}
-	rng, err := spn.Range(m.Converter)
-	if err != nil {
-		return nil, err
-	}
-	info, err := source.SignatureHelp(ctx, f, rng.Start)
-	if err != nil {
-		s.session.Logger().Infof(ctx, "no signature help for %s:%v:%v : %s", uri, int(params.Position.Line), int(params.Position.Character), err)
-	}
-	return toProtocolSignatureHelp(info), nil
-}
-
-func toProtocolSignatureHelp(info *source.SignatureInformation) *protocol.SignatureHelp {
-	if info == nil {
-		return &protocol.SignatureHelp{}
+		event.Error(ctx, "no signature help", err, tag.Position.Of(params.Position))
+		return nil, nil
 	}
 	return &protocol.SignatureHelp{
-		ActiveParameter: float64(info.ActiveParameter),
-		ActiveSignature: 0, // there is only ever one possible signature
-		Signatures: []protocol.SignatureInformation{
-			{
-				Label:      info.Label,
-				Parameters: toProtocolParameterInformation(info.Parameters),
-			},
-		},
-	}
-}
-
-func toProtocolParameterInformation(info []source.ParameterInformation) []protocol.ParameterInformation {
-	var result []protocol.ParameterInformation
-	for _, p := range info {
-		result = append(result, protocol.ParameterInformation{
-			Label: p.Label,
-		})
-	}
-	return result
+		Signatures:      []protocol.SignatureInformation{*info},
+		ActiveParameter: uint32(activeParameter),
+	}, nil
 }

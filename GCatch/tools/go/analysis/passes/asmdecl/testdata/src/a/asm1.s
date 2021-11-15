@@ -228,7 +228,6 @@ TEXT ·argiface(SB),0,$0-32
 
 TEXT ·argcomplex(SB),0,$24 // want `wrong argument size 0; expected \$\.\.\.-24`
 	MOVSS	x+0(FP), X0 // want `invalid MOVSS of x\+0\(FP\); complex64 is 8-byte value containing x_real\+0\(FP\) and x_imag\+4\(FP\)`
-	MOVSD	x+0(FP), X0 // want `invalid MOVSD of x\+0\(FP\); complex64 is 8-byte value containing x_real\+0\(FP\) and x_imag\+4\(FP\)`
 	MOVSS	x_real+0(FP), X0
 	MOVSD	x_real+0(FP), X0 // want `invalid MOVSD of x_real\+0\(FP\); real\(complex64\) is 4-byte value`
 	MOVSS	x_real+4(FP), X0 // want `invalid offset x_real\+4\(FP\); expected x_real\+0\(FP\)`
@@ -242,6 +241,13 @@ TEXT ·argcomplex(SB),0,$24 // want `wrong argument size 0; expected \$\.\.\.-24
 	MOVSS	y_imag+16(FP), X0 // want `invalid MOVSS of y_imag\+16\(FP\); imag\(complex128\) is 8-byte value`
 	MOVSD	y_imag+16(FP), X0
 	MOVSS	y_imag+24(FP), X0 // want `invalid offset y_imag\+24\(FP\); expected y_imag\+16\(FP\)`
+	// Loading both parts of a complex is ok: see issue 35264.
+	MOVSD	x+0(FP), X0
+	MOVO	y+8(FP), X0
+	MOVOU	y+8(FP), X0
+	// These are not ok.
+	MOVO	x+0(FP), X0 // want `invalid MOVO of x\+0\(FP\); complex64 is 8-byte value containing x_real\+0\(FP\) and x_imag\+4\(FP\)`
+	MOVOU	x+0(FP), X0 // want `invalid MOVOU of x\+0\(FP\); complex64 is 8-byte value containing x_real\+0\(FP\) and x_imag\+4\(FP\)`
 	RET
 
 TEXT ·argstruct(SB),0,$64 // want `wrong argument size 0; expected \$\.\.\.-24`
@@ -324,3 +330,30 @@ TEXT ·f29318(SB), NOSPLIT, $32
 	MOVQ	x_0_1+8(FP), AX
 	MOVQ	x_1_1+24(FP), CX
 	RET
+
+// ABI selector
+TEXT ·pickStableABI<ABI0>(SB), NOSPLIT, $32
+	MOVQ	x+0(FP), AX
+	RET
+
+// ABI selector
+TEXT ·pickInternalABI<ABIInternal>(SB), NOSPLIT, $32
+	MOVQ	x+0(FP), AX
+	RET
+
+// ABI selector
+TEXT ·pickFutureABI<ABISomethingNotyetInvented>(SB), NOSPLIT, $32
+	MOVQ	x+0(FP), AX
+	RET
+
+// writing to result in ABIInternal function
+TEXT ·returnABIInternal<ABIInternal>(SB), NOSPLIT, $32
+	MOVQ	$123, AX
+	RET
+TEXT ·returnmissingABIInternal<ABIInternal>(SB), NOSPLIT, $32
+	MOVQ	$123, CX
+	RET // want `RET without writing to result register`
+
+// return jump
+TEXT ·retjmp(SB), NOSPLIT, $0-8
+	RET	retjmp1(SB) // It's okay to not write results if there's a tail call.

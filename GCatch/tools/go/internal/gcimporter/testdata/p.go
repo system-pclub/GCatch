@@ -4,7 +4,7 @@
 
 // Input for TestIssue15517
 
-package a
+package p
 
 const C = 0
 

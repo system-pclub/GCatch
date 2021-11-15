@@ -7,40 +7,39 @@ package lsp
 import (
 	"context"
 
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/event"
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/debug/tag"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/protocol"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/source"
-	"github.com/system-pclub/GCatch/GCatch/tools/internal/span"
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/template"
 )
 
-func (s *Server) documentHighlight(ctx context.Context, params *protocol.TextDocumentPositionParams) ([]protocol.DocumentHighlight, error) {
-	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
-	f, m, err := getGoFile(ctx, view, uri)
-	if err != nil {
+func (s *Server) documentHighlight(ctx context.Context, params *protocol.DocumentHighlightParams) ([]protocol.DocumentHighlight, error) {
+	snapshot, fh, ok, release, err := s.beginFileRequest(ctx, params.TextDocument.URI, source.Go)
+	defer release()
+	if !ok {
 		return nil, err
 	}
-	spn, err := m.PointSpan(params.Position)
-	if err != nil {
-		return nil, err
+
+	if fh.Kind() == source.Tmpl {
+		return template.Highlight(ctx, snapshot, fh, params.Position)
 	}
-	rng, err := spn.Range(m.Converter)
+
+	rngs, err := source.Highlight(ctx, snapshot, fh, params.Position)
 	if err != nil {
-		return nil, err
+		event.Error(ctx, "no highlight", err, tag.URI.Of(params.TextDocument.URI))
 	}
-	spans := source.Highlight(ctx, f, rng.Start)
-	return toProtocolHighlight(m, spans), nil
+	return toProtocolHighlight(rngs), nil
 }
 
-func toProtocolHighlight(m *protocol.ColumnMapper, spans []span.Span) []protocol.DocumentHighlight {
-	result := make([]protocol.DocumentHighlight, 0, len(spans))
+func toProtocolHighlight(rngs []protocol.Range) []protocol.DocumentHighlight {
+	result := make([]protocol.DocumentHighlight, 0, len(rngs))
 	kind := protocol.Text
-	for _, span := range spans {
-		r, err := m.Range(span)
-		if err != nil {
-			continue
-		}
-		h := protocol.DocumentHighlight{Kind: &kind, Range: r}
-		result = append(result, h)
+	for _, rng := range rngs {
+		result = append(result, protocol.DocumentHighlight{
+			Kind:  kind,
+			Range: rng,
+		})
 	}
 	return result
 }

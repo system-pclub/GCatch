@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package a
+package p
 
 // The underlying type of Error is the underlying type of error.
 // Make sure we can import this again without problems.

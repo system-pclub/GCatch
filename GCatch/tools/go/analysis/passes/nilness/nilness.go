@@ -20,10 +20,13 @@ import (
 const Doc = `check for redundant or impossible nil comparisons
 
 The nilness checker inspects the control-flow graph of each function in
-a package and reports nil pointer dereferences and degenerate nil
-pointers. A degenerate comparison is of the form x==nil or x!=nil where x
-is statically known to be nil or non-nil. These are often a mistake,
-especially in control flow related to errors.
+a package and reports nil pointer dereferences, degenerate nil
+pointers, and panics with nil values. A degenerate comparison is of the form
+x==nil or x!=nil where x is statically known to be nil or non-nil. These are
+often a mistake, especially in control flow related to errors. Panics with nil
+values are checked because they are not detectable by
+
+	if r := recover(); r != nil {
 
 This check reports conditions such as:
 
@@ -41,6 +44,12 @@ and:
 
 	if p == nil {
 		print(*p) // nil dereference
+	}
+
+and:
+
+	if p == nil {
+		panic(p)
 	}
 `
 
@@ -109,10 +118,27 @@ func runFunc(pass *analysis.Pass, fn *ssa.Function) {
 			case *ssa.Store:
 				notNil(stack, instr, instr.Addr, "store")
 			case *ssa.TypeAssert:
-				notNil(stack, instr, instr.X, "type assertion")
+				if !instr.CommaOk {
+					notNil(stack, instr, instr.X, "type assertion")
+				}
 			case *ssa.UnOp:
 				if instr.Op == token.MUL { // *X
 					notNil(stack, instr, instr.X, "load")
+				}
+			}
+		}
+
+		// Look for panics with nil value
+		for _, instr := range b.Instrs {
+			switch instr := instr.(type) {
+			case *ssa.Panic:
+				if nilnessOf(stack, instr.X) == isnil {
+					reportf("nilpanic", instr.Pos(), "panic with nil value")
+				}
+			case *ssa.SliceToArrayPointer:
+				nn := nilnessOf(stack, instr.X)
+				if nn == isnil && slice2ArrayPtrLen(instr) > 0 {
+					reportf("conversionpanic", instr.Pos(), "nil slice being cast to an array of len > 0 will always panic")
 				}
 			}
 		}
@@ -158,15 +184,15 @@ func runFunc(pass *analysis.Pass, fn *ssa.Function) {
 
 			// "if x == nil" or "if nil == y" condition; x, y are unknown.
 			if xnil == isnil || ynil == isnil {
-				var f fact
+				var newFacts facts
 				if xnil == isnil {
 					// x is nil, y is unknown:
 					// t successor learns y is nil.
-					f = fact{binop.Y, isnil}
+					newFacts = expandFacts(fact{binop.Y, isnil})
 				} else {
 					// x is nil, y is unknown:
 					// t successor learns x is nil.
-					f = fact{binop.X, isnil}
+					newFacts = expandFacts(fact{binop.X, isnil})
 				}
 
 				for _, d := range b.Dominees() {
@@ -177,9 +203,9 @@ func runFunc(pass *analysis.Pass, fn *ssa.Function) {
 					s := stack
 					if len(d.Preds) == 1 {
 						if d == tsucc {
-							s = append(s, f)
+							s = append(s, newFacts...)
 						} else if d == fsucc {
-							s = append(s, f.negate())
+							s = append(s, newFacts.negate()...)
 						}
 					}
 					visit(d, s)
@@ -223,6 +249,43 @@ func (n nilness) String() string { return nilnessStrings[n+1] }
 // nilnessOf reports whether v is definitely nil, definitely not nil,
 // or unknown given the dominating stack of facts.
 func nilnessOf(stack []fact, v ssa.Value) nilness {
+	switch v := v.(type) {
+	// unwrap ChangeInterface values recursively, to detect if underlying
+	// values have any facts recorded or are otherwise known with regard to nilness.
+	//
+	// This work must be in addition to expanding facts about
+	// ChangeInterfaces during inference/fact gathering because this covers
+	// cases where the nilness of a value is intrinsic, rather than based
+	// on inferred facts, such as a zero value interface variable. That
+	// said, this work alone would only inform us when facts are about
+	// underlying values, rather than outer values, when the analysis is
+	// transitive in both directions.
+	case *ssa.ChangeInterface:
+		if underlying := nilnessOf(stack, v.X); underlying != unknown {
+			return underlying
+		}
+	case *ssa.SliceToArrayPointer:
+		nn := nilnessOf(stack, v.X)
+		if slice2ArrayPtrLen(v) > 0 {
+			if nn == isnil {
+				// We know that *(*[1]byte)(nil) is going to panic because of the
+				// conversion. So return unknown to the caller, prevent useless
+				// nil deference reporting due to * operator.
+				return unknown
+			}
+			// Otherwise, the conversion will yield a non-nil pointer to array.
+			// Note that the instruction can still panic if array length greater
+			// than slice length. If the value is used by another instruction,
+			// that instruction can assume the panic did not happen when that
+			// instruction is reached.
+			return isnonnil
+		}
+		// In case array length is zero, the conversion result depends on nilness of the slice.
+		if nn != unknown {
+			return nn
+		}
+	}
+
 	// Is value intrinsically nil or non-nil?
 	switch v := v.(type) {
 	case *ssa.Alloc,
@@ -254,6 +317,10 @@ func nilnessOf(stack []fact, v ssa.Value) nilness {
 	return unknown
 }
 
+func slice2ArrayPtrLen(v *ssa.SliceToArrayPointer) int64 {
+	return v.Type().(*types.Pointer).Elem().Underlying().(*types.Array).Len()
+}
+
 // If b ends with an equality comparison, eq returns the operation and
 // its true (equal) and false (not equal) successors.
 func eq(b *ssa.BasicBlock) (op *ssa.BinOp, tsucc, fsucc *ssa.BasicBlock) {
@@ -268,4 +335,49 @@ func eq(b *ssa.BasicBlock) (op *ssa.BinOp, tsucc, fsucc *ssa.BasicBlock) {
 		}
 	}
 	return nil, nil, nil
+}
+
+// expandFacts takes a single fact and returns the set of facts that can be
+// known about it or any of its related values. Some operations, like
+// ChangeInterface, have transitive nilness, such that if you know the
+// underlying value is nil, you also know the value itself is nil, and vice
+// versa. This operation allows callers to match on any of the related values
+// in analyses, rather than just the one form of the value that happend to
+// appear in a comparison.
+//
+// This work must be in addition to unwrapping values within nilnessOf because
+// while this work helps give facts about transitively known values based on
+// inferred facts, the recursive check within nilnessOf covers cases where
+// nilness facts are intrinsic to the underlying value, such as a zero value
+// interface variables.
+//
+// ChangeInterface is the only expansion currently supported, but others, like
+// Slice, could be added. At this time, this tool does not check slice
+// operations in a way this expansion could help. See
+// https://play.golang.org/p/mGqXEp7w4fR for an example.
+func expandFacts(f fact) []fact {
+	ff := []fact{f}
+
+Loop:
+	for {
+		switch v := f.value.(type) {
+		case *ssa.ChangeInterface:
+			f = fact{v.X, f.nilness}
+			ff = append(ff, f)
+		default:
+			break Loop
+		}
+	}
+
+	return ff
+}
+
+type facts []fact
+
+func (ff facts) negate() facts {
+	nn := make([]fact, len(ff))
+	for i, f := range ff {
+		nn[i] = f.negate()
+	}
+	return nn
 }

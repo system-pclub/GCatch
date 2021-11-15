@@ -21,13 +21,16 @@ import (
 	"os"
 	"strings"
 	"text/template"
+
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/typeparams"
 )
 
 // FindTests returns the Test, Benchmark, and Example functions
 // (as defined by "go test") defined in the specified package,
 // and its TestMain function, if any.
 //
-// Deprecated: use x/tools/go/packages to access synthetic testmain packages.
+// Deprecated: Use github.com/system-pclub/GCatch/GCatch/tools/go/packages to access synthetic
+// testmain packages.
 func FindTests(pkg *Package) (tests, benchmarks, examples []*Function, main *Function) {
 	prog := pkg.Prog
 
@@ -112,7 +115,8 @@ func isTest(name, prefix string) bool {
 // Subsequent calls to prog.AllPackages include the new package.
 // The package pkg must belong to the program prog.
 //
-// Deprecated: use x/tools/go/packages to access synthetic testmain packages.
+// Deprecated: Use github.com/system-pclub/GCatch/GCatch/tools/go/packages to access synthetic
+// testmain packages.
 func (prog *Program) CreateTestMainPackage(pkg *Package) *Package {
 	if pkg.Prog != prog {
 		log.Fatal("Package does not belong to Program")
@@ -178,6 +182,7 @@ func (prog *Program) CreateTestMainPackage(pkg *Package) *Package {
 		Scopes:     make(map[ast.Node]*types.Scope),
 		Selections: make(map[*ast.SelectorExpr]*types.Selection),
 	}
+	typeparams.InitInstanceInfo(info)
 	testmainPkg, err := conf.Check(path, prog.Fset, files, info)
 	if err != nil {
 		log.Fatalf("internal error type-checking %s: %v", path, err)
@@ -220,6 +225,7 @@ type deps struct{}
 
 func (deps) ImportPath() string { return "" }
 func (deps) MatchString(pat, str string) (bool, error) { return true, nil }
+func (deps) SetPanicOnExit0(bool) {}
 func (deps) StartCPUProfile(io.Writer) error { return nil }
 func (deps) StartTestLog(io.Writer) {}
 func (deps) StopCPUProfile() {}

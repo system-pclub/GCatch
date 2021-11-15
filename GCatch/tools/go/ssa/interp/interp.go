@@ -32,8 +32,6 @@
 // makes no attempt to distinguish target panics from interpreter
 // crashes.
 //
-// * map iteration is asymptotically inefficient.
-//
 // * the sizes of the int, uint and uintptr types in the target
 // program are assumed to be the same as those of the interpreter
 // itself.
@@ -211,6 +209,9 @@ func visitInstr(fr *frame, instr ssa.Instruction) continuation {
 
 	case *ssa.Convert:
 		fr.env[instr] = conv(instr.Type(), instr.X.Type(), fr.get(instr.X))
+
+	case *ssa.SliceToArrayPointer:
+		fr.env[instr] = sliceToArrayPointer(instr.Type(), instr.X.Type(), fr.get(instr.X))
 
 	case *ssa.MakeInterface:
 		fr.env[instr] = iface{t: instr.X.Type(), v: fr.get(instr.X)}

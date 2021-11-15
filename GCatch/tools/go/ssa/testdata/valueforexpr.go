@@ -1,6 +1,6 @@
-//+build ignore
+// +build ignore
 
-package testdata
+package main
 
 // This file is the input to TestValueForExpr in source_test.go, which
 // ensures that each expression e immediately following a /*@kind*/(x)

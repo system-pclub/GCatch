@@ -7,9 +7,12 @@ package packagestest
 import (
 	"fmt"
 	"go/token"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
 
 	"github.com/system-pclub/GCatch/GCatch/tools/go/expect"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/packages"
@@ -118,7 +121,7 @@ func (e *Exported) Expect(methods map[string]interface{}) error {
 	return nil
 }
 
-// Range is a type alias for span.Range for backwards compatability, prefer
+// Range is a type alias for span.Range for backwards compatibility, prefer
 // using span.Range directly.
 type Range = span.Range
 
@@ -148,6 +151,7 @@ func (e *Exported) getNotes() error {
 	if err != nil {
 		return fmt.Errorf("unable to load packages for directories %s: %v", dirs, err)
 	}
+	seen := make(map[token.Position]struct{})
 	for _, pkg := range pkgs {
 		for _, filename := range pkg.GoFiles {
 			content, err := e.FileContents(filename)
@@ -156,13 +160,57 @@ func (e *Exported) getNotes() error {
 			}
 			l, err := expect.Parse(e.ExpectFileSet, filename, content)
 			if err != nil {
-				return fmt.Errorf("Failed to extract expectations: %v", err)
+				return fmt.Errorf("failed to extract expectations: %v", err)
 			}
-			notes = append(notes, l...)
+			for _, note := range l {
+				pos := e.ExpectFileSet.Position(note.Pos)
+				if _, ok := seen[pos]; ok {
+					continue
+				}
+				notes = append(notes, note)
+				seen[pos] = struct{}{}
+			}
 		}
+	}
+	if _, ok := e.written[e.primary]; !ok {
+		e.notes = notes
+		return nil
+	}
+	// Check go.mod markers regardless of mode, we need to do this so that our marker count
+	// matches the counts in the summary.txt.golden file for the test directory.
+	if gomod, found := e.written[e.primary]["go.mod"]; found {
+		// If we are in Modules mode, then we need to check the contents of the go.mod.temp.
+		if e.Exporter == Modules {
+			gomod += ".temp"
+		}
+		l, err := goModMarkers(e, gomod)
+		if err != nil {
+			return fmt.Errorf("failed to extract expectations for go.mod: %v", err)
+		}
+		notes = append(notes, l...)
 	}
 	e.notes = notes
 	return nil
+}
+
+func goModMarkers(e *Exported, gomod string) ([]*expect.Note, error) {
+	if _, err := os.Stat(gomod); os.IsNotExist(err) {
+		// If there is no go.mod file, we want to be able to continue.
+		return nil, nil
+	}
+	content, err := e.FileContents(gomod)
+	if err != nil {
+		return nil, err
+	}
+	if e.Exporter == GOPATH {
+		return expect.Parse(e.ExpectFileSet, gomod, content)
+	}
+	gomod = strings.TrimSuffix(gomod, ".temp")
+	// If we are in Modules mode, copy the original contents file back into go.mod
+	if err := ioutil.WriteFile(gomod, content, 0644); err != nil {
+		return nil, nil
+	}
+	return expect.Parse(e.ExpectFileSet, gomod, content)
 }
 
 func (e *Exported) getMarkers() error {

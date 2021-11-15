@@ -1,5 +1,7 @@
 package complit
 
+// general completions
+
 type position struct { //@item(structPosition, "position", "struct{...}", "struct")
 	X, Y int //@item(fieldX, "X", "int", "field"),item(fieldY, "Y", "int", "field")
 }
@@ -15,6 +17,11 @@ func _() {
 	_ = position{
 		//@complete("", fieldX)
 		Y: 1,
+	}
+	_ = []*position{
+        {
+            //@complete("", fieldX, fieldY, structPosition)
+        },
 	}
 }
 
@@ -39,8 +46,8 @@ func _() {
 	_ = position{a}      //@complete("}", abVar, aaVar)
 	_ = position{a, }      //@complete("}", abVar, aaVar, structPosition)
 
-	_ = []int{a}  //@complete("a", abVar, aaVar, structPosition)
-	_ = [1]int{a} //@complete("a", abVar, aaVar, structPosition)
+	_ = []int{a}  //@complete("}", abVar, aaVar)
+	_ = [1]int{a} //@complete("}", abVar, aaVar)
 
 	type myStruct struct {
 		AA int    //@item(fieldAA, "AA", "int", "field")
@@ -61,6 +68,18 @@ func _() {
 
 	var X int //@item(varX, "X", "int", "var")
 	_ = position{X}      //@complete("}", fieldX, varX)
+}
+
+func _() {
+	type foo struct{} //@item(complitFoo, "foo", "struct{...}", "struct")
+
+	var _ *foo = &fo{} //@snippet("{", complitFoo, "foo", "foo")
+	var _ *foo = fo{} //@snippet("{", complitFoo, "&foo", "&foo")
+
+	struct { a, b *foo }{
+		a: &fo{}, //@rank("{", complitFoo)
+		b: fo{}, //@snippet("{", complitFoo, "&foo", "&foo")
+	}
 }
 
 func _() {

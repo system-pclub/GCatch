@@ -1,3 +1,8 @@
+// Copyright 2018 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+//go:build ignore
 // +build ignore
 
 // This file provides an example command for static checkers
@@ -22,6 +27,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/cgocall"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/composite"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/copylock"
+	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/errorsas"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/httpresponse"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/loopclosure"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/lostcancel"
@@ -47,6 +53,7 @@ func main() {
 		cgocall.Analyzer,
 		composite.Analyzer,
 		copylock.Analyzer,
+		errorsas.Analyzer,
 		httpresponse.Analyzer,
 		loopclosure.Analyzer,
 		lostcancel.Analyzer,

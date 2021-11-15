@@ -14,16 +14,20 @@ import (
 	"go/ast"
 	"go/constant"
 	"go/token"
+	"math"
 
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/inspect"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/internal/analysisutil"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ast/inspector"
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/typeparams"
 )
+
+const Doc = "check for shifts that equal or exceed the width of the integer"
 
 var Analyzer = &analysis.Analyzer{
 	Name:     "shift",
-	Doc:      "check for shifts that equal or exceed the width of the integer",
+	Doc:      Doc,
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 	Run:      run,
 }
@@ -91,9 +95,27 @@ func checkLongShift(pass *analysis.Pass, node ast.Node, x, y ast.Expr) {
 	if t == nil {
 		return
 	}
-	size := 8 * pass.TypesSizes.Sizeof(t)
-	if amt >= size {
+	terms, err := typeparams.StructuralTerms(t)
+	if err != nil {
+		return // invalid type
+	}
+	sizes := make(map[int64]struct{})
+	for _, term := range terms {
+		size := 8 * pass.TypesSizes.Sizeof(term.Type())
+		sizes[size] = struct{}{}
+	}
+	minSize := int64(math.MaxInt64)
+	for size := range sizes {
+		if size < minSize {
+			minSize = size
+		}
+	}
+	if amt >= minSize {
 		ident := analysisutil.Format(pass.Fset, x)
-		pass.Reportf(node.Pos(), "%s (%d bits) too small for shift of %d", ident, size, amt)
+		qualifier := ""
+		if len(sizes) > 1 {
+			qualifier = "may be "
+		}
+		pass.ReportRangef(node, "%s (%s%d bits) too small for shift of %d", ident, qualifier, minSize, amt)
 	}
 }

@@ -1,0 +1,2 @@
+-- rFunc-rename --
+renaming "sFunc" to "rFunc" not possible because "github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/rename/bad" has errors

@@ -19,7 +19,7 @@ import (
 // Packages creates an SSA program for a set of packages.
 //
 // The packages must have been loaded from source syntax using the
-// github.com/system-pclub/GCatch/GCatch/prepare/packages.Load function in LoadSyntax or
+// github.com/system-pclub/GCatch/GCatch/tools/go/packages.Load function in LoadSyntax or
 // LoadAllSyntax mode.
 //
 // Packages creates an SSA package for each well-typed package in the
@@ -42,11 +42,11 @@ func Packages(initial []*packages.Package, mode ssa.BuilderMode) (*ssa.Program, 
 // their dependencies.
 //
 // The packages must have been loaded from source syntax using the
-// github.com/system-pclub/GCatch/GCatch/prepare/packages.Load function in LoadAllSyntax mode.
+// github.com/system-pclub/GCatch/GCatch/tools/go/packages.Load function in LoadAllSyntax mode.
 //
 // AllPackages creates an SSA package for each well-typed package in the
 // initial list, plus all their dependencies. The resulting list of
-// packages corresponds to the list of intial packages, and may contain
+// packages corresponds to the list of initial packages, and may contain
 // a nil if SSA code could not be constructed for the corresponding
 // initial package due to type errors.
 //
@@ -101,8 +101,8 @@ func doPackages(initial []*packages.Package, mode ssa.BuilderMode, deps bool) (*
 //
 // The mode parameter controls diagnostics and checking during SSA construction.
 //
-// Deprecated: use github.com/system-pclub/GCatch/GCatch/prepare/packages and the Packages
-// function instead; see ssa.ExampleLoadPackages.
+// Deprecated: Use github.com/system-pclub/GCatch/GCatch/tools/go/packages and the Packages
+// function instead; see ssa.Example_loadPackages.
 //
 func CreateProgram(lprog *loader.Program, mode ssa.BuilderMode) *ssa.Program {
 	prog := ssa.NewProgram(lprog.Fset, mode)
@@ -129,7 +129,7 @@ func CreateProgram(lprog *loader.Program, mode ssa.BuilderMode) *ssa.Program {
 //
 // The operation fails if there were any type-checking or import errors.
 //
-// See ../ssa/example_test.go for an example.
+// See ../example_test.go for an example.
 //
 func BuildPackage(tc *types.Config, fset *token.FileSet, pkg *types.Package, files []*ast.File, mode ssa.BuilderMode) (*ssa.Package, *types.Info, error) {
 	if fset == nil {

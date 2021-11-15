@@ -1,4 +1,4 @@
-package aliases
+package lib
 
 type M struct {
 	E E

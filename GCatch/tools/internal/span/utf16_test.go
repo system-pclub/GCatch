@@ -29,7 +29,7 @@ var toUTF16Tests = []struct {
 	{
 		scenario: "cursor missing content",
 		input:    nil,
-		err:      "ToUTF16Column: missing content",
+		err:      "ToUTF16Column: point is missing position",
 	},
 	{
 		scenario: "cursor missing position",
@@ -185,12 +185,15 @@ var fromUTF16Tests = []struct {
 		post:      "",
 	},
 	{
-		scenario: "cursor beyond last character on line",
-		input:    funnyString,
-		line:     1,
-		offset:   0,
-		utf16col: 6,
-		err:      "FromUTF16Column: chr goes beyond the line",
+		scenario:  "cursor beyond last character on line",
+		input:     funnyString,
+		line:      1,
+		offset:    0,
+		utf16col:  6,
+		resCol:    7,
+		resOffset: 6,
+		pre:       "𐐀23",
+		post:      "",
 	},
 	{
 		scenario:  "cursor before funny character; second line",
