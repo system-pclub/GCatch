@@ -1,0 +1,41 @@
+Algorithm:
+
+	listTargetFn is an empty list
+	listFn contains all functions in program
+	listInterface contains all interfaces in program
+
+	for fn in listFn
+		if fn does NOT implement an interface in listInterface
+			continue
+		endIf
+
+		listPara contains all parameters of fn
+		for para in listPara
+			if para is NOT an interface
+				continue
+			endIf
+
+			if para is used by ssa.ChangeInterface or ssa.TypeAssert
+			// TO Discuss: should we change this to "if para is always used by…"?
+				listTargetFn.append(fn)
+				break
+			endIf
+		endFor
+	endFor
+
+	for fn in listTargetFn
+		int score = 0
+		score += 1 * fn.NumOfLines
+		listOtherImple contains other functions that implement the same method
+		// TODO: listOtherImple has problems
+//      Using my own version of validating fn is implementing an interface
+// TODO: filter listOtherImple by names?
+// 	    check copy pasting using source code
+		for otherFn in listOtherImple
+			score += otherFn.NumOfLines
+		endFor
+	endFor
+
+	sort listTargetFn by score
+
+endAlgorithm
