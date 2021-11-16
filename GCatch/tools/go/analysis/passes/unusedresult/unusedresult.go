@@ -17,6 +17,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/inspect"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/internal/analysisutil"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ast/inspector"
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/typeparams"
 )
 
 // TODO(adonovan): make this analysis modular: export a mustUseResult
@@ -44,7 +45,7 @@ var funcs, stringMethods stringSetFlag
 func init() {
 	// TODO(adonovan): provide a comment syntax to allow users to
 	// add their functions to this set using facts.
-	funcs.Set("errors.New,fmt.Errorf,fmt.Sprintf,fmt.Sprint,sort.Reverse")
+	funcs.Set("errors.New,fmt.Errorf,fmt.Sprintf,fmt.Sprint,sort.Reverse,context.WithValue,context.WithCancel,context.WithDeadline,context.WithTimeout")
 	Analyzer.Flags.Var(&funcs, "funcs",
 		"comma-separated list of functions whose results must be used")
 
@@ -68,6 +69,11 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 		if pass.TypesInfo.Types[fun].IsType() {
 			return // a conversion, not a call
+		}
+
+		index := typeparams.GetIndexExprData(fun)
+		if index != nil {
+			fun = index.X // If this is generic function or method call, skip the instantiation arguments
 		}
 
 		selector, ok := fun.(*ast.SelectorExpr)

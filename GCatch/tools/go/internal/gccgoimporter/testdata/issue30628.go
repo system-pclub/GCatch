@@ -1,4 +1,4 @@
-package aliases
+package issue30628
 
 import (
 	"os"

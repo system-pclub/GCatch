@@ -9,73 +9,59 @@ import (
 
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/protocol"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/source"
-	"github.com/system-pclub/GCatch/GCatch/tools/internal/span"
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/template"
 )
 
-func (s *Server) definition(ctx context.Context, params *protocol.TextDocumentPositionParams) ([]protocol.Location, error) {
-	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
-	f, m, err := getGoFile(ctx, view, uri)
+func (s *Server) definition(ctx context.Context, params *protocol.DefinitionParams) ([]protocol.Location, error) {
+	snapshot, fh, ok, release, err := s.beginFileRequest(ctx, params.TextDocument.URI, source.UnknownKind)
+	defer release()
+	if !ok {
+		return nil, err
+	}
+	if fh.Kind() == source.Tmpl {
+		return template.Definition(snapshot, fh, params.Position)
+	}
+	ident, err := source.Identifier(ctx, snapshot, fh, params.Position)
 	if err != nil {
 		return nil, err
 	}
-	spn, err := m.PointSpan(params.Position)
-	if err != nil {
-		return nil, err
+	if ident.IsImport() && !snapshot.View().Options().ImportShortcut.ShowDefinition() {
+		return nil, nil
 	}
-	rng, err := spn.Range(m.Converter)
-	if err != nil {
-		return nil, err
+	var locations []protocol.Location
+	for _, ref := range ident.Declaration.MappedRange {
+		decRange, err := ref.Range()
+		if err != nil {
+			return nil, err
+		}
+
+		locations = append(locations, protocol.Location{
+			URI:   protocol.URIFromSpanURI(ref.URI()),
+			Range: decRange,
+		})
 	}
-	ident, err := source.Identifier(ctx, view, f, rng.Start)
-	if err != nil {
-		return nil, err
-	}
-	decSpan, err := ident.Declaration.Range.Span()
-	if err != nil {
-		return nil, err
-	}
-	_, decM, err := getSourceFile(ctx, view, decSpan.URI())
-	if err != nil {
-		return nil, err
-	}
-	loc, err := decM.Location(decSpan)
-	if err != nil {
-		return nil, err
-	}
-	return []protocol.Location{loc}, nil
+
+	return locations, nil
 }
 
-func (s *Server) typeDefinition(ctx context.Context, params *protocol.TextDocumentPositionParams) ([]protocol.Location, error) {
-	uri := span.NewURI(params.TextDocument.URI)
-	view := s.session.ViewOf(uri)
-	f, m, err := getGoFile(ctx, view, uri)
+func (s *Server) typeDefinition(ctx context.Context, params *protocol.TypeDefinitionParams) ([]protocol.Location, error) {
+	snapshot, fh, ok, release, err := s.beginFileRequest(ctx, params.TextDocument.URI, source.Go)
+	defer release()
+	if !ok {
+		return nil, err
+	}
+	ident, err := source.Identifier(ctx, snapshot, fh, params.Position)
 	if err != nil {
 		return nil, err
 	}
-	spn, err := m.PointSpan(params.Position)
+	identRange, err := ident.Type.Range()
 	if err != nil {
 		return nil, err
 	}
-	rng, err := spn.Range(m.Converter)
-	if err != nil {
-		return nil, err
-	}
-	ident, err := source.Identifier(ctx, view, f, rng.Start)
-	if err != nil {
-		return nil, err
-	}
-	identSpan, err := ident.Type.Range.Span()
-	if err != nil {
-		return nil, err
-	}
-	_, identM, err := getSourceFile(ctx, view, identSpan.URI())
-	if err != nil {
-		return nil, err
-	}
-	loc, err := identM.Location(identSpan)
-	if err != nil {
-		return nil, err
-	}
-	return []protocol.Location{loc}, nil
+	return []protocol.Location{
+		{
+			URI:   protocol.URIFromSpanURI(ident.Type.URI()),
+			Range: identRange,
+		},
+	}, nil
 }

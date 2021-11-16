@@ -5,7 +5,7 @@ avoid the update of libraries influences the functionality of GCatch,
 in `tools` we forked these libraries.
 
 **Libraries**
-1. golang.org/x/tools/go
+1. github.com/system-pclub/GCatch/GCatch/tools/go
    
    _Forked around: 07/2019_
    

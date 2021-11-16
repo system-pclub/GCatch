@@ -1,6 +1,6 @@
 // +build ignore
 
-package testdata
+package main
 
 // This file is the input to TestSwitches in switch_test.go.
 // Each multiway conditional with constant or type cases (Switch)

@@ -1,4 +1,4 @@
-package aliases
+package complexnums
 
 const NN = -1 - 1i
 const NP = -1 + 1i

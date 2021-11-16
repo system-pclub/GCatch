@@ -9,11 +9,16 @@ import (
 
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/analysistest"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/stdmethods"
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/typeparams"
 )
 
 func Test(t *testing.T) {
 	testdata := analysistest.TestData()
-	analysistest.Run(t, testdata, stdmethods.Analyzer, "a")
+	pkgs := []string{"a"}
+	if typeparams.Enabled {
+		pkgs = append(pkgs, "typeparams")
+	}
+	analysistest.Run(t, testdata, stdmethods.Analyzer, pkgs...)
 }
 
 func TestAnalyzeEncodingXML(t *testing.T) {

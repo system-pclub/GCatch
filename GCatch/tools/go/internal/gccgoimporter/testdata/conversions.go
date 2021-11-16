@@ -1,4 +1,4 @@
-package aliases
+package conversions
 
 type Units string
 

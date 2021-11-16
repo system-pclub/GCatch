@@ -23,12 +23,20 @@ type PathStat struct {
 }
 
 func IsPathIncluded(strPath string) bool {
-	if strings.Contains(strPath, StrRelativePath) &&
+	strPathOfCheckedApp := ""
+	if BoolGoMod {
+		strPathOfCheckedApp = StrModulePath
+	} else {
+		strPathOfCheckedApp = StrRelativePath
+	}
+
+	if strings.Contains(strPath, strPathOfCheckedApp) &&
 		!MapExcludePaths[strPath] {
 		return true
 	}
 
 	return false
+
 }
 
 

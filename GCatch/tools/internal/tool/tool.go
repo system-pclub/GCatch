@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package tool is an opinionated harness for writing Go tools.
+// Package tool is a harness for writing Go tools.
 package tool
 
 import (
@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-// This file is a very opinionated harness for writing your main function.
+// This file is a harness for writing your main function.
 // The original version of the file is in github.com/system-pclub/GCatch/GCatch/tools/internal/tool.
 //
 // It adds a method to the Application type
@@ -78,8 +78,30 @@ func CommandLineErrorf(message string, args ...interface{}) error {
 }
 
 // Main should be invoked directly by main function.
-// It will only return if there was no error.
+// It will only return if there was no error.  If an error
+// was encountered it is printed to standard error and the
+// application exits with an exit code of 2.
 func Main(ctx context.Context, app Application, args []string) {
+	s := flag.NewFlagSet(app.Name(), flag.ExitOnError)
+	s.Usage = func() {
+		fmt.Fprint(s.Output(), app.ShortHelp())
+		fmt.Fprintf(s.Output(), "\n\nUsage: %v [flags] %v\n", app.Name(), app.Usage())
+		app.DetailedHelp(s)
+	}
+	addFlags(s, reflect.StructField{}, reflect.ValueOf(app))
+	if err := Run(ctx, app, args); err != nil {
+		fmt.Fprintf(s.Output(), "%s: %v\n", app.Name(), err)
+		if _, printHelp := err.(commandLineError); printHelp {
+			s.Usage()
+		}
+		os.Exit(2)
+	}
+}
+
+// Run is the inner loop for Main; invoked by Main, recursively by
+// Run, and by various tests.  It runs the application and returns an
+// error.
+func Run(ctx context.Context, app Application, args []string) error {
 	s := flag.NewFlagSet(app.Name(), flag.ExitOnError)
 	s.Usage = func() {
 		fmt.Fprint(s.Output(), app.ShortHelp())
@@ -88,54 +110,47 @@ func Main(ctx context.Context, app Application, args []string) {
 	}
 	p := addFlags(s, reflect.StructField{}, reflect.ValueOf(app))
 	s.Parse(args)
-	err := func() error {
-		if p != nil && p.CPU != "" {
-			f, err := os.Create(p.CPU)
-			if err != nil {
-				return err
-			}
-			if err := pprof.StartCPUProfile(f); err != nil {
-				return err
-			}
-			defer pprof.StopCPUProfile()
-		}
 
-		if p != nil && p.Trace != "" {
-			f, err := os.Create(p.Trace)
-			if err != nil {
-				return err
-			}
-			if err := trace.Start(f); err != nil {
-				return err
-			}
-			defer func() {
-				trace.Stop()
-				log.Printf("To view the trace, run:\n$ go tool trace view %s", p.Trace)
-			}()
+	if p != nil && p.CPU != "" {
+		f, err := os.Create(p.CPU)
+		if err != nil {
+			return err
 		}
-
-		if p != nil && p.Memory != "" {
-			f, err := os.Create(p.Memory)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				runtime.GC() // get up-to-date statistics
-				if err := pprof.WriteHeapProfile(f); err != nil {
-					log.Printf("Writing memory profile: %v", err)
-				}
-				f.Close()
-			}()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			return err
 		}
-		return app.Run(ctx, s.Args()...)
-	}()
-	if err != nil {
-		fmt.Fprintf(s.Output(), "%s: %v\n", app.Name(), err)
-		if _, printHelp := err.(commandLineError); printHelp {
-			s.Usage()
-		}
-		os.Exit(2)
+		defer pprof.StopCPUProfile()
 	}
+
+	if p != nil && p.Trace != "" {
+		f, err := os.Create(p.Trace)
+		if err != nil {
+			return err
+		}
+		if err := trace.Start(f); err != nil {
+			return err
+		}
+		defer func() {
+			trace.Stop()
+			log.Printf("To view the trace, run:\n$ go tool trace view %s", p.Trace)
+		}()
+	}
+
+	if p != nil && p.Memory != "" {
+		f, err := os.Create(p.Memory)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			runtime.GC() // get up-to-date statistics
+			if err := pprof.WriteHeapProfile(f); err != nil {
+				log.Printf("Writing memory profile: %v", err)
+			}
+			f.Close()
+		}()
+	}
+
+	return app.Run(ctx, s.Args()...)
 }
 
 // addFlags scans fields of structs recursively to find things with flag tags

@@ -1,3 +1,7 @@
+// Copyright 2019 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package apidiff
 
 import (
@@ -13,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/system-pclub/GCatch/GCatch/tools/go/packages"
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/testenv"
 )
 
 func TestChanges(t *testing.T) {
@@ -26,11 +31,11 @@ func TestChanges(t *testing.T) {
 	sort.Strings(wanti)
 	sort.Strings(wantc)
 
-	oldpkg, err := load("apidiff/old", dir)
+	oldpkg, err := load(t, "apidiff/old", dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	newpkg, err := load("apidiff/new", dir)
+	newpkg, err := load(t, "apidiff/new", dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +120,9 @@ func splitIntoPackages(t *testing.T, dir string) (incompatibles, compatibles []s
 	return
 }
 
-func load(importPath, goPath string) (*packages.Package, error) {
+func load(t *testing.T, importPath, goPath string) (*packages.Package, error) {
+	testenv.NeedsGoPackages(t)
+
 	cfg := &packages.Config{
 		Mode: packages.LoadTypes,
 	}
@@ -134,7 +141,7 @@ func load(importPath, goPath string) (*packages.Package, error) {
 }
 
 func TestExportedFields(t *testing.T) {
-	pkg, err := load("github.com/system-pclub/GCatch/GCatch/tools/internal/apidiff/testdata/exported_fields", "")
+	pkg, err := load(t, "github.com/system-pclub/GCatch/GCatch/tools/internal/apidiff/testdata/exported_fields", "")
 	if err != nil {
 		t.Fatal(err)
 	}

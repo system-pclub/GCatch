@@ -5,14 +5,21 @@
 package imports
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"go/build"
+	"io/ioutil"
+	"log"
 	"path/filepath"
-	"runtime"
+	"reflect"
+	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/system-pclub/GCatch/GCatch/tools/go/packages/packagestest"
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/gocommand"
 )
 
 var testDebug = flag.Bool("debug", false, "enable debug output")
@@ -372,7 +379,37 @@ func foo() {
 }
 `,
 	},
+	// Merge import blocks, even when no additions are required.
+	{
+		name: "merge_import_blocks_no_fix",
+		in: `package foo
 
+import (
+	"fmt"
+)
+import "os"
+
+import (
+	"rsc.io/p"
+)
+
+var _, _ = os.Args, fmt.Println
+var _, _ = snappy.ErrCorrupt, p.P
+`,
+		out: `package foo
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/golang/snappy"
+	"rsc.io/p"
+)
+
+var _, _ = os.Args, fmt.Println
+var _, _ = snappy.ErrCorrupt, p.P
+`,
+	},
 	// Delete existing empty import block
 	{
 		name: "delete_empty_import_block",
@@ -809,7 +846,6 @@ import (
 var _ = fmt.Sprintf
 `,
 	},
-
 	{
 		name: "import_grouping_not_path_dependent_no_groups",
 		in: `package main
@@ -1122,13 +1158,6 @@ func TestSimpleCases(t *testing.T) {
 	const localPrefix = "local.com,github.com/local"
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			options := &Options{
-				TabWidth:   8,
-				TabIndent:  true,
-				Comments:   true,
-				Fragment:   true,
-				FormatOnly: tt.formatOnly,
-			}
 			testConfig{
 				modules: []packagestest.Module{
 					{
@@ -1166,7 +1195,14 @@ func TestSimpleCases(t *testing.T) {
 					},
 				},
 			}.test(t, func(t *goimportTest) {
-				t.env.LocalPrefix = localPrefix
+				options := &Options{
+					LocalPrefix: localPrefix,
+					TabWidth:    8,
+					TabIndent:   true,
+					Comments:    true,
+					Fragment:    true,
+					FormatOnly:  tt.formatOnly,
+				}
 				t.assertProcessEquals("golang.org/fake", "x.go", nil, options, tt.out)
 			})
 
@@ -1270,11 +1306,6 @@ func bar() {
 // Test support for packages in GOPATH that are actually symlinks.
 // Also test that a symlink loop does not block the process.
 func TestImportSymlinks(t *testing.T) {
-	switch runtime.GOOS {
-	case "windows", "plan9":
-		t.Skipf("skipping test on %q as there are no symlinks", runtime.GOOS)
-	}
-
 	const input = `package p
 
 var (
@@ -1310,11 +1341,6 @@ var (
 }
 
 func TestImportSymlinksWithIgnore(t *testing.T) {
-	switch runtime.GOOS {
-	case "windows", "plan9":
-		t.Skipf("skipping test on %q as there are no symlinks", runtime.GOOS)
-	}
-
 	const input = `package p
 
 var (
@@ -1508,11 +1534,66 @@ func TestFindStdlib(t *testing.T) {
 	}
 }
 
+// https://golang.org/issue/31814
+func TestStdlibNotPrefixed(t *testing.T) {
+	const input = `package p
+var _ = bytes.Buffer
+`
+	const want = `package p
+
+import "bytes"
+
+var _ = bytes.Buffer
+`
+	// Force a scan of the stdlib.
+	savedStdlib := stdlib
+	defer func() { stdlib = savedStdlib }()
+	stdlib = map[string][]string{}
+
+	testConfig{
+		module: packagestest.Module{
+			Name:  "ignored.com",
+			Files: fm{"x.go": "package x"},
+		},
+	}.test(t, func(t *goimportTest) {
+		// Run in GOROOT/src so that the std module shows up in go list -m all.
+		t.env.WorkingDir = filepath.Join(t.goroot, "src")
+		got, err := t.processNonModule(filepath.Join(t.goroot, "src/x.go"), []byte(input), nil)
+		if err != nil {
+			t.Fatalf("Process() = %v", err)
+		}
+		if string(got) != want {
+			t.Errorf("Got:\n%s\nWant:\n%s", got, want)
+		}
+	})
+}
+
+func TestStdlibSelfImports(t *testing.T) {
+	const input = `package ecdsa
+
+var _ = ecdsa.GenerateKey
+`
+
+	testConfig{
+		module: packagestest.Module{
+			Name:  "ignored.com",
+			Files: fm{"x.go": "package x"},
+		},
+	}.test(t, func(t *goimportTest) {
+		got, err := t.processNonModule(filepath.Join(t.goroot, "src/crypto/ecdsa/foo.go"), []byte(input), nil)
+		if err != nil {
+			t.Fatalf("Process() = %v", err)
+		}
+		if string(got) != input {
+			t.Errorf("Got:\n%s\nWant:\n%s", got, input)
+		}
+	})
+}
+
 type testConfig struct {
-	gopathOnly             bool
-	goPackagesIncompatible bool
-	module                 packagestest.Module
-	modules                []packagestest.Module
+	gopathOnly bool
+	module     packagestest.Module
+	modules    []packagestest.Module
 }
 
 // fm is the type for a packagestest.Module's Files, abbreviated for shorter lines.
@@ -1525,60 +1606,37 @@ func (c testConfig) test(t *testing.T, fn func(*goimportTest)) {
 		c.modules = []packagestest.Module{c.module}
 	}
 
-	var kinds []string
 	for _, exporter := range packagestest.All {
-		kinds = append(kinds, exporter.Name())
-		kinds = append(kinds, exporter.Name()+"_GoPackages")
-	}
-	for _, kind := range kinds {
-		t.Run(kind, func(t *testing.T) {
+		t.Run(exporter.Name(), func(t *testing.T) {
 			t.Helper()
-
-			forceGoPackages := false
-			var exporter packagestest.Exporter
-			if c.gopathOnly && strings.HasPrefix(kind, "Modules") {
+			if c.gopathOnly && exporter.Name() == "Modules" {
 				t.Skip("test marked GOPATH-only")
-			}
-			if c.goPackagesIncompatible && strings.HasSuffix(kind, "_GoPackages") {
-				t.Skip("test marked go/packages-incompatible")
-			}
-			switch kind {
-			case "GOPATH":
-				exporter = packagestest.GOPATH
-			case "GOPATH_GoPackages":
-				exporter = packagestest.GOPATH
-				forceGoPackages = true
-			case "Modules":
-				exporter = packagestest.Modules
-			case "Modules_GoPackages":
-				exporter = packagestest.Modules
-				forceGoPackages = true
-			default:
-				panic("unknown test type")
 			}
 			exported := packagestest.Export(t, exporter, c.modules)
 			defer exported.Cleanup()
 
-			env := make(map[string]string)
+			env := map[string]string{}
 			for _, kv := range exported.Config.Env {
-				split := strings.Split(kv, "=")
-				k, v := split[0], split[1]
-				env[k] = v
+				split := strings.SplitN(kv, "=", 2)
+				env[split[0]] = split[1]
 			}
-
 			it := &goimportTest{
 				T: t,
 				env: &ProcessEnv{
-					GOROOT:          env["GOROOT"],
-					GOPATH:          env["GOPATH"],
-					GO111MODULE:     env["GO111MODULE"],
-					GOSUMDB:         env["GOSUMDB"],
-					WorkingDir:      exported.Config.Dir,
-					ForceGoPackages: forceGoPackages,
-					Debug:           *testDebug,
+					Env:         env,
+					WorkingDir:  exported.Config.Dir,
+					GocmdRunner: &gocommand.Runner{},
 				},
 				exported: exported,
 			}
+			if *testDebug {
+				it.env.Logf = log.Printf
+			}
+			// packagestest clears out GOROOT to work around golang/go#32849,
+			// which isn't relevant here. Fill it back in so we can find the standard library.
+			it.env.Env["GOROOT"] = build.Default.GOROOT
+			it.goroot = build.Default.GOROOT
+
 			fn(it)
 		})
 	}
@@ -1594,6 +1652,7 @@ func (c testConfig) processTest(t *testing.T, module, file string, contents []by
 
 type goimportTest struct {
 	*testing.T
+	goroot   string
 	env      *ProcessEnv
 	exported *packagestest.Exported
 }
@@ -1608,11 +1667,18 @@ func (t *goimportTest) process(module, file string, contents []byte, opts *Optio
 }
 
 func (t *goimportTest) processNonModule(file string, contents []byte, opts *Options) ([]byte, error) {
+	if contents == nil {
+		var err error
+		contents, err = ioutil.ReadFile(file)
+		if err != nil {
+			return nil, err
+		}
+	}
 	if opts == nil {
 		opts = &Options{Comments: true, TabIndent: true, TabWidth: 8}
 	}
-	opts.Env = t.env
-	opts.Env.Debug = *testDebug
+	// ProcessEnv is not safe for concurrent use. Make a copy.
+	opts.Env = t.env.CopyConfig()
 	return Process(file, contents, opts)
 }
 
@@ -1804,8 +1870,14 @@ const _ = runtime.GOOS
 					Files: fm{"t.go": tt.src},
 				}}, tt.modules...),
 			}.test(t, func(t *goimportTest) {
-				t.env.LocalPrefix = tt.localPrefix
-				t.assertProcessEquals("test.com", "t.go", nil, nil, tt.want)
+				options := &Options{
+					LocalPrefix: tt.localPrefix,
+					TabWidth:    8,
+					TabIndent:   true,
+					Comments:    true,
+					Fragment:    true,
+				}
+				t.assertProcessEquals("test.com", "t.go", nil, options, tt.want)
 			})
 		})
 	}
@@ -1855,7 +1927,10 @@ func TestImportPathToNameGoPathParse(t *testing.T) {
 		if strings.Contains(t.Name(), "GoPackages") {
 			t.Skip("go/packages does not ignore package main")
 		}
-		r := t.env.getResolver()
+		r, err := t.env.GetResolver()
+		if err != nil {
+			t.Fatal(err)
+		}
 		srcDir := filepath.Dir(t.exported.File("example.net/pkg", "z.go"))
 		names, err := r.loadPackageNames([]string{"example.net/pkg"}, srcDir)
 		if err != nil {
@@ -2116,6 +2191,32 @@ const _ = pkg.X
 	}.processTest(t, "foo.com", "pkg/b.go", nil, nil, want)
 }
 
+func TestExternalTestImportsPackageUnderTest(t *testing.T) {
+	const provide = `package pkg
+func DoIt(){}
+`
+	const input = `package pkg_test
+
+var _ = pkg.DoIt`
+
+	const want = `package pkg_test
+
+import "foo.com/pkg"
+
+var _ = pkg.DoIt
+`
+
+	testConfig{
+		module: packagestest.Module{
+			Name: "foo.com",
+			Files: fm{
+				"pkg/provide.go": provide,
+				"pkg/x_test.go":  input,
+			},
+		},
+	}.processTest(t, "foo.com", "pkg/x_test.go", nil, nil, want)
+}
+
 func TestPkgIsCandidate(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -2237,7 +2338,8 @@ func TestPkgIsCandidate(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := pkgIsCandidate(tt.filename, tt.pkgIdent, tt.pkg)
+			refs := references{tt.pkgIdent: nil}
+			got := pkgIsCandidate(tt.filename, refs, tt.pkg)
 			if got != tt.want {
 				t.Errorf("test %d. pkgIsCandidate(%q, %q, %+v) = %v; want %v",
 					i, tt.filename, tt.pkgIdent, *tt.pkg, got, tt.want)
@@ -2359,7 +2461,6 @@ import "bytes"
 var _ = &bytes.Buffer{}
 `
 	testConfig{
-		goPackagesIncompatible: true,
 		module: packagestest.Module{
 			Name: "mycompany.net",
 		},
@@ -2412,4 +2513,272 @@ var _ = bytes.Buffer{}
 			Files: fm{"foo.go": input},
 		},
 	}.processTest(t, "foo.com", "foo.go", nil, nil, want)
+}
+
+// Tests that an external test package will import the package under test if it
+// also uses symbols exported only in test files.
+// https://golang.org/issues/29979
+func TestExternalTest(t *testing.T) {
+	const input = `package a_test
+func TestX() {
+	a.X()
+	a.Y()
+}
+`
+	const want = `package a_test
+
+import "foo.com/a"
+
+func TestX() {
+	a.X()
+	a.Y()
+}
+`
+
+	testConfig{
+		modules: []packagestest.Module{
+			{
+				Name: "foo.com/a",
+				Files: fm{
+					"a.go":           "package a\n func X() {}",
+					"export_test.go": "package a\n func Y() {}",
+					"a_test.go":      input,
+				},
+			},
+		},
+	}.processTest(t, "foo.com/a", "a_test.go", nil, nil, want)
+}
+
+// TestGetCandidates tests that get packages finds packages
+// with correct priorities.
+func TestGetCandidates(t *testing.T) {
+	type res struct {
+		relevance  float64
+		name, path string
+	}
+	want := []res{
+		{0, "bytes", "bytes"},
+		{0, "http", "net/http"},
+		{0, "rand", "crypto/rand"},
+		{0, "bar", "bar.com/bar"},
+		{0, "foo", "foo.com/foo"},
+	}
+
+	testConfig{
+		modules: []packagestest.Module{
+			{
+				Name:  "bar.com",
+				Files: fm{"bar/bar.go": "package bar\n"},
+			},
+			{
+				Name:  "foo.com",
+				Files: fm{"foo/foo.go": "package foo\n"},
+			},
+		},
+	}.test(t, func(t *goimportTest) {
+		var mu sync.Mutex
+		var got []res
+		add := func(c ImportFix) {
+			mu.Lock()
+			defer mu.Unlock()
+			for _, w := range want {
+				if c.StmtInfo.ImportPath == w.path {
+					got = append(got, res{c.Relevance, c.IdentName, c.StmtInfo.ImportPath})
+				}
+			}
+		}
+		if err := GetAllCandidates(context.Background(), add, "", "x.go", "x", t.env); err != nil {
+			t.Fatalf("GetAllCandidates() = %v", err)
+		}
+		// Sort, then clear out relevance so it doesn't mess up the DeepEqual.
+		sort.Slice(got, func(i, j int) bool {
+			ri, rj := got[i], got[j]
+			if ri.relevance != rj.relevance {
+				return ri.relevance > rj.relevance // Highest first.
+			}
+			return ri.name < rj.name
+		})
+		for i := range got {
+			got[i].relevance = 0
+		}
+		if !reflect.DeepEqual(want, got) {
+			t.Errorf("wanted results in order %v, got %v", want, got)
+		}
+	})
+}
+
+func TestGetImportPaths(t *testing.T) {
+	type res struct {
+		relevance  float64
+		name, path string
+	}
+	want := []res{
+		{0, "http", "net/http"},
+		{0, "net", "net"},
+		{0, "neta", "neta.com/neta"},
+	}
+
+	testConfig{
+		modules: []packagestest.Module{
+			{
+				Name:  "neta.com",
+				Files: fm{"neta/neta.go": "package neta\n"},
+			},
+		},
+	}.test(t, func(t *goimportTest) {
+		var mu sync.Mutex
+		var got []res
+		add := func(c ImportFix) {
+			mu.Lock()
+			defer mu.Unlock()
+			for _, w := range want {
+				if c.StmtInfo.ImportPath == w.path {
+					got = append(got, res{c.Relevance, c.IdentName, c.StmtInfo.ImportPath})
+				}
+			}
+		}
+		if err := GetImportPaths(context.Background(), add, "ne", "x.go", "x", t.env); err != nil {
+			t.Fatalf("GetImportPaths() = %v", err)
+		}
+		// Sort, then clear out relevance so it doesn't mess up the DeepEqual.
+		sort.Slice(got, func(i, j int) bool {
+			ri, rj := got[i], got[j]
+			if ri.relevance != rj.relevance {
+				return ri.relevance > rj.relevance // Highest first.
+			}
+			return ri.name < rj.name
+		})
+		for i := range got {
+			got[i].relevance = 0
+		}
+		if !reflect.DeepEqual(want, got) {
+			t.Errorf("wanted results in order %v, got %v", want, got)
+		}
+	})
+}
+
+func TestGetPackageCompletions(t *testing.T) {
+	type res struct {
+		relevance          float64
+		name, path, symbol string
+	}
+	want := []res{
+		{0, "rand", "math/rand", "Seed"},
+		{0, "rand", "bar.com/rand", "Bar"},
+	}
+
+	testConfig{
+		modules: []packagestest.Module{
+			{
+				Name:  "bar.com",
+				Files: fm{"rand/bar.go": "package rand\nvar Bar int\n"},
+			},
+		},
+	}.test(t, func(t *goimportTest) {
+		var mu sync.Mutex
+		var got []res
+		add := func(c PackageExport) {
+			mu.Lock()
+			defer mu.Unlock()
+			for _, csym := range c.Exports {
+				for _, w := range want {
+					if c.Fix.StmtInfo.ImportPath == w.path && csym == w.symbol {
+						got = append(got, res{c.Fix.Relevance, c.Fix.IdentName, c.Fix.StmtInfo.ImportPath, csym})
+					}
+				}
+			}
+		}
+		if err := GetPackageExports(context.Background(), add, "rand", "x.go", "x", t.env); err != nil {
+			t.Fatalf("getPackageCompletions() = %v", err)
+		}
+		// Sort, then clear out relevance so it doesn't mess up the DeepEqual.
+		sort.Slice(got, func(i, j int) bool {
+			ri, rj := got[i], got[j]
+			if ri.relevance != rj.relevance {
+				return ri.relevance > rj.relevance // Highest first.
+			}
+			return ri.name < rj.name
+		})
+		for i := range got {
+			got[i].relevance = 0
+		}
+		if !reflect.DeepEqual(want, got) {
+			t.Errorf("wanted results in order %v, got %v", want, got)
+		}
+	})
+}
+
+// Tests #34895: process should not panic on concurrent calls.
+func TestConcurrentProcess(t *testing.T) {
+	testConfig{
+		module: packagestest.Module{
+			Name: "foo.com",
+			Files: fm{
+				"p/first.go": `package foo
+
+func _() {
+	fmt.Println()
+}
+`,
+				"p/second.go": `package foo
+
+import "fmt"
+
+func _() {
+	fmt.Println()
+	imports.Bar() // not imported.
+}
+`,
+			},
+		},
+	}.test(t, func(t *goimportTest) {
+		var (
+			n  = 10
+			wg sync.WaitGroup
+		)
+		wg.Add(n)
+		for i := 0; i < n; i++ {
+			go func() {
+				defer wg.Done()
+				_, err := t.process("foo.com", "p/first.go", nil, nil)
+				if err != nil {
+					t.Error(err)
+				}
+			}()
+		}
+		wg.Wait()
+	})
+}
+
+func TestNonlocalDot(t *testing.T) {
+	const input = `package main
+import (
+	"fmt"
+)
+var _, _ = fmt.Sprintf, dot.Dot
+`
+	const want = `package main
+
+import (
+	"fmt"
+	"noninternet/dot.v1/dot"
+)
+
+var _, _ = fmt.Sprintf, dot.Dot
+`
+	testConfig{
+		modules: []packagestest.Module{
+			{
+				Name:  "golang.org/fake",
+				Files: fm{"x.go": input},
+			},
+			{
+				Name: "noninternet/dot.v1",
+				Files: fm{
+					"dot/dot.go": "package dot\nfunc Dot(){}\n",
+				},
+			},
+		},
+		gopathOnly: true, // our modules testing setup doesn't allow modules without dots.
+	}.processTest(t, "golang.org/fake", "x.go", nil, nil, want)
 }

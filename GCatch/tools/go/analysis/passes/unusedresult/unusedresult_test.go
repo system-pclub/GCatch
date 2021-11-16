@@ -9,9 +9,16 @@ import (
 
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/analysistest"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/analysis/passes/unusedresult"
+	"github.com/system-pclub/GCatch/GCatch/tools/internal/typeparams"
 )
 
 func Test(t *testing.T) {
 	testdata := analysistest.TestData()
-	analysistest.Run(t, testdata, unusedresult.Analyzer, "a")
+	funcs := "typeparams/userdefs.MustUse,errors.New,fmt.Errorf,fmt.Sprintf,fmt.Sprint"
+	unusedresult.Analyzer.Flags.Set("funcs", funcs)
+	tests := []string{"a"}
+	if typeparams.Enabled {
+		tests = append(tests, "typeparams")
+	}
+	analysistest.Run(t, testdata, unusedresult.Analyzer, tests...)
 }

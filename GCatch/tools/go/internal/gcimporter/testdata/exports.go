@@ -5,7 +5,7 @@
 // This file is used to generate an object file which
 // serves as test file for gcimporter_test.go.
 
-package a
+package exports
 
 import (
 	"go/ast"

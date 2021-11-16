@@ -2,7 +2,7 @@
 // gccgo -fgo-optimize-allocs -c escapeinfo.go
 // objcopy -j .go_export escapeinfo.o escapeinfo.gox
 
-package aliases
+package escapeinfo
 
 type T struct{ data []byte }
 
