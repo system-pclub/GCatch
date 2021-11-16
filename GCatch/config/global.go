@@ -15,7 +15,10 @@ var StrAbsolutePath string // /home/song/work/go-workspace/code/src/
 var StrRelativePath string // github.com/etcd-io/etcd
 var MapPrintMod map[string]bool // a map indicates which information will be printed
 
+// Variables for beta functionality that allows building and checking only one program using go.mod
 var BoolGoMod bool
+var StrModulePath string // Module path, like github.com/etcd-io/etcd
+var StrModAbsPath string // Absolute path to the program. go.mod must be in this path
 
 var BoolDisableFnPointer bool
 
