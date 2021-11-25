@@ -8,6 +8,13 @@ RUN python scripts/mk_make.py \
   && make install
 
 COPY . /go/src/github.com/system-pclub/GCatch/GCatch
+
+
+RUN GO111MODULE=off go get golang.org/x/xerrors \
+&& GO111MODULE=off go get golang.org/x/mod/semver \
+&& GO111MODULE=off go get golang.org/x/sys/execabs
+
 RUN /go/src/github.com/system-pclub/GCatch/GCatch/install.sh
 
+WORKDIR /playground
 ENTRYPOINT [ "bash" ]

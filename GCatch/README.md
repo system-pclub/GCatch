@@ -56,6 +56,10 @@ However, this Beta version lacks of testing and we still encourage you to use ou
 
 Because our implementation of `-r` flag depends on GOPATH, this Beta version disables the `-r` flag so you can't recursively check applications in the subdirectories of the target application specified by `-mod-abs-path`. Note that it still checks dependencies of the target application
 
+```Examples
+
+$ GCatch -mod -mod-abs-path /playground/kubernetes -mod-module-path k8s.io/kubernetes/staging/src/k8s.io/apimachinery/pkg/util/wait -compile-error
+```
 
 
 [1] Ziheng Liu, Shuofei Zhu, Boqin Qin, Hao Chen and Linhai Song. “Automatically Detecting and Fixing Concurrency Bugs in Go Software Systems.” In ASPLOS’2020. 
