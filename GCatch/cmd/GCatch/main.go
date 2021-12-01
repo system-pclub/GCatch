@@ -8,6 +8,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/mypointer"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa/ssautil"
 	"github.com/system-pclub/GCatch/GCatch/util"
 	"go/types"
 	"os"
@@ -178,6 +179,8 @@ type Inter struct {
 	typesNamed *types.Named
 	typesVecMethod []*types.Func
 	boolAnyInter bool
+
+	vecImplByNType []*NormalType
 }
 
 type NormalType struct {
@@ -186,6 +189,9 @@ type NormalType struct {
 	typesType types.Type
 	vecMethodFn []*ssa.Function
 	vecImplInter []*Inter
+	ptrToNormalType *NormalType // For each NormalType (original), we create another one pointing to it, since this is a common behavior
+								// This created one won't have another one pointing to it
+								// Nil for the original NormalType
 
 	// fields after this NormalType enters vecTargetType
 	vecFnLength []int
@@ -196,6 +202,24 @@ const UNKNOWNLENGTH int = 123456
 
 
 func detect(mapCheckerName map[string]bool) {
+
+	// Another hack to find function pointers
+	for fn, _ := range ssautil.AllFunctions(config.Prog) {
+		for _, bb := range fn.Blocks {
+			for _, inst := range bb.Instrs {
+				if instAlloc, ok := inst.(*ssa.Alloc); ok {
+					if tPtr, ok2 := instAlloc.Type().(*types.Pointer); ok2 {
+						if tSig, ok3 := tPtr.Elem().(*types.Signature);ok3 {
+							_ = tSig
+							p := config.Prog.Fset.Position(inst.Pos())
+							fmt.Printf("%s:%d\n\n", p.Filename, p.Line)
+						}
+					}
+				}
+				_ = inst
+			}
+		}
+	}
 
 	// This is a hack to find code that may be rewritten in generics:
 	/*
@@ -248,9 +272,10 @@ func detect(mapCheckerName map[string]bool) {
 						vecMethodFn: []*ssa.Function{},
 						vecImplInter: []*Inter{},
 						vecFnLength: []int{},
+						ptrToNormalType: nil,
 					}
 
-					methodSet := config.Prog.MethodSets.MethodSet(typeMem)
+					methodSet := config.Prog.MethodSets.MethodSet(newNType.typesType)
 					for j := 0; j < methodSet.Len(); j++ {
 						methodSelection := methodSet.At(j)
 						progFnMethod := config.Prog.MethodValue(methodSelection)
@@ -261,6 +286,28 @@ func detect(mapCheckerName map[string]bool) {
 					}
 
 					vecType = append(vecType, newNType)
+
+					newNTypePtr := &NormalType{
+						memStr:    "OurPtrTo_" + mem.String(),
+						memType:  memType,
+						typesType: types.NewPointer(newNType.typesType),
+						vecMethodFn: []*ssa.Function{},
+						vecImplInter: []*Inter{},
+						vecFnLength: []int{},
+						ptrToNormalType: nil,
+					}
+
+					methodSetPtr := config.Prog.MethodSets.MethodSet(newNTypePtr.typesType)
+					for j := 0; j < methodSetPtr.Len(); j++ {
+						methodSelectionPtr := methodSetPtr.At(j)
+						progFnMethodPtr := config.Prog.MethodValue(methodSelectionPtr)
+						if progFnMethodPtr != nil {
+							newNTypePtr.vecMethodFn = append(newNTypePtr.vecMethodFn, progFnMethodPtr)
+						}
+
+					}
+
+					vecType = append(vecType, newNTypePtr)
 				}
 
 			}
@@ -273,11 +320,11 @@ func detect(mapCheckerName map[string]bool) {
 		for _, inter := range vecInter {
 			if types.Implements(t.typesType, inter.typesInter) {
 				t.vecImplInter = append(t.vecImplInter, inter)
+				inter.vecImplByNType = append(inter.vecImplByNType, t)
 			}
 		}
 	}
 
-	PrintVecInter(vecInter)
 
 
 	mapTypesType2Inter := make(map[types.Type]*Inter)
@@ -288,16 +335,26 @@ func detect(mapCheckerName map[string]bool) {
 	for _, t := range vecType {
 		mapTypesType2Type[t.typesType] = t
 	}
+	mapTypesType2VecImplInter := make(map[types.Type][]*Inter)
+	for _, t := range vecType {
+		vecImplInter := []*Inter{}
+		for _, inter := range t.vecImplInter {
+			vecImplInter = append(vecImplInter, inter)
+		}
+		mapTypesType2VecImplInter[t.typesType] = vecImplInter
+	}
 
-	// T1: the types that have at least one method who has at least one parameter that is an interface
-	//		, ranked by lines of code
-	// T2: the types that are simply in the program we are interested
+
+	// T1: the types that are simply in the program we are interested
 	// 		, ranked by lines of code
-	// T3: the types that are simply in the program we are interested
+	// T2: the types that are simply in the program we are interested
 	// 		, ranked by number of interfaces that it implements
+	// T3: the types that have at least one method who has at least one parameter that is an interface
+	//		, ranked by lines of code
 	vecTargetTypeT1 := []*NormalType{}
 	vecTargetTypeT2 := []*NormalType{}
 	vecTargetTypeT3 := []*NormalType{}
+
 
 	loopType:
 	for _, t := range vecType {
@@ -313,8 +370,8 @@ func detect(mapCheckerName map[string]bool) {
 			continue
 		}
 
+		vecTargetTypeT1 = append(vecTargetTypeT1, t)
 		vecTargetTypeT2 = append(vecTargetTypeT2, t)
-		vecTargetTypeT3 = append(vecTargetTypeT3, t)
 
 		for _, method := range t.vecMethodFn {
 			strMethod := method.String()
@@ -328,15 +385,20 @@ func detect(mapCheckerName map[string]bool) {
 				if i == 0 { // Surely the receiver meets our standard, let's skip it
 					continue
 				}
-				if _, ok := mapTypesType2Type[para.Type()];ok {
-					vecTargetTypeT1 = append(vecTargetTypeT1, t)
+				if _, ok := mapTypesType2Inter[para.Type()];ok {
+					vecTargetTypeT3 = append(vecTargetTypeT3, t)
 					continue loopType
+				} else if para.Type() != nil && para.Type().Underlying() != nil {
+					if _, ok := mapTypesType2Inter[para.Type().Underlying()];ok {
+						vecTargetTypeT3 = append(vecTargetTypeT3, t)
+						continue loopType
+					}
 				}
 			}
 		}
 	}
 
-	for _, t := range vecTargetTypeT2 { // T2 is enough, it covers all the types in T1 T2 and T3
+	for _, t := range vecTargetTypeT1 { // T2 is enough, it covers all the types in T1 T2 and T3
 		for i, method := range t.vecMethodFn {
 
 			t.vecFnLength = append(t.vecFnLength, UNKNOWNLENGTH)
@@ -373,22 +435,97 @@ func detect(mapCheckerName map[string]bool) {
 		}
 	}
 
+	sort.SliceStable(vecTargetTypeT3, func(i, j int) bool {
+		return vecTargetTypeT3[i].totalFnLength > vecTargetTypeT3[j].totalFnLength
+	})
+
 	sort.SliceStable(vecTargetTypeT1, func(i, j int) bool {
 		return vecTargetTypeT1[i].totalFnLength > vecTargetTypeT1[j].totalFnLength
 	})
 
 	sort.SliceStable(vecTargetTypeT2, func(i, j int) bool {
-		return vecTargetTypeT2[i].totalFnLength > vecTargetTypeT2[j].totalFnLength
-	})
-
-	sort.SliceStable(vecTargetTypeT3, func(i, j int) bool {
-		return len(vecTargetTypeT3[i].vecImplInter) > len(vecTargetTypeT3[j].vecImplInter)
+		return len(vecTargetTypeT2[i].vecImplInter) > len(vecTargetTypeT2[j].vecImplInter)
 	})
 
 
-	PrintVecType(vecTargetTypeT1, "printInterestingTypeT1_")
-	PrintVecType(vecTargetTypeT2, "printInterestingTypeT2_")
-	PrintVecType(vecTargetTypeT3, "printInterestingTypeT3_")
+	PrintVecType(vecTargetTypeT1, "TypeList1_")
+	PrintVecType(vecTargetTypeT2, "TypeList2_")
+	PrintVecType(vecTargetTypeT3, "TypeList3_")
+
+
+	// Now for interfaces
+
+	// T1: the interfaces that are not empty interfaces (Any interfaces)
+	//		, ranked by how many types can implement it
+	// T2: the interfaces that are not empty interfaces (Any interfaces) in the package we are interested in
+	//		, ranked by how many types can implement it that are in the package we are interested in
+	// T3: the interfaces that are not empty interfaces (Any interfaces) in the package we are interested in
+	//		, ranked by the total lines of code, of methods of types, that can implement it and are in our interested package
+	vecTargetInterT1 := []*Inter{}
+	vecTargetInterT2 := []*Inter{}
+	vecTargetInterT3 := []*Inter{}
+
+	for _, inter := range vecInter {
+		if inter.boolAnyInter {
+			continue
+		} else {
+			// For T1
+			vecTargetInterT1 = append(vecTargetInterT1, inter)
+
+			// For T2
+			// check if in relative path
+			if ! strings.Contains(inter.typesStr, config.StrRelativePath) {
+				continue
+			}
+
+			// make a copy since we will edit the vecImplType
+			interC := &Inter{
+				memStr:         inter.memStr,
+				typesInter:     inter.typesInter,
+				typesStr:       inter.typesStr,
+				typesNamed:     inter.typesNamed,
+				typesVecMethod: inter.typesVecMethod,
+				boolAnyInter:   inter.boolAnyInter,
+				vecImplByNType: []*NormalType{},
+			}
+			for _, t := range inter.vecImplByNType {
+				if t.typesType == nil || ! strings.Contains(t.typesType.String(), config.StrRelativePath) {
+					continue
+				}
+				interC.vecImplByNType = append(interC.vecImplByNType, t)
+			}
+			vecTargetInterT2 = append(vecTargetInterT2, interC)
+
+			// for T3
+			vecTargetInterT3 = append(vecTargetInterT3, interC)
+		}
+	}
+
+	sort.SliceStable(vecTargetInterT1, func(i, j int) bool {
+		return len(vecTargetInterT1[i].vecImplByNType) > len(vecTargetInterT1[j].vecImplByNType)
+	})
+
+	sort.SliceStable(vecTargetInterT2, func(i, j int) bool {
+		return len(vecTargetInterT2[i].vecImplByNType) > len(vecTargetInterT2[j].vecImplByNType)
+	})
+
+	sort.SliceStable(vecTargetInterT3, func(i, j int) bool {
+		linesI := 0
+		for _, t := range vecTargetInterT3[i].vecImplByNType {
+			linesI += t.totalFnLength
+		}
+
+		linesJ := 0
+		for _, t := range vecTargetInterT3[j].vecImplByNType {
+			linesJ += t.totalFnLength
+		}
+
+		return linesI > linesJ
+	})
+
+	PrintVecInter(vecTargetInterT1, "InterList1_")
+	PrintVecInter(vecTargetInterT2, "InterList2_")
+	PrintVecInter(vecTargetInterT3, "InterList3_")
 
 	return
 
@@ -450,8 +587,8 @@ func PrintVecType(vecType []*NormalType, strFilePre string) {
 	}
 }
 
-func PrintVecInter(vecInter []*Inter) {
-	f, err := os.Create("/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/results/printInter_" + strings.ReplaceAll(config.StrRelativePath, "/", "_") + ".txt")
+func PrintVecInter(vecInter []*Inter, strFilePre string) {
+	f, err := os.Create("/home/ziheng/Go/gcatch/src/github.com/system-pclub/GCatch/GCatch/results/" + strFilePre + strings.ReplaceAll(config.StrRelativePath, "/", "_") + ".txt")
 	if err != nil {
 		fmt.Println("Filed to create file", err)
 		return
@@ -465,6 +602,12 @@ func PrintVecInter(vecInter []*Inter) {
 	for i, inter := range vecInter {
 		str += fmt.Sprintf("-----NO.%d\nMemStr:%s\ntypesStr:%s\n", i, inter.memStr, inter.typesStr)
 		str += fmt.Sprintf("Number of methods:%d\nIs empty:%b\n", len(inter.typesVecMethod), inter.boolAnyInter)
+		str += fmt.Sprintf("Implemented by %d types:\n", len(inter.vecImplByNType))
+		for j, t := range inter.vecImplByNType {
+			if t.typesType != nil {
+				str += fmt.Sprintf("\tNO.%d_%d:Total lines of code:%d\t%s\n", i, j, t.totalFnLength, t.typesType.String())
+			}
+		}
 
 		//Don't use this function, it will just return nil files: methodSet := config.Prog.MethodSets.MethodSet(inter.typesInter)
 	}
