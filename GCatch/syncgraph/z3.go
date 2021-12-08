@@ -79,6 +79,7 @@ type ZNodeNbRecv struct {
 type ZNodeBSend struct {
 	Buffer   z3.Int
 	Other_SR []ZNode
+	IsLock   bool
 	ZNodeBasic
 }
 
@@ -87,6 +88,7 @@ type ZNodeBRecv struct {
 	Other_SR   []ZNode
 	Closes     []*ZNodeClose
 	From_close z3.Bool
+	IsUnlock   bool
 	ZNodeBasic
 }
 
@@ -156,14 +158,16 @@ func NewZ3ForGl() *Z3System {
 	return newZ3Sys
 }
 
-func (z *Z3System) Z3Main(p_paths []*PPath, block_poses []blockingPos, boolCheckPanic bool) bool {
+var debugFlag bool = false
+
+func (z *Z3System) Z3Main(p_paths []*PPath, block_poses []blockingPos, boolCheckChSafety bool, boolCheckLockSafety bool) bool {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovered from panic in Z3Main")
 		}
 	}()
 
-	err := z.Prepare(p_paths, block_poses, boolCheckPanic)
+	err := z.Prepare(p_paths, block_poses, boolCheckChSafety, boolCheckLockSafety)
 	if err != nil {
 		return false
 	}
@@ -197,7 +201,8 @@ func (z *Z3System) Z3Main(p_paths []*PPath, block_poses []blockingPos, boolCheck
 }
 
 // Initialize z.vecZGoroutines; generate ZNodes on each ZGoroutine from p_paths; generate constraints
-func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolCheckPanic bool) error {
+func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolCheckChSafety bool, boolCheckLockSafety bool) error {
+
 
 	// init z.vecZGoroutines
 	for _, path := range vecPPath {
@@ -224,6 +229,11 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 	for _, Zthread := range z.vecZGoroutines {
 		flagMetBlocking := false
 		for _, pNode := range Zthread.PtrPPath.Path {
+
+			// probably not useful
+			if pNode.Executed == false && pNode.Blocked == false {
+				continue
+			}
 
 			var isBlocking, isOriginBlocking bool
 			_, isOriginBlocking = blockingPNodes[pNode]
@@ -289,11 +299,13 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 							newZnode = &ZNodeBSend{
 								Buffer:     buffer,
 								ZNodeBasic: newBasic,
+								IsLock: false,
 							}
 						case *instinfo.ChRecv:
 							newZnode = &ZNodeBRecv{
 								Buffer:     buffer,
 								ZNodeBasic: newBasic,
+								IsUnlock:   false,
 							}
 						case *instinfo.ChClose:
 							newZnode = &ZNodeClose{
@@ -305,6 +317,22 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 					} else { // buffered channel, buffer is a variable that we can't analyze, we don't gen constraint for it
 						z.Warnings = append(z.Warnings, WARNING_met_chan_var_buf)
 						continue
+					}
+				case *instinfo.Locker:
+					buffer := z.Z3Ctx.FromInt(int64(1), z.Z3Ctx.IntSort()).(z3.Int)
+					switch n.Operation().(type) {
+					case *instinfo.LockOp:
+						newZnode = &ZNodeBSend{
+							Buffer:     buffer,
+							ZNodeBasic: newBasic,
+							IsLock: true,
+						}
+					case *instinfo.UnlockOp:
+						newZnode = &ZNodeBRecv{
+							Buffer:     buffer,
+							ZNodeBasic: newBasic,
+							IsUnlock: true,
+						}
 					}
 				default: // TODO: add other primitives
 					if prim == nil {
@@ -340,8 +368,9 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 	}
 
 
-	// For a panic bug, we need at least one panic
-	ZBoolHasPanic := z.Z3Ctx.FromBool(false)
+	// For a ch panic bug, we need at least one panic
+	ZBoolHasChPanic := z.Z3Ctx.FromBool(false)
+
 
 	// fill Pairs for some ZNodes
 	// each blocking sync op need a list of pairing ops
@@ -349,10 +378,10 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 		for _, znode := range Zthread.Nodes {
 			switch concrete := znode.(type) {
 			case *ZNodeClose:
-				if boolCheckPanic {
+				if boolCheckChSafety {
 					// If there are multiple closes, we already found a panic bug
 					if len(concrete.findAllThreadCloses()) > 1 {
-						ZBoolHasPanic = z.Z3Ctx.FromBool(true)
+						ZBoolHasChPanic = z.Z3Ctx.FromBool(true)
 					}
 				}
 			case *ZNodeNbSend:
@@ -374,7 +403,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 						z.vecZSendRecvPairs = append(z.vecZSendRecvPairs, newPair)
 					}
 				}
-				if boolCheckPanic {
+				if boolCheckChSafety {
 					// get closes of the same channel on any threads. Note that send will be influenced by close on the same thread
 					vecAllThreadCloses := concrete.findAllThreadCloses()
 					for _, zclose := range vecAllThreadCloses {
@@ -406,10 +435,10 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 					concrete.Closes = append(concrete.Closes, zclose)
 				}
 			case *ZNodeBSend:
-				// get all other send and recv of the same channel on all threads
+				// get all other send and recv of the same channel/locker on all threads
 				concrete.Other_SR = concrete.findAllThreadOtherSendRecv()
 			case *ZNodeBRecv:
-				// get all other send and recv of the same channel on all threads
+				// get all other send and recv of the same channel/locker on all threads
 				concrete.Other_SR = concrete.findAllThreadOtherSendRecv()
 				concrete.Closes = concrete.findAllThreadCloses()
 			}
@@ -509,7 +538,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 
 					for _, ZClose := range concrete.Closes {
 						ZBoolSendAfterClose := ZClose.Order.LE(concrete.Order)
-						ZBoolHasPanic = ZBoolHasPanic.Or(ZBoolSendAfterClose)
+						ZBoolHasChPanic = ZBoolHasChPanic.Or(ZBoolSendAfterClose)
 					}
 
 				} else {
@@ -562,6 +591,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 			case *ZNodeBRecv:
 				if znode.IsBlocking() {
 					continue
+
 				} else {
 					// consider all operations that happen earlier than recv,
 					// 	then [(Num_sends - Num_recvs) should be less than ch.Buffer_size] or [recv.FromClose == true]
@@ -581,8 +611,8 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 			}
 		}
 	}
-	if boolCheckPanic { // requires a panic
-		z.Constraints.SyncOfOp = append(z.Constraints.SyncOfOp, ZBoolHasPanic)
+	if boolCheckChSafety { // requires a panic
+		z.Constraints.SyncOfOp = append(z.Constraints.SyncOfOp, ZBoolHasChPanic)
 	}
 
 

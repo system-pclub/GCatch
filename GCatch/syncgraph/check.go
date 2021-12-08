@@ -9,15 +9,23 @@ import (
 )
 
 func ReportNoViolation() {
-	fmt.Println("Finished verification: The program has no channel safety or liveness violations")
+	fmt.Println("Finished verification: The program has no channel/mutex safety or liveness violations")
 }
 
 func ReportNotSure() {
-	fmt.Println("Finished verification: Can't decide whether the program has channel safety or liveness violations")
+	fmt.Println("Finished verification: Can't decide whether the program has channel/mutex safety or liveness violations")
+	os.Exit(1)
 }
 
 func ReportViolation() {
-	fmt.Println("Finished verification: The program has channel safety or liveness violations")
+	fmt.Println("Finished verification: The program has channel/mutex safety or liveness violations")
+	os.Exit(1)
+
+}
+
+func ReportLockSafetyViolation() {
+	fmt.Println("Finished verification: The program has mutex safety violations")
+	os.Exit(1)
 }
 
 type blockingPos struct {
@@ -86,12 +94,59 @@ func (g SyncGraph) CheckWithZ3() bool {
 					fmt.Print(config.BugIndex)
 					fmt.Print("]----------\n\tType: Channel Safety \tReason: Double close.\n")
 					ReportViolation()
-					os.Exit(1)
+					return true
 				}
 			}
 		}
 
-		// List all blocking op of target channel on any path
+		// check if this program has unlock safety problem
+		// check lock safety problem
+		for _, path := range paths {
+			for index_unlock, n := range path.Path {
+				if lockerOp, ok := n.Node.(*LockerOp); ok {
+					if _, ok2 := lockerOp.Op.(*instinfo.UnlockOp); ok2 {
+						// search previous nodes in this thread
+						// if we meet a lock of same locker, OK
+						// if we meet a unlock of same locker, report bug
+						// if we meet nothing, report bug
+
+						boolReportUnsafe := true
+						if index_unlock == 0 {
+							boolReportUnsafe = true
+						} else {
+						outer:
+							for j := index_unlock - 1; j >=0; j-- {
+								n2 := path.Path[j]
+								if lockerOp2, ok3 := n2.Node.(*LockerOp); ok3 {
+									if lockerOp2.Locker == lockerOp.Locker {
+										switch lockerOp2.Op.(type) {
+										case *instinfo.LockOp:
+											boolReportUnsafe = false
+											break outer
+										case *instinfo.UnlockOp:
+											boolReportUnsafe = true
+											break outer
+										}
+									}
+								}
+							}
+						}
+						if boolReportUnsafe {
+							config.BugIndexMu.Lock()
+							config.BugIndex++
+							fmt.Print("----------Bug[")
+							fmt.Print(config.BugIndex)
+							config.BugIndexMu.Unlock()
+							fmt.Print("]----------\n\tType: Lock Safety \tReason: Unlock a mutex before Lock.\n")
+							ReportLockSafetyViolation()
+							return true
+						}
+					}
+				}
+			}
+		}
+
+		// List all blocking op of target prim on any path
 		pathId2AllBlockPos := make(map[int][]blockingPos)
 
 		const emptyPNodeId = -2
@@ -194,10 +249,12 @@ func (g SyncGraph) CheckWithZ3() bool {
 			}
 		}
 
-		// For every blocking op of target channel on any path
+		// For every blocking op of target prim on any path
 		for i := 0; i < len(allBlockPosComb); i++ {
 			var blockPosComb map[int]blockingPos
 			blockPosComb = allBlockPosComb[i]
+
+
 
 			for _, blockPos := range blockPosComb {
 				if blockPos.pNodeId != emptyPNodeId {
@@ -209,14 +266,15 @@ func (g SyncGraph) CheckWithZ3() bool {
 				}
 			}
 			// Make some paths block and other paths exit
-			for i, path := range paths {
-				blockPos, exist := blockPosComb[i]
+			for j, path := range paths {
+				blockPos, exist := blockPosComb[j]
 				if exist && blockPos.pNodeId != emptyPNodeId {
 					path.SetBlockAt(blockPos.pNodeId)
 				} else {
 					path.SetAllReached()
 				}
 			}
+
 
 			// See if Sync-rule is satisfied. Sync-rule: the number of ops of one prim must match, except the blocking one
 			flagSyncRuleSatisfied := true
@@ -251,6 +309,8 @@ func (g SyncGraph) CheckWithZ3() bool {
 					flagSyncRuleSatisfied = checkChOpsLegal(prim, nodes)
 				case *instinfo.Locker:
 					// Do we really need a rule for Locker?
+					// let's add it anyway
+					flagSyncRuleSatisfied = checkLockerOpsLegal(prim, nodes)
 				}
 				if flagSyncRuleSatisfied == false {
 					break
@@ -269,11 +329,13 @@ func (g SyncGraph) CheckWithZ3() bool {
 				vecBlockingPos = append(vecBlockingPos, blockPos)
 			}
 
+
+
 			z3Sys_block := NewZ3ForGl()
-			z3Sat_block := z3Sys_block.Z3Main(paths, vecBlockingPos, false) // only check liveness problem
+			z3Sat_block := z3Sys_block.Z3Main(paths, vecBlockingPos, false, false) // only check liveness problem
 
 			z3Sys_panic := NewZ3ForGl()
-			z3Sat_panic := z3Sys_panic.Z3Main(paths, vecBlockingPos, true) // check safety problem
+			z3Sat_panic := z3Sys_panic.Z3Main(paths, vecBlockingPos, true, false) // check safety problem
 
 			// Report a bug
 			if z3Sat_block || z3Sat_panic {
@@ -285,10 +347,10 @@ func (g SyncGraph) CheckWithZ3() bool {
 				config.BugIndexMu.Unlock()
 				if z3Sat_panic { // panic bugs have priority, because they may be misunderstood by Z3 as blocking bugs
 					fmt.Print("]----------\n\tType: Channel Safety \tReason: Send after close or double close.\n")
-				} else {
-					fmt.Print("]----------\n\tType: BMOC \tReason: One or multiple channel operation is blocked.\n")
+				} else if z3Sat_block {
+					fmt.Print("]----------\n\tType: Liveness \tReason: One or multiple channel/lock operation is blocked.\n")
 				}
-				fmt.Println("-----Blocking at:")
+				fmt.Println("-----Blocking/unsafe at:")
 				for _, blockPos := range blockPosComb {
 					if blockPos.pNodeId != emptyPNodeId {
 						inst := paths[blockPos.pathId].Path[blockPos.pNodeId].Node.Instruction()
@@ -300,7 +362,7 @@ func (g SyncGraph) CheckWithZ3() bool {
 
 				for _, blockPos := range blockPosComb {
 					if blockPos.pNodeId != emptyPNodeId {
-						fmt.Println("-----Blocking Path NO.", blockPos.pathId)
+						fmt.Println("-----Blocking/unsafe Path NO.", blockPos.pathId)
 						paths[blockPos.pathId].PrintPPath()
 					} else {
 						fmt.Println("-----Path NO.", blockPos.pathId, "\tEntry func at:", goroutines[blockPos.pathId].EntryFn.String())

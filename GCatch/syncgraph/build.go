@@ -20,7 +20,7 @@ var MapMeetCircularDependPrims map[interface{}]struct{}
 
 var DependMap map[interface{}]*DPrim
 
-func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker []*instinfo.Locker, DMap map[interface{}]*DPrim) (*SyncGraph, error) {
+func BuildGraph(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*instinfo.Locker, DMap map[interface{}]*DPrim) (*SyncGraph, error) {
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -35,7 +35,7 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 	// Before building: add ch into target primitive
 	boolGiveupIfCallgraphIsInaccurate := false // true means if callgraph is inaccurate, we giveup the building. This is consistent with our paper
 	task := newTask(boolGiveupIfCallgraphIsInaccurate)
-	task.Step1AddPrim(ch)
+	task.Step1AddPrim(prim, vecChannel, vecLocker)
 	err := task.Step2CompletePrims()
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 		// create a new goroutine for head_node
 		newGoroutine := newGraph.NewGoroutine(LCA)
 		newGraph.HeadGoroutines = append(newGraph.HeadGoroutines, newGoroutine)
-		// If this LCA contains the make of ch, this is the MainGoroutine
+		// If this LCA contains the make of ch or the value of locker, this is the MainGoroutine
 		boolHasMake := false
 		for _, op := range ops {
 			if _, is_make := op.Op.(*instinfo.ChMake); is_make {
@@ -93,7 +93,10 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 				//return nil, err
 			}
 			newGraph.MainGoroutine = newGoroutine
+		} else if len(vecChannel) == 0 {
+			newGraph.MainGoroutine = newGoroutine
 		}
+
 		// create a new ctx
 		newCtx := newGraph.NewCtx(newGoroutine, LCA)
 		// process the head
@@ -106,9 +109,6 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 
 	for len(newGraph.Worklist) > 0 {
 
-		if ch.MakeInst.Parent().Name() == "TestPipeListener" {
-			fmt.Print()
-		}
 
 		var doThis *Unfinish
 
@@ -212,9 +212,6 @@ func BuildGraph(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker 
 	}
 
 	// check if task is fulfilled
-	if ch.MakeInst.Parent().Name() == "TestPipeListener" {
-		fmt.Print()
-	}
 	newGraph.Task.Update()
 	if newGraph.Task.BoolFinished {
 		//fmt.Println("A graph is finished")

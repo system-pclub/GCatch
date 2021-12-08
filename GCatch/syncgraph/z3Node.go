@@ -118,7 +118,7 @@ func (s *ZNodeBSend) findAllThreadOtherSendRecv() (result []ZNode) {
 			if is_B_send == false && is_B_recv == false {
 				continue
 			}
-			if s.PtrPNode.Node.(SyncOp).MapSyncOp()[znode.PNode().Node.(SyncOp)] {
+			if s.PtrPNode.Node.(SyncOp).MapAliasOp()[znode.PNode().Node.(SyncOp)] {
 				result = append(result, znode)
 			}
 		}
@@ -137,7 +137,7 @@ func (r *ZNodeBRecv) findAllThreadOtherSendRecv() (result []ZNode) {
 			if is_B_send == false && is_B_recv == false {
 				continue
 			}
-			if r.PtrPNode.Node.(SyncOp).MapSyncOp()[znode.PNode().Node.(SyncOp)] {
+			if r.PtrPNode.Node.(SyncOp).MapAliasOp()[znode.PNode().Node.(SyncOp)] {
 				result = append(result, znode)
 			}
 		}

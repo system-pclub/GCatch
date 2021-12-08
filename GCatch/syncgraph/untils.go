@@ -686,8 +686,43 @@ func canSyncOpTriggerGl(op SyncOp) bool {
 		default:
 			return true
 		}
+	case *LockerOp: // lock, unlock
+		switch concrete.Op.(type) {
+		case *instinfo.LockOp:
+			return true
+		default:
+			return false
+		}
 	default:
 		return false
+	}
+}
+
+// lock should be same as unlock, or just 1 above unlock
+func checkLockerOpsLegal(l *instinfo.Locker, ops []Node) bool {
+	var intNumLock, intNumUnlock int
+	for _, op := range ops {
+		switch concrete_node := op.(type) {
+		case *LockerOp:
+			switch concrete_node.Op.(type) {
+			case *instinfo.LockOp:
+				intNumLock++
+			case *instinfo.UnlockOp:
+				intNumUnlock++
+			}
+		}
+	}
+
+	if intNumUnlock == intNumLock {
+		return true
+	} else if intNumUnlock > intNumLock {
+		return false
+	} else { // intNumUnlock < intNumLock
+		if intNumUnlock == intNumLock - 1 {
+			return true
+		} else {
+			return false
+		}
 	}
 }
 

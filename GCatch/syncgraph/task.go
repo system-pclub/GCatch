@@ -51,7 +51,7 @@ func newTask(boolGiveupIfCallgraphInaccurate bool) *Task {
 }
 
 // After this function, a new primitive is added to the task, but TaskPrimitive.Ops are not completed. Need to run Step2CompletePrims after adding all primitives
-func (t *Task) Step1AddPrim(newP interface{}) {
+func (t *Task) Step1AddPrim(newP interface{}, vecChannel []*instinfo.Channel, vecLocker []*instinfo.Locker) {
 	newTPrimitive := &TaskPrimitive{
 		Primitive: newP,
 		Ops:       make(map[interface{}]*ChainsToReachOp),
@@ -61,27 +61,66 @@ func (t *Task) Step1AddPrim(newP interface{}) {
 	t.VecTaskPrimitive = append(t.VecTaskPrimitive, newTPrimitive)
 	t.MapValue2TaskPrimitive[newP] = newTPrimitive
 	thisPrimCh, ok := newP.(*instinfo.Channel)
-	if !ok || thisPrimCh.MakeInst == nil {
+	if ok && thisPrimCh.MakeInst == nil {
 		return
-	}
-	if dPrim, ok := DependMap[newP]; ok {
-		for _, otherPrim := range dPrim.Circular_depend {
-			if otherPrimCh, ok := otherPrim.Primitive.(*instinfo.Channel); ok {
-				if otherPrimCh.MakeInst != nil {
-					if otherPrimCh.MakeInst.Parent() == thisPrimCh.MakeInst.Parent() {
-						otherTPrimitive := &TaskPrimitive{
-							Primitive: otherPrimCh,
-							Ops:       make(map[interface{}]*ChainsToReachOp),
-							Finished:  false,
-							Task:      t,
-						}
-						t.VecTaskPrimitive = append(t.VecTaskPrimitive, otherTPrimitive)
-						t.MapValue2TaskPrimitive[otherPrimCh] = otherTPrimitive
-					}
-				}
-			}
+	} else {
+		thisPrimLocker, ok2 := newP.(*instinfo.Locker)
+		if ok2 && thisPrimLocker.Value == nil {
+			return
 		}
 	}
+	// VERI
+	// skip dependency check, but append all ops
+	for _, otherPrimCh := range vecChannel {
+		if otherPrimCh == newP {
+			continue
+		}
+		if otherPrimCh.MakeInst != nil {
+			otherTPrimitive := &TaskPrimitive{
+				Primitive: otherPrimCh,
+				Ops:       make(map[interface{}]*ChainsToReachOp),
+				Finished:  false,
+				Task:      t,
+			}
+			t.VecTaskPrimitive = append(t.VecTaskPrimitive, otherTPrimitive)
+			t.MapValue2TaskPrimitive[otherPrimCh] = otherTPrimitive
+		}
+	}
+
+	for _, otherPrimLocker := range vecLocker {
+		if otherPrimLocker == newP {
+			continue
+		}
+		if otherPrimLocker.Value != nil {
+			otherTPrimitive := &TaskPrimitive{
+				Primitive: otherPrimLocker,
+				Ops:       make(map[interface{}]*ChainsToReachOp),
+				Finished:  false,
+				Task:      t,
+			}
+			t.VecTaskPrimitive = append(t.VecTaskPrimitive, otherTPrimitive)
+			t.MapValue2TaskPrimitive[otherPrimLocker] = otherTPrimitive
+		}
+	}
+
+	//if dPrim, ok := DependMap[newP]; ok {
+	//	for _, otherPrim := range dPrim.Circular_depend {
+	//		if otherPrimCh, ok := otherPrim.Primitive.(*instinfo.Channel); ok {
+	//			if otherPrimCh.MakeInst != nil {
+	//				if otherPrimCh.MakeInst.Parent() == thisPrimCh.MakeInst.Parent() {
+	//					otherTPrimitive := &TaskPrimitive{
+	//						Primitive: otherPrimCh,
+	//						Ops:       make(map[interface{}]*ChainsToReachOp),
+	//						Finished:  false,
+	//						Task:      t,
+	//					}
+	//					t.VecTaskPrimitive = append(t.VecTaskPrimitive, otherTPrimitive)
+	//					t.MapValue2TaskPrimitive[otherPrimCh] = otherTPrimitive
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
 }
 
 var countInaccurateCall, countMaxLayer int

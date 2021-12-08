@@ -21,9 +21,9 @@ func Detect() {
 	// This is in GCatch/analysis/pointer/utils.go, func mergeAlias()
 	vecChannelOri := pointer.WithdrawAllChan(stPtrResult, vecStOpValue)
 
-	vecLocker := pointer.WithdrawAllTraditionals(stPtrResult, vecStOpValue) // May delete
+	vecLockerOri := pointer.WithdrawAllTraditionals(stPtrResult, vecStOpValue) // May delete
 
-	mapDependency := syncgraph.GenDMap(vecChannelOri, vecLocker) // May delete
+	mapDependency := syncgraph.GenDMap(vecChannelOri, vecLockerOri) // May delete
 
 	vecChannel := []*instinfo.Channel{}
 	for _, ch := range vecChannelOri {
@@ -32,20 +32,54 @@ func Detect() {
 		}
 	}
 
-	if len(vecChannel) == 0 { // Definitely no channel safety of liveness violations
+	vecLocker := []*instinfo.Locker{}
+	for _, l := range vecLockerOri {
+		if OKToCheckLocker(l) {
+			vecLocker = append(vecLocker, l)
+		}
+	}
+
+	if len(vecChannel) == 0 && len(vecLocker) == 0 { // Definitely no channel/mutex safety of liveness violations
 		syncgraph.ReportNoViolation()
 		return
 	}
 
+	if len(vecChannel) > 0 {
+		// Check all channels together. We can just check the first channel from main(), and let all other channels be checked together with it
+		Check(vecChannel[0], vecChannel, vecLocker, mapDependency)
+	} else {
+		Check(vecLocker[0], vecChannel, vecLocker, mapDependency)
+	}
 
-
-	// Check all channels together. We can just check the first channel from main(), and let all other channels be checked together with it
-	CheckCh(vecChannel[0], vecChannel, vecLocker, mapDependency)
 }
 
 var countCh int
 var countUnbufferBug int
 var countBufferBug int
+
+func OKToCheckLocker(locker *instinfo.Locker) (boolCheck bool) {
+	boolCheck = false
+
+	if locker.Value == nil {
+		return
+	}
+	if locker.Value.Parent() == nil {
+		return
+	}
+
+	pkg := locker.Value.Parent().Pkg
+	if pkg == nil {
+		return
+	}
+	pkgOfPkg := pkg.Pkg
+	if pkgOfPkg == nil {
+		return
+	}
+	if config.IsPathIncluded(pkgOfPkg.Path()) == false {
+		return
+	}
+	return true
+}
 
 func OKToCheck(ch *instinfo.Channel) (boolCheck bool) {
 	boolCheck = false
@@ -77,14 +111,14 @@ func OKToCheck(ch *instinfo.Channel) (boolCheck bool) {
 	return
 }
 
-func CheckCh(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker []*instinfo.Locker, mapDependency map[interface{}]*syncgraph.DPrim) {
+func Check(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*instinfo.Locker, mapDependency map[interface{}]*syncgraph.DPrim) {
 	defer func() {
 		if r := recover(); r != nil {
 			return
 		}
 	}()
 
-	syncGraph, err := syncgraph.BuildGraph(ch, vecChannel, vecLocker, mapDependency)
+	syncGraph, err := syncgraph.BuildGraph(prim, vecChannel, vecLocker, mapDependency)
 	if err != nil { // Met some error
 		if config.Print_Debug_Info {
 			fmt.Println("-----count_ch:", countCh)
@@ -101,10 +135,16 @@ func CheckCh(ch *instinfo.Channel, vecChannel []*instinfo.Channel, vecLocker []*
 
 	syncGraph.EnumerateAllPathCombinations()
 
-	if ch.Buffer == instinfo.DynamicSize {
-		// If this is a buffered channel with dynamic size and no critical section is found, skip this channel
-		syncgraph.ReportNotSure()
-	} else {
+	boolSkip := false
+	if primCh, ok := prim.(*instinfo.Channel);ok  {
+		if primCh.Buffer == instinfo.DynamicSize {
+			// If this is a buffered channel with dynamic size and no critical section is found, skip this channel
+			syncgraph.ReportNotSure()
+			boolSkip = true
+		}
+	}
+
+	if boolSkip == false {
 		foundBug := syncGraph.CheckWithZ3()
 		if foundBug {
 			syncgraph.ReportViolation()

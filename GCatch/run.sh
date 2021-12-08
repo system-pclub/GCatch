@@ -5,6 +5,7 @@
 # GCatch currently only supports GOPATH instead of go.mod due to legacy issues
 # GCatch turns off the usage of go module
 # The project to be checked must be located in the corresponding GOPATH
+echo "Running experiments for ECOOP submission"
 
 echo "Make sure you have run installZ3.sh and then install.sh"
 echo "This script takes two parameters:"
@@ -37,9 +38,18 @@ fi
 export GO111MODULE=off
 
 echo "Step 1: setting GOPATH"
-export GOPATH=$1
+export GOPATH=$CURDIR/testdata/ecoop
 echo "GOPATH is set to $GOPATH"
 echo ""
-echo "Step 2: running GCatch on the input program"
-echo "$GCATCH -path=$GOPATH/src/$2 -include=$2 -checker=BMOC -compile-error"
-$GCATCH -path="$GOPATH"/src/$2 -include=$2 -checker=BMOC -compile-error
+echo "Step 2: running GCatch on 7 input programs"
+
+listVar="figure1 figure2 figure12_1 figure12_2 figure12_3 figure13_1 figure13_2"
+for i in $listVar; do
+  echo "========================================================"
+  echo "===============Running GCatch on $i============="
+    echo "========================================================"
+    echo "$GCATCH -path=$GOPATH/src/$i -include=$i -checker=BMOC -compile-error"
+    $GCATCH -path="$GOPATH"/src/$i -include=$i -checker=BMOC -compile-error
+    echo ""
+    echo ""
+done
