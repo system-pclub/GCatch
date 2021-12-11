@@ -249,7 +249,7 @@ func (g SyncGraph) CheckWithZ3() bool {
 			}
 		}
 
-		fmt.Println("==========\nallBlockPosComb:", allBlockPosComb, "\n\n")
+		//fmt.Println("==========\nallBlockPosComb:", allBlockPosComb, "\n\n")
 
 		// For every blocking op of target prim on any path
 		for i := 0; i < len(allBlockPosComb); i++ {
