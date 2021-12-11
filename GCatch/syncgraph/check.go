@@ -175,9 +175,9 @@ func (g SyncGraph) CheckWithZ3() bool {
 
 		allBlockPosComb := []map[int]blockingPos{}
 
-		mapIndices := make(map[int]int)
-		for pathId, _ := range pathId2AllBlockPos {
-			mapIndices[pathId] = 0
+		mapIndices := []int{}
+		for _, _ = range pathId2AllBlockPos {
+			mapIndices = append(mapIndices, 0)
 		}
 		for {
 			newComb := make(map[int]blockingPos)
@@ -191,13 +191,13 @@ func (g SyncGraph) CheckWithZ3() bool {
 						fmt.Println("Panic when enumerate blockPos combination: Node is not SyncOp")
 						panic(1)
 					}
-					for pathId, otherBlockPos := range newComb {
-						if otherBlockPos.pNodeId == emptyPNodeId {
+					for otherPathId, otherBlockPos := range newComb {
+						if otherBlockPos.pNodeId == emptyPNodeId || otherPathId == pathId {
 							continue
 						}
-						pPath := paths[pathId]
-						otherSyncNode, ok := pPath.Path[otherBlockPos.pNodeId].Node.(SyncOp)
-						if !ok {
+						otherPath := paths[otherPathId]
+						otherSyncNode, ok2 := otherPath.Path[otherBlockPos.pNodeId].Node.(SyncOp)
+						if !ok2 {
 							fmt.Println("Panic when enumerate blockPos combination: Node is not SyncOp")
 							panic(1)
 						}
@@ -226,8 +226,8 @@ func (g SyncGraph) CheckWithZ3() bool {
 			}
 
 			nextPathId := -1
-			for pathId, indice := range mapIndices {
-				if indice >= len(pathId2AllBlockPos[pathId])-1 {
+			for pathId, indice_ := range mapIndices {
+				if indice_ >= len(pathId2AllBlockPos[pathId])-1 {
 					continue
 				} else {
 					nextPathId = pathId
@@ -248,6 +248,8 @@ func (g SyncGraph) CheckWithZ3() bool {
 				mapIndices[pathId] = 0
 			}
 		}
+
+		fmt.Println("==========\nallBlockPosComb:", allBlockPosComb, "\n\n")
 
 		// For every blocking op of target prim on any path
 		for i := 0; i < len(allBlockPosComb); i++ {
