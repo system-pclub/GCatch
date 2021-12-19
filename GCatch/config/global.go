@@ -42,3 +42,4 @@ var Inst2CallSite map[ssa.CallInstruction]map[*callgraph.Edge]bool
 
 // Global variables used by BMOC checker
 var MapHashOfCheckedCh map[string]struct{}
+var BoolChSafety bool = false

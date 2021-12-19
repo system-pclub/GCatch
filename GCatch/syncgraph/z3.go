@@ -65,6 +65,7 @@ func (b *ZNodeBasic) UpdateOrder(i z3.Int) {
 
 type ZNodeNbSend struct {
 	ZNodeBasic
+	Closes []*ZNodeClose
 	Pairs []*ZSendRecvPair
 }
 
@@ -78,6 +79,7 @@ type ZNodeNbRecv struct {
 type ZNodeBSend struct {
 	Buffer   z3.Int
 	Other_SR []ZNode
+	IsLock   bool
 	ZNodeBasic
 }
 
@@ -86,6 +88,7 @@ type ZNodeBRecv struct {
 	Other_SR   []ZNode
 	Closes     []*ZNodeClose
 	From_close z3.Bool
+	IsUnlock   bool
 	ZNodeBasic
 }
 
@@ -224,6 +227,11 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 		flagMetBlocking := false
 		for _, pNode := range Zthread.PtrPPath.Path {
 
+			// probably not useful
+			if pNode.Executed == false && pNode.Blocked == false {
+				continue
+			}
+
 			var isBlocking, isOriginBlocking bool
 			_, isOriginBlocking = blockingPNodes[pNode]
 			isBlocking = isOriginBlocking || flagMetBlocking // this node is blocking if it is in the blockingPNodes or
@@ -266,6 +274,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 							newZnode = &ZNodeNbSend{
 								ZNodeBasic: newBasic,
 								Pairs:      nil,
+								Closes:     nil,
 							}
 						case *instinfo.ChRecv:
 							newZnode = &ZNodeNbRecv{
@@ -287,11 +296,13 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 							newZnode = &ZNodeBSend{
 								Buffer:     buffer,
 								ZNodeBasic: newBasic,
+								IsLock: false,
 							}
 						case *instinfo.ChRecv:
 							newZnode = &ZNodeBRecv{
 								Buffer:     buffer,
 								ZNodeBasic: newBasic,
+								IsUnlock:   false,
 							}
 						case *instinfo.ChClose:
 							newZnode = &ZNodeClose{
@@ -337,11 +348,21 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 		}
 	}
 
+	// For a ch panic bug, we need at least one panic
+	ZBoolHasChPanic := z.Z3Ctx.FromBool(false)
+
 	// fill Pairs for some ZNodes
 	// each blocking sync op need a list of pairing ops
 	for _, Zthread := range z.vecZGoroutines {
 		for _, znode := range Zthread.Nodes {
 			switch concrete := znode.(type) {
+			case *ZNodeClose:
+				if config.BoolChSafety {
+					// If there are multiple closes, we already found a panic bug
+					if len(concrete.findAllThreadCloses()) > 1 {
+						ZBoolHasChPanic = z.Z3Ctx.FromBool(true)
+					}
+				}
 			case *ZNodeNbSend:
 				// get recv of the same channel on other threads
 				vecOtherThreadRecvs := concrete.findOtherThreadRecvs()
@@ -359,6 +380,13 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 						concrete.Pairs = append(concrete.Pairs, newPair)
 						recv.Pairs = append(recv.Pairs, newPair)
 						z.vecZSendRecvPairs = append(z.vecZSendRecvPairs, newPair)
+					}
+				}
+				if config.BoolChSafety {
+					// get closes of the same channel on any threads. Note that send will be influenced by close on the same thread
+					vecAllThreadCloses := concrete.findAllThreadCloses()
+					for _, zclose := range vecAllThreadCloses {
+						concrete.Closes = append(concrete.Closes, zclose)
 					}
 				}
 			case *ZNodeNbRecv:
@@ -482,8 +510,12 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 					allPairChosen = append(allPairChosen, pair.boolUseThisPair)
 				}
 				var syncOfThisSend z3.Bool
-				if znode.IsBlocking() { // a blocking op is not executed, and can't sync with anyone
+				if znode.IsBlocking() { // a blocking op is not executed, and can't sync with anyone. It may panic
 					syncOfThisSend = z.noneIsTrue(allPairChosen)
+					for _, ZClose := range concrete.Closes {
+						ZBoolSendAfterClose := ZClose.Order.LE(concrete.Order)
+						ZBoolHasChPanic = ZBoolHasChPanic.Or(ZBoolSendAfterClose)
+					}
 				} else {
 					// sync of send == one and only one of pair.Sync is true
 					syncOfThisSend = z.onlyOneTrue(allPairChosen)
@@ -553,6 +585,11 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos) error {
 			}
 		}
 	}
+
+	if config.BoolChSafety { // if we want to check panic bugs, we require Z3 to find the panic. This will make the program only check panic bugs
+		z.Constraints.SyncOfOp = append(z.Constraints.SyncOfOp, ZBoolHasChPanic)
+	}
+
 	for _, SRpair := range z.vecZSendRecvPairs {
 		// pair.Sync is true ==> (send.Order == recv.Order) && (send.Value == recv.Value)
 		infer := SRpair.boolUseThisPair.Implies(SRpair.Send.Order.Eq(SRpair.Recv.Order))

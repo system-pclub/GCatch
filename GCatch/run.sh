@@ -47,5 +47,5 @@ echo "Optional Flag: -vendor=Packages that will be ignored, divided by \":\".   
 echo ""
 echo "Step 2: running GCatch on a buggy version of grpc in testdata"
 echo "Note: all bugs reported below should be real BMOC bugs"
-echo "$GCATCH -path=$GOPATH/src/google.golang.org/grpc -include=google.golang.org/grpc -checker=BMOC -r"
-$GCATCH -path="$GOPATH"/src/google.golang.org/grpc -include=google.golang.org/grpc -checker=BMOC -r
+echo "GO111MODULE=off $GCATCH -path=$GOPATH/src/google.golang.org/grpc -include=google.golang.org/grpc -checker=BMOC -r"
+GO111MODULE=off $GCATCH -path="$GOPATH"/src/google.golang.org/grpc -include=google.golang.org/grpc -checker=BMOC -r
