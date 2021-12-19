@@ -44,6 +44,42 @@ func (g SyncGraph) CheckWithZ3() bool {
 			paths = append(paths, newPath)
 		}
 
+		if config.BoolChSafety {
+			// Check if the program has double close
+			vecClose := []*instinfo.ChClose{}
+			for _, pPath := range paths {
+				for _, pNode := range pPath.Path {
+					syncNode, ok := pNode.Node.(SyncOp)
+					if !ok {
+						continue
+					}
+					if g.Task.IsPrimATarget(syncNode.Primitive()) {
+						if op, ok := syncNode.(*ChanOp);ok {
+							if chClose, ok := op.Op.(*instinfo.ChClose); ok {
+								vecClose = append(vecClose, chClose)
+							}
+						}
+					}
+				}
+			}
+
+			for _, aClose := range vecClose {
+				for _, bClose := range vecClose {
+					if aClose == bClose {
+						continue
+					}
+					if aClose.Parent == bClose.Parent {
+						config.BugIndex++
+						fmt.Print("----------Bug[")
+						fmt.Print(config.BugIndex)
+						fmt.Print("]----------\n\tType: Channel Safety \tReason: Double close.\n")
+						return true
+					}
+				}
+			}
+		}
+
+
 		// List all blocking op of target channel on any path
 		pathId2AllBlockPos := make(map[int][]blockingPos)
 
@@ -73,14 +109,14 @@ func (g SyncGraph) CheckWithZ3() bool {
 
 		allBlockPosComb := []map[int]blockingPos{}
 
-		mapIndices := make(map[int]int)
-		for pathId, _ := range pathId2AllBlockPos {
-			mapIndices[pathId] = 0
+		vecIndex := []int{}
+		for _, _ = range pathId2AllBlockPos {
+			vecIndex = append(vecIndex, 0)
 		}
 		for {
 			newComb := make(map[int]blockingPos)
 			boolCanSync := false
-			for pathId, indice := range mapIndices {
+			for pathId, indice := range vecIndex {
 				blockPos := pathId2AllBlockPos[pathId][indice]
 				if blockPos.pNodeId != emptyPNodeId {
 					// check if blockPos can sync with a previous blockPos
@@ -89,13 +125,13 @@ func (g SyncGraph) CheckWithZ3() bool {
 						fmt.Println("Panic when enumerate blockPos combination: Node is not SyncOp")
 						panic(1)
 					}
-					for pathId, otherBlockPos := range newComb {
-						if otherBlockPos.pNodeId == emptyPNodeId {
+					for otherPathId, otherBlockPos := range newComb {
+						if otherBlockPos.pNodeId == emptyPNodeId || otherPathId == pathId {
 							continue
 						}
-						pPath := paths[pathId]
-						otherSyncNode, ok := pPath.Path[otherBlockPos.pNodeId].Node.(SyncOp)
-						if !ok {
+						otherPath := paths[otherPathId]
+						otherSyncNode, ok2 := otherPath.Path[otherBlockPos.pNodeId].Node.(SyncOp)
+						if !ok2 {
 							fmt.Println("Panic when enumerate blockPos combination: Node is not SyncOp")
 							panic(1)
 						}
@@ -124,8 +160,8 @@ func (g SyncGraph) CheckWithZ3() bool {
 			}
 
 			nextPathId := -1
-			for pathId, indice := range mapIndices {
-				if indice >= len(pathId2AllBlockPos[pathId])-1 {
+			for pathId, indice_ := range vecIndex {
+				if indice_ >= len(pathId2AllBlockPos[pathId])-1 {
 					continue
 				} else {
 					nextPathId = pathId
@@ -137,18 +173,21 @@ func (g SyncGraph) CheckWithZ3() bool {
 				break
 			}
 
-			mapIndices[nextPathId] += 1
+			vecIndex[nextPathId] += 1
 
-			for pathId, _ := range mapIndices {
+			for pathId, _ := range vecIndex {
 				if pathId == nextPathId {
 					break
 				}
-				mapIndices[pathId] = 0
+				vecIndex[pathId] = 0
 			}
 		}
 
 		// For every blocking op of target channel on any path
-		for _, blockPosComb := range allBlockPosComb {
+		for i := 0; i < len(allBlockPosComb); i++ {
+			var blockPosComb map[int]blockingPos
+			blockPosComb = allBlockPosComb[i]
+
 			for _, blockPos := range blockPosComb {
 				if blockPos.pNodeId != emptyPNodeId {
 					inst := paths[blockPos.pathId].Path[blockPos.pNodeId].Node.Instruction()
@@ -159,9 +198,9 @@ func (g SyncGraph) CheckWithZ3() bool {
 				}
 			}
 			// Make some paths block and other paths exit
-			for i, path := range paths {
-				blockPos := blockPosComb[i]
-				if blockPos.pNodeId != emptyPNodeId {
+			for j, path := range paths {
+				blockPos, exist := blockPosComb[j]
+				if exist && blockPos.pNodeId != emptyPNodeId {
 					path.SetBlockAt(blockPos.pNodeId)
 				} else {
 					path.SetAllReached()
@@ -201,6 +240,8 @@ func (g SyncGraph) CheckWithZ3() bool {
 					flagSyncRuleSatisfied = checkChOpsLegal(prim, nodes)
 				case *instinfo.Locker:
 					// Do we really need a rule for Locker?
+					// let's add it anyway
+					flagSyncRuleSatisfied = checkLockerOpsLegal(prim, nodes)
 				}
 				if flagSyncRuleSatisfied == false {
 					break
@@ -218,19 +259,41 @@ func (g SyncGraph) CheckWithZ3() bool {
 				}
 				vecBlockingPos = append(vecBlockingPos, blockPos)
 			}
-			z3Sys := NewZ3ForGl()
-			z3Sat := z3Sys.Z3Main(paths, vecBlockingPos)
+			var foundBug bool = false
+			if config.BoolChSafety {
+				config.BoolChSafety = false
+				// first run, check only blocking of ch or lock
+				z3Sys := NewZ3ForGl()
+				z3Sat1 := z3Sys.Z3Main(paths, vecBlockingPos)
+
+				config.BoolChSafety = true
+				// second run, also check ch safety bugs
+				z3Sys2 := NewZ3ForGl()
+				z3Sat2 := z3Sys2.Z3Main(paths, vecBlockingPos)
+
+				foundBug = z3Sat1 || z3Sat2
+			} else {
+				z3Sys := NewZ3ForGl()
+				z3Sat := z3Sys.Z3Main(paths, vecBlockingPos)
+
+				foundBug = z3Sat
+			}
 
 			// Report a bug
-			if z3Sat {
+			if foundBug {
 				//z3Sys.PrintAssert()
 				config.BugIndexMu.Lock()
 				config.BugIndex++
 				fmt.Print("----------Bug[")
 				fmt.Print(config.BugIndex)
 				config.BugIndexMu.Unlock()
-				fmt.Print("]----------\n\tType: BMOC \tReason: One or multiple channel operation is blocked.\n")
-				fmt.Println("-----Blocking at:")
+				if config.BoolChSafety {
+					fmt.Print("]----------\n\tType: BMOC/Channel Safety \tReason: One or multiple channel operation is blocked/panic.\n")
+					fmt.Println("-----Blocking/Panic at:")
+				} else {
+					fmt.Print("]----------\n\tType: BMOC \tReason: One or multiple channel operation is blocked.\n")
+					fmt.Println("-----Blocking at:")
+				}
 				for _, blockPos := range blockPosComb {
 					if blockPos.pNodeId != emptyPNodeId {
 						inst := paths[blockPos.pathId].Path[blockPos.pNodeId].Node.Instruction()
