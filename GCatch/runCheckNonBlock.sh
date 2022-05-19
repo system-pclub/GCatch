@@ -53,3 +53,4 @@ echo ""
 echo "-----Step 2.2: running GCatch on testdata/toyprogram/src/sendAfterClose"
 echo "GO111MODULE=off $GCATCH -path="$GOPATH"/src/sendAfterClose -include=sendAfterClose -checker=BMOC:NBMOC -r"
 GO111MODULE=off $GCATCH -path="$GOPATH"/src/sendAfterClose -include=sendAfterClose -checker=BMOC:NBMOC -r
+
