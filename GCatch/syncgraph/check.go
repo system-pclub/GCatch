@@ -73,7 +73,7 @@ func (g SyncGraph) CheckWithZ3() bool {
 						fmt.Print("----------Bug[")
 						fmt.Print(config.BugIndex)
 						fmt.Print("]----------\n\tType: Channel Safety \tReason: Double close.\n")
-						fmt.Println("First close:")
+						fmt.Println("Location of closes:")
 						output.PrintIISrc(aClose.Inst)
 						output.PrintIISrc(bClose.Inst)
 						return true
