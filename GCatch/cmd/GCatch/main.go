@@ -67,7 +67,7 @@ func main() {
 		case "unlock": forgetunlock.Initialize()
 		case "double": doublelock.Initialize()
 		case "conflict", "structfield", "fatal", "BMOC": // no need to initialize these checkers
-		case "chSafety":
+		case "NBMOC":
 			config.BoolChSafety = true
 		default:
 			fmt.Println("Warning, a not existing checker is in -checker= flag:", strCheckerName)
