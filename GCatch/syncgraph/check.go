@@ -73,6 +73,9 @@ func (g SyncGraph) CheckWithZ3() bool {
 						fmt.Print("----------Bug[")
 						fmt.Print(config.BugIndex)
 						fmt.Print("]----------\n\tType: Channel Safety \tReason: Double close.\n")
+						fmt.Println("First close:")
+						output.PrintIISrc(aClose.Inst)
+						output.PrintIISrc(bClose.Inst)
 						return true
 					}
 				}
@@ -305,7 +308,7 @@ func (g SyncGraph) CheckWithZ3() bool {
 
 				for _, blockPos := range blockPosComb {
 					if blockPos.pNodeId != emptyPNodeId {
-						fmt.Println("-----Blocking Path NO.", blockPos.pathId)
+						fmt.Println("-----Blocking/Panic Path NO.", blockPos.pathId)
 						paths[blockPos.pathId].PrintPPath()
 					} else {
 						fmt.Println("-----Path NO.", blockPos.pathId, "\tEntry func at:", goroutines[blockPos.pathId].EntryFn.String())

@@ -454,7 +454,7 @@ func (p *PPath) PrintPPath() {
 		fmt.Print(strTypeMsg)
 		fmt.Print(" :", output.GetLoc(pn.Node.Instruction()))
 		if pn.Blocked {
-			fmt.Print("\t Blocking")
+			fmt.Print("\t Blocking/Panic")
 		} else if pn.Executed {
 			fmt.Printf("\t %q", tick)
 		} else {
