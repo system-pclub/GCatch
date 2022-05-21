@@ -11,7 +11,7 @@ func newClient() *client {
 	return c
 }
 
-func (c *client) closeClient() {
+func (c *client) closeClient1() {
 	select {
 	case <-c.closed:
 	default:
@@ -19,22 +19,39 @@ func (c *client) closeClient() {
 	}
 }
 
+func (c *client) closeClient2() {
+	close(c.closed)
+}
+
 
 func test1() {
 	c := newClient()
 
 	go func() {
-		c.closeClient()
+		c.closeClient1()
 	}()
 
 	go func() {
-		c.closeClient()
+		c.closeClient1()
+	}()
+}
+
+func test2() {
+	c := newClient()
+
+	go func() {
+		c.closeClient2()
+	}()
+
+	go func() {
+		c.closeClient2()
 	}()
 }
 
 
 func main() {
 	test1()
+	test2()
 	c1 := make(chan int)
 	go func() {
 		close(c1)
