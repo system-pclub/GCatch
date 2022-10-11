@@ -8,9 +8,6 @@
 echo "Running experiments for ECOOP submission"
 
 echo "Make sure you have run installZ3.sh and then install.sh"
-echo "This script takes two parameters:"
-echo "\tThe first parameter should be the GOPATH of the target program you want to verify"
-echo "\tThe second parameter should be the relative path (what is after GOPATH/src/) of the target program"
 
 # check if z3 installed
 if ! command -v z3 >/dev/null; then
@@ -34,6 +31,8 @@ if ! test -f "$GCATCH"; then
   exit 1
 fi
 
+echo GCatch path: $GCATCH
+
 # turn off go mod before checking
 export GO111MODULE=off
 
@@ -41,13 +40,13 @@ echo "Step 1: setting GOPATH"
 export GOPATH=$CURDIR/testdata/ecoop
 echo "GOPATH is set to $GOPATH"
 echo ""
-echo "Step 2: running GCatch+ on 8 input programs"
-
+echo "Step 2: running GCatch on 7 input programs"
 
 listVar="figure1 figure2 figure2_translate figure12_1 figure12_2 figure12_3 figure13_1 figure13_2"
+# listVar="figure2 figure2_translate"
 for i in $listVar; do
   echo "========================================================"
-  echo "===============Running GCatch+ on $i============="
+  echo "===============Running GCatch on $i============="
     echo "========================================================"
     echo "$GCATCH -path=$GOPATH/src/$i -include=$i -checker=BMOC -compile-error"
     $GCATCH -path="$GOPATH"/src/$i -include=$i -checker=BMOC -compile-error
@@ -55,7 +54,20 @@ for i in $listVar; do
     echo ""
 done
 
+echo "Step 1: setting GOPATH"
+export GOPATH=$CURDIR/testdata/gobench
+echo "GOPATH is set to $GOPATH"
 echo ""
-echo ""
-echo "End of running GCatch+"
-echo "Note: in the output above, you should see 8 \"----------Bug[1]----------\""
+echo "Step 2: running GCatch on 7 input programs"
+
+listVar="etcd/7902 etcd/6873 etcd/7492 etcd/7443 istio/16224 moby/28462 kubernetes/6632 kubernetes/26980 kubernetes/10182 kubernetes/1321 serving/2137 grpc/1353 grpc/1460"
+for i in $listVar; do
+  echo "========================================================"
+  echo "===============Running GCatch on $i============="
+    echo "========================================================"
+    echo "$GCATCH -path=$GOPATH/src/$i -include=$i -checker=BMOC -compile-error"
+    $GCATCH -path="$GOPATH"/src/$i -include=$i -checker=BMOC -compile-error
+    echo ""
+    echo ""
+done
+ 

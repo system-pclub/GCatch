@@ -9,8 +9,6 @@ import (
 	"strconv"
 )
 
-
-
 func Detect() {
 	stPtrResult, vecStOpValue := pointer.AnalyzeAllSyncOp()
 	if stPtrResult == nil || vecStOpValue == nil {
@@ -136,9 +134,10 @@ func Check(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*instin
 	syncGraph.EnumerateAllPathCombinations()
 
 	boolSkip := false
-	if primCh, ok := prim.(*instinfo.Channel);ok  {
+	if primCh, ok := prim.(*instinfo.Channel); ok {
 		if primCh.Buffer == instinfo.DynamicSize {
 			// If this is a buffered channel with dynamic size and no critical section is found, skip this channel
+			fmt.Println("Contains dynamic sized buffered channel.")
 			syncgraph.ReportNotSure()
 			boolSkip = true
 		}

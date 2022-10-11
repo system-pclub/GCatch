@@ -7,6 +7,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"strconv"
+	"strings"
 )
 
 var LcaErrReachedMax = fmt.Errorf("Reached max layer number")
@@ -134,7 +135,7 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 		}
 
 		for node, intNumChains := range mapNode2NumChain {
-			if intNumChains == intActiveChains && node.Func.Name() == "main" {
+			if intNumChains == intActiveChains && (node.Func.Name() == "main" || strings.HasPrefix(node.Func.Name(), "Test")) {
 				// Now we find one LCA main that can cover every target
 				oneLca := node.Func
 				result := make(map[*ssa.Function][]*EdgeChain)

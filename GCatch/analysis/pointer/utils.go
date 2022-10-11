@@ -42,8 +42,8 @@ func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *mypointer.Resul
 				}
 			}
 			if boolNotSure {
-				syncgraph.ReportNotSure()
 				fmt.Println("Verification reports not sure because of inaccurate pointer analysis in:\n" + strDebugNotSure)
+				syncgraph.ReportNotSure()
 
 				os.Exit(1)
 			}
@@ -66,7 +66,7 @@ func boolIsInContext(v ssa.Value) bool {
 		return false
 	}
 	strPkg := v.Parent().Pkg.Pkg.Path()
-	if strPkg == "context" || strings.Contains(strPkg,"golang.org/x/net/context") { // some people still
+	if strPkg == "context" || strings.Contains(strPkg, "golang.org/x/net/context") { // some people still
 		// import golang.org/x/net/context
 		return true
 	}
