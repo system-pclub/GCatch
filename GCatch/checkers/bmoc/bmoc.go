@@ -121,7 +121,7 @@ func Check(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*instin
 		if config.Print_Debug_Info {
 			fmt.Println("-----count_ch:", countCh)
 		}
-		fmt.Println("Error when building graph", err.Error())
+		fmt.Println("Error when building graph: ", err.Error())
 		syncgraph.ReportNotSure()
 		return
 	}

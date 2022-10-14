@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
-	"github.com/system-pclub/GCatch/GCatch/syncgraph"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/mypointer"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -18,7 +16,7 @@ func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *mypointer.Resul
 		labels := stPtrResult.Queries[instValue.Value].PointsTo().Labels()
 		if len(labels) > 1 {
 			boolNotSure := false
-			strDebugNotSure := ""
+			locLabel := ""
 			for _, label := range labels {
 				if value := label.Value(); value == nil {
 					continue
@@ -34,18 +32,18 @@ func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *mypointer.Resul
 				if pkgOfPkg == nil {
 					continue
 				}
+				locLabel = getFileAndLocString(label.Value())
+				//fmt.Printf("%+v %+v %s ", getFileAndLocString(instValue.Value), label, locLabel)
+				//fmt.Println(pkgOfPkg.Path())
 				if config.IsPathIncluded(pkgOfPkg.Path()) {
 					boolNotSure = true
-					p := config.Prog.Fset.Position(label.Value().Pos())
-					strDebugNotSure = p.Filename + ":" + strconv.Itoa(p.Line)
 					break
 				}
 			}
 			if boolNotSure {
-				fmt.Println("Verification reports not sure because of inaccurate pointer analysis in:\n" + strDebugNotSure)
-				syncgraph.ReportNotSure()
-
-				os.Exit(1)
+				fmt.Println("Verification result is inaccurate because of possible inaccurate pointer analysis in:\n" + locLabel)
+				//syncgraph.ReportNotSure()
+				//os.Exit(1)
 			}
 		}
 		for _, label := range labels {
@@ -59,6 +57,12 @@ func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *mypointer.Resul
 	}
 
 	return
+}
+
+func getFileAndLocString(label ssa.Value) string {
+	p := config.Prog.Fset.Position(label.Pos())
+	strDebugNotSure := p.Filename + ":" + strconv.Itoa(p.Line)
+	return strDebugNotSure
 }
 
 func boolIsInContext(v ssa.Value) bool {

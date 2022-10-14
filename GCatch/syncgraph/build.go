@@ -67,8 +67,8 @@ func BuildGraph(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*i
 					if config.DISABLE_OPTIMIZATION_CALLEES {
 						break
 					}
-					err := fmt.Errorf("range of channel")
-					return nil, err
+					fmt.Println("Program contains for loop on channels. The result could be inaccurate.")
+					// return nil, err
 				}
 			}
 		}
@@ -108,7 +108,6 @@ func BuildGraph(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*i
 	vecHandledUnfinish := []*Unfinish{}
 
 	for len(newGraph.Worklist) > 0 {
-
 
 		var doThis *Unfinish
 

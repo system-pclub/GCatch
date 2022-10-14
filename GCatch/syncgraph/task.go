@@ -8,6 +8,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/path"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+	"strconv"
 )
 
 type Task struct {
@@ -125,6 +126,21 @@ func (t *Task) Step1AddPrim(newP interface{}, vecChannel []*instinfo.Channel, ve
 
 var countInaccurateCall, countMaxLayer int
 
+func PrintLCA2PathForDebugging(Lca2Path map[*ssa.Function][]*path.EdgeChain) {
+	for ssaFunc, edgeChains := range Lca2Path {
+		for _, edgeChain := range edgeChains {
+			fmt.Print(ssaFunc.Name())
+			for _, edge := range edgeChain.Chain {
+				p := config.Prog.Fset.Position(edge.Site.Pos())
+				lineNo := strconv.Itoa(p.Line)
+				fmt.Printf("--%s-->%s", lineNo, edge.Callee.Func.Name())
+			}
+			fmt.Println()
+		}
+
+	}
+}
+
 // After adding all primitives that we want, complete everything in each TaskPrimitive.Ops
 func (t *Task) Step2CompletePrims() error {
 
@@ -143,7 +159,8 @@ func (t *Task) Step2CompletePrims() error {
 		}
 	}
 
-	LCA2paths, err := path.FindLCA(fnsForInstsNoDupli(vecOpInsts), t.BoolGiveupIfCallgraphInaccurate, true, 20)
+	LCA2paths, err := path.FindLCA(fnsForInstsNoDupli(vecOpInsts), t.BoolGiveupIfCallgraphInaccurate, true, 50)
+	PrintLCA2PathForDebugging(LCA2paths)
 	if err != nil {
 		//if err == path.ErrInaccurateCallgraph {
 		//	fmt.Println("Task: Give up LCA because callgraph is inaccurate. Count:", countInaccurateCall)
