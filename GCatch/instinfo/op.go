@@ -26,9 +26,10 @@ func GetCallName(call *ssa.CallCommon) string {
 	return ""
 }
 
-type StOpValue struct {
-	Inst ssa.Instruction
-	Value ssa.Value
+// SyncOpInfo records information of a synchronization operation (Op in the paper).
+type SyncOpInfo struct {
+	Inst    ssa.Instruction
+	Value   ssa.Value
 	Comment string
 }
 
@@ -43,7 +44,7 @@ func ScanInstFindLockerValue(inst ssa.Instruction) (v ssa.Value, comment string)
 	if inst.Parent().Pkg == nil {
 		return
 	}
-	instCall,ok := inst.(ssa.CallInstruction)
+	instCall, ok := inst.(ssa.CallInstruction)
 	if !ok {
 		return
 	}
@@ -64,9 +65,9 @@ func ScanInstFindLockerValue(inst ssa.Instruction) (v ssa.Value, comment string)
 			if len(args) == 0 {
 				return
 			}
-			return args[0],Unlock
+			return args[0], Unlock
 		} else {
-			return instCall.Common().Value,Unlock
+			return instCall.Common().Value, Unlock
 		}
 	default:
 		return
@@ -74,9 +75,9 @@ func ScanInstFindLockerValue(inst ssa.Instruction) (v ssa.Value, comment string)
 }
 
 // ScanInstFindChanValue return multiple values and strings, only when inst is Select
-func ScanInstFindChanValue(inst ssa.Instruction) ([]ssa.Value,[]string) {
+func ScanInstFindChanValue(inst ssa.Instruction) ([]ssa.Value, []string) {
 	if inst.Parent().Pkg == nil {
-		return nil,nil
+		return nil, nil
 	}
 
 	boolIsClose := IsChanClose(inst)
@@ -84,18 +85,18 @@ func ScanInstFindChanValue(inst ssa.Instruction) ([]ssa.Value,[]string) {
 	var ssaValueOfPrimitive ssa.Value
 	switch concrete := inst.(type) {
 	case *ssa.Send:
-		return []ssa.Value{concrete.Chan},[]string{Send}
+		return []ssa.Value{concrete.Chan}, []string{Send}
 	case *ssa.UnOp:
 		if concrete.Op == token.ARROW {
-			return []ssa.Value{concrete.X},[]string{Recv}
+			return []ssa.Value{concrete.X}, []string{Recv}
 		}
 	case ssa.CallInstruction:
 		if boolIsClose {
-			return concrete.Common().Args,[]string{Close}
+			return concrete.Common().Args, []string{Close}
 		}
 	case *ssa.MakeChan:
 		ssaValueOfPrimitive = concrete
-		return []ssa.Value{ssaValueOfPrimitive},[]string{MakeChan}
+		return []ssa.Value{ssaValueOfPrimitive}, []string{MakeChan}
 	case *ssa.Select:
 		// Return one value and comment for each case in Select
 		vecSsaValue := []ssa.Value{}
@@ -104,29 +105,27 @@ func ScanInstFindChanValue(inst ssa.Instruction) ([]ssa.Value,[]string) {
 			vecSsaValue = append(vecSsaValue, state.Chan)
 			if concrete.Blocking {
 				if state.Dir == types.SendOnly {
-					vecComment = append(vecComment,"Blocking_Select_Send_"+strconv.Itoa(i))
+					vecComment = append(vecComment, "Blocking_Select_Send_"+strconv.Itoa(i))
 				} else {
-					vecComment = append(vecComment,"Blocking_Select_Recv_"+strconv.Itoa(i))
+					vecComment = append(vecComment, "Blocking_Select_Recv_"+strconv.Itoa(i))
 				}
 			} else {
 				if state.Dir == types.SendOnly {
-					vecComment = append(vecComment,"Non_Blocking_Select_Send_"+strconv.Itoa(i))
+					vecComment = append(vecComment, "Non_Blocking_Select_Send_"+strconv.Itoa(i))
 				} else {
-					vecComment = append(vecComment,"Non_Blocking_Select_Recv_"+strconv.Itoa(i))
+					vecComment = append(vecComment, "Non_Blocking_Select_Recv_"+strconv.Itoa(i))
 				}
 			}
 		}
 		return vecSsaValue, vecComment
 	}
 
-	return nil,nil
+	return nil, nil
 }
 
 func IsChanClose(inst ssa.Instruction) bool {
 	var call *ssa.CallCommon
 	instCall, ok := inst.(*ssa.Call)
-
-
 
 	if ok {
 		call = instCall.Common()

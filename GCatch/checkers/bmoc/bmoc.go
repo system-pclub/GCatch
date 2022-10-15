@@ -10,16 +10,16 @@ import (
 )
 
 func Detect() {
-	stPtrResult, vecStOpValue := pointer.AnalyzeAllSyncOp()
-	if stPtrResult == nil || vecStOpValue == nil {
+	ptrAnalysisResult, syncOps := pointer.AnalyzeAllSyncOp()
+	if ptrAnalysisResult == nil || syncOps == nil {
 		return
 	}
 
 	// When the pointer analysis has any uncertain alias relationship, report Not Sure.
 	// This is in GCatch/analysis/pointer/utils.go, func mergeAlias()
-	vecChannelOri := pointer.WithdrawAllChan(stPtrResult, vecStOpValue)
+	vecChannelOri := pointer.GetChanOps(ptrAnalysisResult, syncOps)
 
-	vecLockerOri := pointer.WithdrawAllTraditionals(stPtrResult, vecStOpValue) // May delete
+	vecLockerOri := pointer.GetTraditionalOps(ptrAnalysisResult, syncOps) // May delete
 
 	mapDependency := syncgraph.GenDMap(vecChannelOri, vecLockerOri) // May delete
 

@@ -6,7 +6,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/output"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
-	"strings"
+	"github.com/system-pclub/GCatch/GCatch/util"
 )
 
 // nextInst mustn't be called upon jump/if/return/panic, which have no or multiple nextInst
@@ -780,12 +780,8 @@ func fnsForInstsNoDupli(insts []ssa.Instruction) []*ssa.Function {
 
 	mapFns := make(map[*ssa.Function]struct{})
 	for _, inst := range insts {
-		fmt.Printf("inst = %s, inst.Parent = %s\n", inst, inst.Parent())
-		if !strings.Contains(inst.Parent().String(), "(*sync.RWMutex).") {
-			mapFns[inst.Parent()] = struct{}{}
-		} else {
-			fmt.Println("filtered")
-		}
+		util.Debugfln("inst = %s, inst.Parent = %s\n", inst, inst.Parent())
+		mapFns[inst.Parent()] = struct{}{}
 	}
 
 	for fn, _ := range mapFns {

@@ -9,7 +9,6 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"strconv"
-	"strings"
 )
 
 type Task struct {
@@ -155,9 +154,7 @@ func (t *Task) Step2CompletePrims() error {
 			}
 		case *instinfo.Locker:
 			for _, op := range prim.AllOps() {
-				if !strings.Contains(op.Instr().Parent().String(), "(*sync.RWMutex).") {
-					vecOpInsts = append(vecOpInsts, op.Instr())
-				}
+				vecOpInsts = append(vecOpInsts, op.Instr())
 			}
 		}
 	}

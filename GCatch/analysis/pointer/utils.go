@@ -11,10 +11,12 @@ import (
 	"strings"
 )
 
-func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *mypointer.Result) (result map[mypointer.Label][]*instinfo.StOpValue) {
-	result = make(map[mypointer.Label][]*instinfo.StOpValue)
+func mergeAlias(vecinstValue []*instinfo.SyncOpInfo, stPtrResult *mypointer.Result) (result map[mypointer.Label][]*instinfo.SyncOpInfo) {
+	result = make(map[mypointer.Label][]*instinfo.SyncOpInfo)
 	for _, instValue := range vecinstValue {
 		labels := stPtrResult.Queries[instValue.Value].PointsTo().Labels()
+		// This condition is incorrect, because sometimes there are repeated fields from the PointsTo result.
+		// e.g., kubernetes10182 in gobench/goker
 		if len(labels) > 1 {
 			boolNotSure := false
 			locLabel := ""
@@ -39,13 +41,8 @@ func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *mypointer.Resul
 				//fmt.Println(pkgOfPkg.Path())
 				if config.IsPathIncluded(pkgOfPkg.Path()) {
 					boolNotSure = true
-					break
+					//break
 				}
-			}
-			if boolNotSure {
-				fmt.Println("Verification result is inaccurate because of possible inaccurate pointer analysis in:\n" + locLabel)
-				//syncgraph.ReportNotSure()
-				//os.Exit(1)
 			}
 			if boolNotSure {
 				fmt.Println("Verification result is inaccurate because of possible inaccurate pointer analysis in:\n" + locLabel)
@@ -58,7 +55,7 @@ func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *mypointer.Resul
 			if ok {
 				result[*label] = append(result[*label], instValue)
 			} else {
-				result[*label] = []*instinfo.StOpValue{instValue}
+				result[*label] = []*instinfo.SyncOpInfo{instValue}
 			}
 		}
 	}
@@ -72,7 +69,7 @@ func getFileAndLocString(label ssa.Value) string {
 
 func PosToFileAndLocString(pos token.Pos) string {
 	p := config.Prog.Fset.Position(pos)
-	strDebugNotSure := p.Filename + ":" + strconv.Itoa(p.Line)
+	strDebugNotSure := p.Filename + ":" + strconv.Itoa(p.Line) + ":" + strconv.Itoa(p.Column)
 	return strDebugNotSure
 }
 

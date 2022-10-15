@@ -9,14 +9,15 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/tools/go/mypointer"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa/ssautil"
+	"github.com/system-pclub/GCatch/GCatch/util"
 	"strconv"
 	"strings"
 )
 
 // AnalyzeAllSyncOp first finds all sync operations and corresponding values, which will be returned
 // It then runs the pointer analysis for each value, and return the result
-func AnalyzeAllSyncOp() (*mypointer.Result, []*instinfo.StOpValue) {
-	vecStOpValue := []*instinfo.StOpValue{}
+func AnalyzeAllSyncOp() (*mypointer.Result, []*instinfo.SyncOpInfo) {
+	vecStOpValue := []*instinfo.SyncOpInfo{}
 	for fn, _ := range ssautil.AllFunctions(config.Prog) {
 		if fn == nil {
 			continue
@@ -27,7 +28,7 @@ func AnalyzeAllSyncOp() (*mypointer.Result, []*instinfo.StOpValue) {
 				// case 1: traditional
 				v, comment := instinfo.ScanInstFindLockerValue(inst)
 				if v != nil {
-					newStOpValue := &instinfo.StOpValue{
+					newStOpValue := &instinfo.SyncOpInfo{
 						Inst:    inst,
 						Value:   v,
 						Comment: comment,
@@ -42,7 +43,7 @@ func AnalyzeAllSyncOp() (*mypointer.Result, []*instinfo.StOpValue) {
 					if ch == nil {
 						continue
 					}
-					newStOpValue := &instinfo.StOpValue{
+					newStOpValue := &instinfo.SyncOpInfo{
 						Inst:    inst,
 						Value:   chs[i],
 						Comment: comments[i],
@@ -91,8 +92,8 @@ func AnalyzeAllSyncOp() (*mypointer.Result, []*instinfo.StOpValue) {
 	return stPtrResult, vecStOpValue
 }
 
-func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StOpValue) (result []*instinfo.Channel) {
-	vecStChanOpAndValue := []*instinfo.StOpValue{}
+func GetChanOps(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.SyncOpInfo) (result []*instinfo.Channel) {
+	vecStChanOpAndValue := []*instinfo.SyncOpInfo{}
 	for _, syncInstValue := range vecStOpValue {
 		switch syncInstValue.Comment {
 		case instinfo.Send, instinfo.Recv, instinfo.MakeChan, instinfo.Close:
@@ -105,7 +106,8 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 	}
 
 	label2ChOp := mergeAlias(vecStChanOpAndValue, stPtrResult)
-	for label, ch_ops := range label2ChOp {
+	for label, chOps := range label2ChOp {
+		util.Debugfln("label: type = %s, loc = %s", label.String(), PosToFileAndLocString(label.Pos()))
 		boolInContext := boolIsInContext(label.Value())
 		boolInTime := boolIsInTime(label.Value())
 
@@ -128,7 +130,8 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 			result = append(result, chPrim)
 		}
 
-		for _, chOp := range ch_ops {
+		for _, chOp := range chOps {
+			util.Debugfln("\t(%s %s %s) %s", chOp.Inst, chOp.Comment, chOp.Value, getFileAndLocString(chOp.Value))
 			switch chOp.Comment {
 			case instinfo.MakeChan:
 				new_make := &instinfo.ChMake{
@@ -268,12 +271,22 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 	return
 }
 
-func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StOpValue) (result []*instinfo.Locker) {
-	vecStTradOpAndValue := []*instinfo.StOpValue{}
-	for _, stOpValue := range vecStOpValue {
+// IsExternalSyncMethod returns if the function is a synchronization primitive from a standard library.
+// The method is used in Step2CompletePrims to filter out operations that shouldn't be included.
+func IsExternalSyncMethod(ParentFunc *ssa.Function) bool {
+	if ParentFunc == nil {
+		return false
+	}
+	return strings.Contains(ParentFunc.String(), "(*sync.RWMutex).") ||
+		strings.Contains(ParentFunc.String(), "(*sync.Cond).")
+}
+
+func GetTraditionalOps(stPtrResult *mypointer.Result, syncOps []*instinfo.SyncOpInfo) (result []*instinfo.Locker) {
+	filteredSyncOps := []*instinfo.SyncOpInfo{}
+	for _, stOpValue := range syncOps {
 		switch stOpValue.Comment {
 		case instinfo.Lock, instinfo.Unlock:
-			vecStTradOpAndValue = append(vecStTradOpAndValue, stOpValue)
+			filteredSyncOps = append(filteredSyncOps, stOpValue)
 
 		// If we need to handle RWMutex/Waitgroup/Cond, add cases here
 
@@ -282,10 +295,11 @@ func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*inst
 		}
 	}
 
-	label2LockerOp := mergeAlias(vecStTradOpAndValue, stPtrResult)
+	label2LockerOp := mergeAlias(filteredSyncOps, stPtrResult)
 	for label, lockerOps := range label2LockerOp {
+		util.Debugfln("label: type = %s, loc = %s", label.String(), PosToFileAndLocString(label.Pos()))
 		if label.Value() == nil {
-			fmt.Println("Warning in WithdrawAllTraditionals: label of locker has nil value:", label.Value())
+			fmt.Println("Warning in GetTraditionalOps: label of locker has nil value:", label.Value())
 			fmt.Println("First 3 Ops, if any:")
 			count := 0
 			for _, op := range lockerOps {
@@ -317,6 +331,7 @@ func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*inst
 			newLocker.Pkg = strFnLabel.Pkg.Pkg.String()
 		}
 		for _, lockerOp := range lockerOps {
+			util.Debugfln("\t(%s %s %s) %s", lockerOp.Inst, lockerOp.Comment, lockerOp.Value, getFileAndLocString(lockerOp.Value))
 			switch lockerOp.Comment {
 			case instinfo.Lock:
 				newLock := &instinfo.LockOp{
@@ -329,7 +344,7 @@ func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*inst
 				if _, ok := lockerOp.Inst.(*ssa.Defer); ok {
 					newLock.IsDefer = true
 				}
-				if !strings.Contains(lockerOp.Inst.Parent().String(), "(*sync.RWMutex).") {
+				if !IsExternalSyncMethod(lockerOp.Inst.Parent()) {
 					newLocker.Locks = append(newLocker.Locks, newLock)
 				}
 				instinfo.MapInst2LockerOp[newLock.Inst] = newLock
@@ -345,7 +360,7 @@ func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*inst
 				if _, ok := lockerOp.Inst.(*ssa.Defer); ok {
 					newUnlock.IsDefer = true
 				}
-				if !strings.Contains(lockerOp.Inst.Parent().String(), "(*sync.RWMutex).") {
+				if !IsExternalSyncMethod(lockerOp.Inst.Parent()) {
 					newLocker.Unlocks = append(newLocker.Unlocks, newUnlock)
 				}
 				instinfo.MapInst2LockerOp[newUnlock.Inst] = newUnlock
