@@ -2,13 +2,14 @@ package syncgraph
 
 import (
 	"fmt"
+	"github.com/system-pclub/GCatch/GCatch/analysis/pointer"
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
-	"github.com/system-pclub/GCatch/GCatch/output"
 	"github.com/system-pclub/GCatch/GCatch/path"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"strconv"
+	"strings"
 )
 
 type Task struct {
@@ -141,7 +142,7 @@ func PrintLCA2PathForDebugging(Lca2Path map[*ssa.Function][]*path.EdgeChain) {
 	}
 }
 
-// After adding all primitives that we want, complete everything in each TaskPrimitive.Ops
+// Step2CompletePrims After adding all primitives that we want, complete everything in each TaskPrimitive.Ops
 func (t *Task) Step2CompletePrims() error {
 
 	// Ignore order, list all insts for op in Target_prims
@@ -154,12 +155,19 @@ func (t *Task) Step2CompletePrims() error {
 			}
 		case *instinfo.Locker:
 			for _, op := range prim.AllOps() {
-				vecOpInsts = append(vecOpInsts, op.Instr())
+				if !strings.Contains(op.Instr().Parent().String(), "(*sync.RWMutex).") {
+					vecOpInsts = append(vecOpInsts, op.Instr())
+				}
 			}
 		}
 	}
 
-	LCA2paths, err := path.FindLCA(fnsForInstsNoDupli(vecOpInsts), t.BoolGiveupIfCallgraphInaccurate, true, 50)
+	lcaConfig := path.LcaConfig{
+		GiveUpWhenCallGraphIsInaccurate: t.BoolGiveupIfCallgraphInaccurate,
+		GiveUpWhenMaxLayerIsReached:     true,
+		SkipExternalFuncs:               true,
+	}
+	LCA2paths, err := path.FindLCA(fnsForInstsNoDupli(vecOpInsts), lcaConfig, 50)
 	PrintLCA2PathForDebugging(LCA2paths)
 	if err != nil {
 		//if err == path.ErrInaccurateCallgraph {
@@ -347,8 +355,7 @@ func (tp *TaskPrimitive) CompleteOps(LCA2paths map[*ssa.Function][]*path.EdgeCha
 		}
 
 		if len(chainsToReachOp.Chains) == 0 {
-			fmt.Println("Warning in CompleteOps: can't find any chain for op:")
-			output.PrintIISrc(chainsToReachOp.Inst)
+			fmt.Printf("Warning in CompleteOps: can't find any chain for op %s in %s\n", chainsToReachOp.Inst, pointer.PosToFileAndLocString(chainsToReachOp.Inst.Pos()))
 		}
 	}
 }

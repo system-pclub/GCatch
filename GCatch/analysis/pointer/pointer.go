@@ -22,8 +22,8 @@ func AnalyzeAllSyncOp() (*mypointer.Result, []*instinfo.StOpValue) {
 			continue
 		}
 		// Note that we scan every available functions here, because we don't know where a chan will be passed to
-		for _,bb := range fn.Blocks {
-			for _,inst := range bb.Instrs {
+		for _, bb := range fn.Blocks {
+			for _, inst := range bb.Instrs {
 				// case 1: traditional
 				v, comment := instinfo.ScanInstFindLockerValue(inst)
 				if v != nil {
@@ -68,7 +68,7 @@ func AnalyzeAllSyncOp() (*mypointer.Result, []*instinfo.StOpValue) {
 	}
 	stPtrResult, err := mypointer.Analyze(cfg, nil)
 	if err != nil {
-		fmt.Println("Error when querying all channel values:\n",err.Error())
+		fmt.Println("Error when querying all channel values:\n", err.Error())
 		return nil, nil
 	}
 
@@ -95,10 +95,10 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 	vecStChanOpAndValue := []*instinfo.StOpValue{}
 	for _, syncInstValue := range vecStOpValue {
 		switch syncInstValue.Comment {
-		case instinfo.Send,instinfo.Recv,instinfo.MakeChan,instinfo.Close:
+		case instinfo.Send, instinfo.Recv, instinfo.MakeChan, instinfo.Close:
 			vecStChanOpAndValue = append(vecStChanOpAndValue, syncInstValue)
 		default: // Select or Mutex/Cond/Waitgroup
-			if strings.Contains(syncInstValue.Comment,"Select_") {
+			if strings.Contains(syncInstValue.Comment, "Select_") {
 				vecStChanOpAndValue = append(vecStChanOpAndValue, syncInstValue)
 			}
 		}
@@ -116,18 +116,17 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 			chPrim = &instinfo.ChanTimer
 		} else {
 			chPrim = &instinfo.Channel{
-				Name:      "",
+				Name:     "",
 				MakeInst: nil,
-				Pkg:       "",
-				Buffer:    0,
-				Sends:     nil,
-				Recvs:     nil,
-				Closes:    nil,
-				Status:    "",
+				Pkg:      "",
+				Buffer:   0,
+				Sends:    nil,
+				Recvs:    nil,
+				Closes:   nil,
+				Status:   "",
 			}
 			result = append(result, chPrim)
 		}
-
 
 		for _, chOp := range ch_ops {
 			switch chOp.Comment {
@@ -151,7 +150,7 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 				} else {
 					chPrim.Pkg = ""
 				}
-				instMakechan,ok := chOp.Inst.(*ssa.MakeChan)
+				instMakechan, ok := chOp.Inst.(*ssa.MakeChan)
 				if !ok {
 					fmt.Println("Error: convert inst to *ssa.MakeChan failed. Inst:")
 					output.PrintIISrc(chOp.Inst)
@@ -159,14 +158,14 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 				}
 				// store the buffer size
 				bv := instMakechan.Size
-				bvConst,ok := bv.(*ssa.Const)
+				bvConst, ok := bv.(*ssa.Const)
 				if !ok { // Dynamic size
 					chPrim.Buffer = instinfo.DynamicSize
 					continue
 				}
 				defer func(inst ssa.Instruction) {
 					if r := recover(); r != nil { // I am concerned that bvConst.Int64() may panic, though it never happens
-						fmt.Println("Recovered when dealing with:",inst)
+						fmt.Println("Recovered when dealing with:", inst)
 						output.PrintIISrc(inst)
 					}
 				}(chOp.Inst)
@@ -175,10 +174,10 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 
 			case instinfo.Send:
 				newSend := &instinfo.ChSend{
-					CaseIndex:       -1,
+					CaseIndex:      -1,
 					IsCaseBlocking: false,
-					Status:           "",
-					ChOp:		      instinfo.ChOp{
+					Status:         "",
+					ChOp: instinfo.ChOp{
 						Parent: chPrim,
 						Inst:   chOp.Inst,
 					},
@@ -186,10 +185,10 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 				chPrim.Sends = append(chPrim.Sends, newSend)
 			case instinfo.Recv:
 				newRecv := &instinfo.ChRecv{
-					CaseIndex:       -1,
+					CaseIndex:      -1,
 					IsCaseBlocking: false,
-					Status:           "",
-					ChOp:            instinfo.ChOp{
+					Status:         "",
+					ChOp: instinfo.ChOp{
 						Parent: chPrim,
 						Inst:   chOp.Inst,
 					},
@@ -200,7 +199,7 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 				newClose := &instinfo.ChClose{
 					IsDefer: boolIsDefer,
 					Status:  "",
-					ChOp:    instinfo.ChOp{
+					ChOp: instinfo.ChOp{
 						Parent: chPrim,
 						Inst:   chOp.Inst,
 					},
@@ -208,50 +207,50 @@ func WithdrawAllChan(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.StO
 				chPrim.Closes = append(chPrim.Closes, newClose)
 			default:
 				//Select
-				if i := strings.Index(chOp.Comment,"Select_Send_"); i>-1 {
+				if i := strings.Index(chOp.Comment, "Select_Send_"); i > -1 {
 					var boolIsBlocking bool
-					if strings.HasPrefix(chOp.Comment,"Non_Blocking") {
+					if strings.HasPrefix(chOp.Comment, "Non_Blocking") {
 						boolIsBlocking = false
 					} else {
 						boolIsBlocking = true
 					}
-					caseIndex,err := strconv.Atoi(chOp.Comment[i+12:])
+					caseIndex, err := strconv.Atoi(chOp.Comment[i+12:])
 					if err != nil {
-						fmt.Println("Error when conv str to int for select inst:",err)
+						fmt.Println("Error when conv str to int for select inst:", err)
 						output.PrintIISrc(chOp.Inst)
 					}
 					newSend := &instinfo.ChSend{
 						CaseIndex:      caseIndex,
 						IsCaseBlocking: boolIsBlocking,
 						Status:         "",
-						ChOp:            instinfo.ChOp{
+						ChOp: instinfo.ChOp{
 							Parent: chPrim,
 							Inst:   chOp.Inst,
 						},
 					}
 					chPrim.Sends = append(chPrim.Sends, newSend)
-				} else if i := strings.Index(chOp.Comment,"Select_Recv_"); i>-1 {
+				} else if i := strings.Index(chOp.Comment, "Select_Recv_"); i > -1 {
 					var boolIsBlocking bool
-					if strings.HasPrefix(chOp.Comment,"Non_Blocking") {
+					if strings.HasPrefix(chOp.Comment, "Non_Blocking") {
 						boolIsBlocking = false
 					} else {
 						boolIsBlocking = true
 					}
-					caseIndex,err := strconv.Atoi(chOp.Comment[i+12:])
+					caseIndex, err := strconv.Atoi(chOp.Comment[i+12:])
 					if err != nil {
-						fmt.Println("Error when conv str to int for select inst:",err)
+						fmt.Println("Error when conv str to int for select inst:", err)
 						output.PrintIISrc(chOp.Inst)
 					}
 					new_recv := &instinfo.ChRecv{
 						CaseIndex:      caseIndex,
 						IsCaseBlocking: boolIsBlocking,
 						Status:         "",
-						ChOp:            instinfo.ChOp{
+						ChOp: instinfo.ChOp{
 							Parent: chPrim,
 							Inst:   chOp.Inst,
 						},
 					}
-					chPrim.Recvs = append(chPrim.Recvs,new_recv)
+					chPrim.Recvs = append(chPrim.Recvs, new_recv)
 				}
 			}
 		}
@@ -286,10 +285,10 @@ func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*inst
 	label2LockerOp := mergeAlias(vecStTradOpAndValue, stPtrResult)
 	for label, lockerOps := range label2LockerOp {
 		if label.Value() == nil {
-			fmt.Println("Warning in WithdrawAllTraditionals: label of locker has nil value:",label.Value())
+			fmt.Println("Warning in WithdrawAllTraditionals: label of locker has nil value:", label.Value())
 			fmt.Println("First 3 Ops, if any:")
 			count := 0
-			for _,op := range lockerOps {
+			for _, op := range lockerOps {
 				if count > 2 {
 					continue
 				}
@@ -299,7 +298,7 @@ func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*inst
 			continue
 		}
 		var strlockerType string
-		if strings.Contains(label.Value().Type().String(),"RWMutex") {
+		if strings.Contains(label.Value().Type().String(), "RWMutex") {
 			strlockerType = instinfo.RWMutex
 		} else {
 			strlockerType = instinfo.Mutex
@@ -330,7 +329,9 @@ func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*inst
 				if _, ok := lockerOp.Inst.(*ssa.Defer); ok {
 					newLock.IsDefer = true
 				}
-				newLocker.Locks = append(newLocker.Locks, newLock)
+				if !strings.Contains(lockerOp.Inst.Parent().String(), "(*sync.RWMutex).") {
+					newLocker.Locks = append(newLocker.Locks, newLock)
+				}
 				instinfo.MapInst2LockerOp[newLock.Inst] = newLock
 
 			case instinfo.Unlock:
@@ -344,7 +345,9 @@ func WithdrawAllTraditionals(stPtrResult *mypointer.Result, vecStOpValue []*inst
 				if _, ok := lockerOp.Inst.(*ssa.Defer); ok {
 					newUnlock.IsDefer = true
 				}
-				newLocker.Unlocks = append(newLocker.Unlocks, newUnlock)
+				if !strings.Contains(lockerOp.Inst.Parent().String(), "(*sync.RWMutex).") {
+					newLocker.Unlocks = append(newLocker.Unlocks, newUnlock)
+				}
 				instinfo.MapInst2LockerOp[newUnlock.Inst] = newUnlock
 			default:
 			}

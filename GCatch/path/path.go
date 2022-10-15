@@ -87,9 +87,15 @@ type LcaFinderWorkspace struct {
 	mapChain2Ancestors map[string][]*callgraph.Node // a map from active chains to ancestor nodes of it. Chain ABCD: A,B,C,D
 }
 
+type LcaConfig struct {
+	GiveUpWhenCallGraphIsInaccurate bool
+	GiveUpWhenMaxLayerIsReached     bool
+	SkipExternalFuncs               bool
+}
+
 // Since we are checking from the main function, the returned LCA is always main.
 // However, we still need this FindLCA to generate callchains from main to all targetFn, which contains all channel operations
-func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bool, boolGiveUpWhenMaxLayerIsReached bool, intMaxLayer int) (map[*ssa.Function][]*EdgeChain, error) {
+func FindLCA(vecTargetFn []*ssa.Function, lcaConfig LcaConfig, intMaxLayer int) (map[*ssa.Function][]*EdgeChain, error) {
 
 	// A map from each node to the number of chains according to the last map. If only have chains ABC and BCDE, then B:2, E:1
 	mapNode2NumChain := make(map[*callgraph.Node]int)
@@ -125,45 +131,23 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 
 	// The main loop. A breadth first search
 	for {
-		mapTarget2OldChains := make(map[*ssa.Function][]*EdgeChain)
+		TargetToOldChains := make(map[*ssa.Function][]*EdgeChain)
 		for target, workspace := range mapTargetFn2workspace {
 			for encode, _ := range workspace.mapChain2Ancestors {
 				chain := mapEncode2Chain[encode]
-				mapTarget2OldChains[target] = append(mapTarget2OldChains[target], chain)
+				TargetToOldChains[target] = append(TargetToOldChains[target], chain)
 			}
 		}
 
 		// See if we can find the lowest common ancestor
-		intActiveChains := 0
-		for _, workspace := range mapTargetFn2workspace {
-			intActiveChains += len(workspace.mapChain2Ancestors)
-		}
 
-		for node, intNumChains := range mapNode2NumChain {
-			if intNumChains == intActiveChains && (node.Func.Name() == "main" || strings.HasPrefix(node.Func.Name(), "Test")) {
-				// Now we find one LCA main that can cover every target
-				oneLca := node.Func
-				result := make(map[*ssa.Function][]*EdgeChain)
-				vecEdgePaths := []*EdgeChain{}
-
-				for _, workspace := range mapTargetFn2workspace {
-					for encode, _ := range workspace.mapChain2Ancestors {
-						chain := mapEncode2Chain[encode]
-						chain = cutChain(chain, oneLca)
-						reversedChain := reverseChain(chain)
-						if boolEdgeChainInSlice(reversedChain, vecEdgePaths) == false {
-							vecEdgePaths = append(vecEdgePaths, reversedChain)
-						}
-					}
-				}
-
-				result[oneLca] = vecEdgePaths
-				return result, nil
-			}
+		m, err, done := TryReportResult(mapTargetFn2workspace, mapNode2NumChain, mapEncode2Chain)
+		if done {
+			return m, err
 		}
 
 		// See if recursive number is reached
-		if countDepth > intMaxLayer && boolGiveUpWhenMaxLayerIsReached == true {
+		if countDepth > intMaxLayer && lcaConfig.GiveUpWhenMaxLayerIsReached == true {
 			result, m, err, done := ReportExistingCallChains(mapTargetFn2workspace, mapNode2NumChain, mapEncode2Chain, countDepth)
 			if done {
 				return m, err
@@ -179,15 +163,15 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 			// Update all active chains
 			// We can't directly use a "for range LcaFinderWorkspace.mapChain2Ancestors", because we want a breadth-first search, but
 			// the new values added to map in one search may be visited before other values in the same depth
-			vecChainEncode := []string{}
-			vecVecAncester := [][]*callgraph.Node{}
+			chainEncodes := []string{}
+			ancestorGroups := [][]*callgraph.Node{}
 			for encode, ancestors := range workspace.mapChain2Ancestors {
-				vecChainEncode = append(vecChainEncode, encode)
-				vecVecAncester = append(vecVecAncester, ancestors)
+				chainEncodes = append(chainEncodes, encode)
+				ancestorGroups = append(ancestorGroups, ancestors)
 			}
-			for i := 0; i < len(vecChainEncode); i++ {
-				encode := vecChainEncode[i]
-				ancestors := vecVecAncester[i]
+			for i := 0; i < len(chainEncodes); i++ {
+				encode := chainEncodes[i]
+				ancestors := ancestorGroups[i]
 
 				chain := mapEncode2Chain[encode]
 				var lastNode *callgraph.Node // This is actually callee
@@ -197,12 +181,15 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 					lastNode = chain.Chain[len(chain.Chain)-1].Caller
 				}
 
-				if len(lastNode.In) == 0 { // skip if the lastNode has no caller
+				if len(lastNode.In) == 0 || !ContainsValidCaller(lastNode) { // skip if the lastNode has no caller
 					continue
 				}
 
-				if len(lastNode.In) > 1 && boolGiveUpWhenCallgraphIsInaccurate {
-					return nil, ErrInaccurateCallgraph
+				if len(lastNode.In) > 1 {
+					if lcaConfig.GiveUpWhenCallGraphIsInaccurate {
+						return nil, ErrInaccurateCallgraph
+					}
+					//fmt.Println(ErrInaccurateCallgraph)
 				}
 
 				// delete the current chain
@@ -213,10 +200,19 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 
 				// for each caller, create a new chain for it
 				for _, in := range lastNode.In {
-
+					if in.Caller.Func.Pkg == nil {
+						//fmt.Printf("func.Pkg == nil, func = %s, func.Signature = %s\n", in.Caller.Func.Name(), in.Caller.Func.Signature)
+					} else {
+						path := in.Caller.Func.Pkg.Pkg.Path()
+						//fmt.Println(path)
+						if !config.IsPathIncluded(path) {
+							//fmt.Printf("%s.%s: not included\n", path, in.Caller.Func.Name())
+							//continue
+						}
+					}
 					boolInExist := false
-					for _, existing_edge := range chain.Chain {
-						if existing_edge == in {
+					for _, existingEdge := range chain.Chain {
+						if existingEdge == in {
 							boolInExist = true
 							break
 						}
@@ -244,38 +240,98 @@ func FindLCA(vecTargetFn []*ssa.Function, boolGiveUpWhenCallgraphIsInaccurate bo
 			}
 
 			// check if the map from encode to ancestors is correct
-			correct := true
-			printWarning := func() {
-				correct = false
-				//fmt.Println("Warning in FindLCA: mapChain2Ancestors is not correct")
-			}
-			for encode, ancestors := range workspace.mapChain2Ancestors {
-				path := mapEncode2Chain[encode]
-				if len(path.Chain) == 0 {
-					if len(ancestors) != 1 || ancestors[0] != path.Start {
-						printWarning()
-					}
-				} else {
-					if len(path.Chain)+1 != len(ancestors) {
-						printWarning()
-					}
-					for i, edge := range path.Chain {
-						if edge.Callee != ancestors[i] {
-							printWarning()
-						}
-						if i == len(path.Chain)-1 {
-							if edge.Caller != ancestors[i+1] {
-								printWarning()
-							}
-						}
-					}
-				}
-			}
-			if correct == false {
-				return nil, fmt.Errorf("mapChain2Ancestors is not correct")
+			err2 := CheckEncodingToAncestorsCorrectness(workspace, mapEncode2Chain)
+			if err2 != nil {
+				return nil, err2
 			}
 		}
 	}
+}
+
+func ContainsValidCaller(lastNode *callgraph.Node) bool {
+	ret := false
+	for _, in := range lastNode.In {
+		if in.Caller.Func.Pkg == nil {
+			//fmt.Printf("func.Pkg == nil, func = %s, func.Signature = %s\n", in.Caller.Func.Name(), in.Caller.Func.Signature)
+		} else {
+			path := in.Caller.Func.Pkg.Pkg.Path()
+			//fmt.Println(path)
+			if !config.IsPathIncluded(path) {
+				//fmt.Printf("%s.%s: not included\n", path, in.Caller.Func.Name())
+				//continue
+			} else {
+				ret = true
+			}
+		}
+	}
+	return ret
+}
+
+func CheckEncodingToAncestorsCorrectness(workspace *LcaFinderWorkspace, mapEncode2Chain map[string]*EdgeChain) error {
+	correct := true
+	printWarning := func() {
+		correct = false
+		//fmt.Println("Warning in FindLCA: mapChain2Ancestors is not correct")
+	}
+	for encode, ancestors := range workspace.mapChain2Ancestors {
+		path := mapEncode2Chain[encode]
+		if len(path.Chain) == 0 {
+			if len(ancestors) != 1 || ancestors[0] != path.Start {
+				printWarning()
+			}
+		} else {
+			if len(path.Chain)+1 != len(ancestors) {
+				printWarning()
+			}
+			for i, edge := range path.Chain {
+				if edge.Callee != ancestors[i] {
+					printWarning()
+				}
+				if i == len(path.Chain)-1 {
+					if edge.Caller != ancestors[i+1] {
+						printWarning()
+					}
+				}
+			}
+		}
+	}
+	if correct == false {
+		return fmt.Errorf("mapChain2Ancestors is not correct")
+	}
+	return nil
+}
+
+func TryReportResult(mapTargetFn2workspace map[*ssa.Function]*LcaFinderWorkspace, mapNode2NumChain map[*callgraph.Node]int, mapEncode2Chain map[string]*EdgeChain) (map[*ssa.Function][]*EdgeChain, error, bool) {
+	intActiveChains := 0
+	for _, workspace := range mapTargetFn2workspace {
+		intActiveChains += len(workspace.mapChain2Ancestors)
+	}
+
+	for node, intNumChains := range mapNode2NumChain {
+		// SZ: It seems that when the number of chains matches, that means all existing discovered chains start
+		// with the entry function.
+		if intNumChains == intActiveChains && (node.Func.Name() == "main" || strings.HasPrefix(node.Func.Name(), "Test")) {
+			// Now we find one LCA main that can cover every target
+			oneLca := node.Func
+			result := make(map[*ssa.Function][]*EdgeChain)
+			vecEdgePaths := []*EdgeChain{}
+
+			for _, workspace := range mapTargetFn2workspace {
+				for encode, _ := range workspace.mapChain2Ancestors {
+					chain := mapEncode2Chain[encode]
+					chain = cutChain(chain, oneLca)
+					reversedChain := reverseChain(chain)
+					if boolEdgeChainInSlice(reversedChain, vecEdgePaths) == false {
+						vecEdgePaths = append(vecEdgePaths, reversedChain)
+					}
+				}
+			}
+
+			result[oneLca] = vecEdgePaths
+			return result, nil, true
+		}
+	}
+	return nil, nil, false
 }
 
 func ReportExistingCallChains(mapTargetFn2workspace map[*ssa.Function]*LcaFinderWorkspace, mapNode2NumChain map[*callgraph.Node]int, mapEncode2Chain map[string]*EdgeChain, countDepth int) (map[*ssa.Function][]*EdgeChain, map[*ssa.Function][]*EdgeChain, error, bool) {

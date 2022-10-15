@@ -44,7 +44,7 @@ fn_loop:
 		if fn == nil {
 			continue
 		}
-		if config.IsPathIncluded(fn.String()) == false {
+		if !config.IsPathIncluded(fn.String()) {
 			continue
 		}
 		//Actually we don't need to measure the function name, since testing.Fatal() won't be used in normal functions

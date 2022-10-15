@@ -6,6 +6,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/mypointer"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+	"go/token"
 	"strconv"
 	"strings"
 )
@@ -17,6 +18,7 @@ func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *mypointer.Resul
 		if len(labels) > 1 {
 			boolNotSure := false
 			locLabel := ""
+
 			for _, label := range labels {
 				if value := label.Value(); value == nil {
 					continue
@@ -45,6 +47,11 @@ func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *mypointer.Resul
 				//syncgraph.ReportNotSure()
 				//os.Exit(1)
 			}
+			if boolNotSure {
+				fmt.Println("Verification result is inaccurate because of possible inaccurate pointer analysis in:\n" + locLabel)
+				//syncgraph.ReportNotSure()
+				//os.Exit(1)
+			}
 		}
 		for _, label := range labels {
 			_, ok := result[*label]
@@ -60,7 +67,11 @@ func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *mypointer.Resul
 }
 
 func getFileAndLocString(label ssa.Value) string {
-	p := config.Prog.Fset.Position(label.Pos())
+	return PosToFileAndLocString(label.Pos())
+}
+
+func PosToFileAndLocString(pos token.Pos) string {
+	p := config.Prog.Fset.Position(pos)
 	strDebugNotSure := p.Filename + ":" + strconv.Itoa(p.Line)
 	return strDebugNotSure
 }

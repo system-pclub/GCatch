@@ -6,6 +6,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/output"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+	"strings"
 )
 
 // nextInst mustn't be called upon jump/if/return/panic, which have no or multiple nextInst
@@ -718,7 +719,7 @@ func checkLockerOpsLegal(l *instinfo.Locker, ops []Node) bool {
 	} else if intNumUnlock > intNumLock {
 		return false
 	} else { // intNumUnlock < intNumLock
-		if intNumUnlock == intNumLock - 1 {
+		if intNumUnlock == intNumLock-1 {
 			return true
 		} else {
 			return false
@@ -779,7 +780,12 @@ func fnsForInstsNoDupli(insts []ssa.Instruction) []*ssa.Function {
 
 	mapFns := make(map[*ssa.Function]struct{})
 	for _, inst := range insts {
-		mapFns[inst.Parent()] = struct{}{}
+		fmt.Printf("inst = %s, inst.Parent = %s\n", inst, inst.Parent())
+		if !strings.Contains(inst.Parent().String(), "(*sync.RWMutex).") {
+			mapFns[inst.Parent()] = struct{}{}
+		} else {
+			fmt.Println("filtered")
+		}
 	}
 
 	for fn, _ := range mapFns {
