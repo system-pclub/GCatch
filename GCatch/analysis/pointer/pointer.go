@@ -107,7 +107,7 @@ func GetChanOps(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.SyncOpIn
 
 	label2ChOp := mergeAlias(vecStChanOpAndValue, stPtrResult)
 	for label, chOps := range label2ChOp {
-		util.Debugfln("label: type = %s, loc = %s", label.String(), PosToFileAndLocString(label.Pos()))
+		util.Debugfln("label: type = %s, loc = %s value = %s", label.String(), PosToFileAndLocString(label.Pos()), label.Value())
 		boolInContext := boolIsInContext(label.Value())
 		boolInTime := boolIsInTime(label.Value())
 
@@ -127,7 +127,6 @@ func GetChanOps(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.SyncOpIn
 				Closes:   nil,
 				Status:   "",
 			}
-			result = append(result, chPrim)
 		}
 
 		for _, chOp := range chOps {
@@ -258,8 +257,9 @@ func GetChanOps(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.SyncOpIn
 			}
 		}
 
-		if !boolInContext && !boolInTime {
+		if !boolInContext && !boolInTime && !IsEmptyInstinfoChannelEntry(chPrim) {
 			recordChInstToMap(chPrim)
+			result = append(result, chPrim)
 		}
 	}
 
@@ -297,7 +297,7 @@ func GetTraditionalOps(stPtrResult *mypointer.Result, syncOps []*instinfo.SyncOp
 
 	label2LockerOp := mergeAlias(filteredSyncOps, stPtrResult)
 	for label, lockerOps := range label2LockerOp {
-		util.Debugfln("label: type = %s, loc = %s", label.String(), PosToFileAndLocString(label.Pos()))
+		//util.Debugfln("label: type = %s, loc = %s", label.String(), PosToFileAndLocString(label.Pos()))
 		if label.Value() == nil {
 			fmt.Println("Warning in GetTraditionalOps: label of locker has nil value:", label.Value())
 			fmt.Println("First 3 Ops, if any:")
@@ -331,7 +331,7 @@ func GetTraditionalOps(stPtrResult *mypointer.Result, syncOps []*instinfo.SyncOp
 			newLocker.Pkg = strFnLabel.Pkg.Pkg.String()
 		}
 		for _, lockerOp := range lockerOps {
-			util.Debugfln("\t(%s %s %s) %s", lockerOp.Inst, lockerOp.Comment, lockerOp.Value, getFileAndLocString(lockerOp.Value))
+			//util.Debugfln("\t(%s %s %s) %s", lockerOp.Inst, lockerOp.Comment, lockerOp.Value, getFileAndLocString(lockerOp.Value))
 			switch lockerOp.Comment {
 			case instinfo.Lock:
 				newLock := &instinfo.LockOp{

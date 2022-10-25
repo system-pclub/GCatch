@@ -33,7 +33,7 @@ type blockingPos struct {
 	pNodeId int
 }
 
-func (g SyncGraph) CheckWithZ3() bool {
+func (g *SyncGraph) CheckWithZ3() bool {
 
 	countBlockPoint := 0
 	// Main loop: for each pathCombination
@@ -74,7 +74,7 @@ func (g SyncGraph) CheckWithZ3() bool {
 					continue
 				}
 				if g.Task.IsPrimATarget(syncNode.Primitive()) {
-					if op, ok := syncNode.(*ChanOp);ok {
+					if op, ok := syncNode.(*ChanOp); ok {
 						if chClose, ok := op.Op.(*instinfo.ChClose); ok {
 							vecClose = append(vecClose, chClose)
 						}
@@ -99,52 +99,7 @@ func (g SyncGraph) CheckWithZ3() bool {
 			}
 		}
 
-		// check if this program has unlock safety problem
-		// check lock safety problem
-		for _, path := range paths {
-			for index_unlock, n := range path.Path {
-				if lockerOp, ok := n.Node.(*LockerOp); ok {
-					if _, ok2 := lockerOp.Op.(*instinfo.UnlockOp); ok2 {
-						// search previous nodes in this thread
-						// if we meet a lock of same locker, OK
-						// if we meet a unlock of same locker, report bug
-						// if we meet nothing, report bug
-
-						boolReportUnsafe := true
-						if index_unlock == 0 {
-							boolReportUnsafe = true
-						} else {
-						outer:
-							for j := index_unlock - 1; j >=0; j-- {
-								n2 := path.Path[j]
-								if lockerOp2, ok3 := n2.Node.(*LockerOp); ok3 {
-									if lockerOp2.Locker == lockerOp.Locker {
-										switch lockerOp2.Op.(type) {
-										case *instinfo.LockOp:
-											boolReportUnsafe = false
-											break outer
-										case *instinfo.UnlockOp:
-											boolReportUnsafe = true
-											break outer
-										}
-									}
-								}
-							}
-						}
-						if boolReportUnsafe {
-							config.BugIndexMu.Lock()
-							config.BugIndex++
-							fmt.Print("----------Bug[")
-							fmt.Print(config.BugIndex)
-							config.BugIndexMu.Unlock()
-							fmt.Print("]----------\n\tType: Lock Safety \tReason: Unlock a mutex before Lock.\n")
-							ReportLockSafetyViolation()
-							return true
-						}
-					}
-				}
-			}
-		}
+		//g.CheckLockSafety(paths)
 
 		// List all blocking op of target prim on any path
 		pathId2AllBlockPos := make(map[int][]blockingPos)
@@ -256,8 +211,6 @@ func (g SyncGraph) CheckWithZ3() bool {
 			var blockPosComb map[int]blockingPos
 			blockPosComb = allBlockPosComb[i]
 
-
-
 			for _, blockPos := range blockPosComb {
 				if blockPos.pNodeId != emptyPNodeId {
 					inst := paths[blockPos.pathId].Path[blockPos.pNodeId].Node.Instruction()
@@ -276,7 +229,6 @@ func (g SyncGraph) CheckWithZ3() bool {
 					path.SetAllReached()
 				}
 			}
-
 
 			// See if Sync-rule is satisfied. Sync-rule: the number of ops of one prim must match, except the blocking one
 			flagSyncRuleSatisfied := true
@@ -331,8 +283,6 @@ func (g SyncGraph) CheckWithZ3() bool {
 				vecBlockingPos = append(vecBlockingPos, blockPos)
 			}
 
-
-
 			z3Sys_block := NewZ3ForGl()
 			z3Sat_block := z3Sys_block.Z3Main(paths, vecBlockingPos, false, false) // only check liveness problem
 
@@ -384,6 +334,55 @@ func (g SyncGraph) CheckWithZ3() bool {
 	//fmt.Println("=========Total path sets:",countBlockPoint)
 	//output.Wait_for_input()
 	return false
+}
+
+func (g *SyncGraph) CheckLockSafety(paths []*PPath) {
+	// check if this program has unlock safety problem
+	// check lock safety problem
+	for _, path := range paths {
+		for index_unlock, n := range path.Path {
+			if lockerOp, ok := n.Node.(*LockerOp); ok {
+				if _, ok2 := lockerOp.Op.(*instinfo.UnlockOp); ok2 {
+					// search previous nodes in this thread
+					// if we meet a lock of same locker, OK
+					// if we meet a unlock of same locker, report bug
+					// if we meet nothing, report bug
+
+					boolReportUnsafe := true
+					if index_unlock == 0 {
+						boolReportUnsafe = true
+					} else {
+					outer:
+						for j := index_unlock - 1; j >= 0; j-- {
+							n2 := path.Path[j]
+							if lockerOp2, ok3 := n2.Node.(*LockerOp); ok3 {
+								if lockerOp2.Locker == lockerOp.Locker {
+									switch lockerOp2.Op.(type) {
+									case *instinfo.LockOp:
+										boolReportUnsafe = false
+										break outer
+									case *instinfo.UnlockOp:
+										boolReportUnsafe = true
+										break outer
+									}
+								}
+							}
+						}
+					}
+					if boolReportUnsafe {
+						config.BugIndexMu.Lock()
+						config.BugIndex++
+						fmt.Print("----------Bug[")
+						fmt.Print(config.BugIndex)
+						config.BugIndexMu.Unlock()
+						fmt.Print("]----------\n\tType: Lock Safety \tReason: Unlock a mutex before Lock.\n")
+						//ReportLockSafetyViolation()
+						//return true
+					}
+				}
+			}
+		}
+	}
 }
 
 var PrintedBlockPosStr map[string]struct{} = make(map[string]struct{})

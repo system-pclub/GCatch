@@ -315,6 +315,13 @@ func (g *SyncGraph) EnumerateAllPathCombinations() {
 		if goroutinePathMap == nil {
 			return
 		}
+		//util.Debugfln("goroutine = %s", goroutine.EntryFn)
+		//for _, path := range goroutinePathMap {
+		//	for _, node := range path.Path {
+		//		util.Debugfln("\t node = %s", node.Instruction())
+		//	}
+		//}
+
 		for _, path := range goroutinePathMap {
 			possiblePaths[i][count] = path
 			count++

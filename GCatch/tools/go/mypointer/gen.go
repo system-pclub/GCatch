@@ -155,6 +155,7 @@ func (a *analysis) endObject(obj nodeid, cgn *cgnode, data interface{}) *object 
 // callsite; for shared contours, caller is nil.
 //
 func (a *analysis) makeFunctionObject(fn *ssa.Function, callersite *callsite) nodeid {
+	//fmt.Printf("gen.go: makeFunctionObject: %s\n", fn.Name())
 	if a.log != nil {
 		fmt.Fprintf(a.log, "\t---- makeFunctionObject %s\n", fn)
 	}
@@ -846,7 +847,7 @@ func (a *analysis) objectNode(cgn *cgnode, v ssa.Value) nodeid {
 		case *ssa.Extract:
 			obj = a.nextNode()
 			a.addNodes(v.Type(), "Extract")
-			a.endObject(obj,cgn,v)
+			a.endObject(obj, cgn, v)
 
 		case *ssa.MakeSlice:
 			obj = a.nextNode()
@@ -986,7 +987,6 @@ func (a *analysis) genInstr(cgn *cgnode, instr ssa.Instruction) {
 		a.copy(a.valueNode(instr),
 			a.valueOffsetNode(instr.Tuple, instr.Index),
 			a.sizeof(instr.Type()))
-
 
 	case *ssa.FieldAddr:
 		a.genOffsetAddr(cgn, instr, a.valueNode(instr.X),
@@ -1169,9 +1169,9 @@ func (a *analysis) genRootCalls() *cgnode {
 			continue
 		}
 
-		if index := strings.Index(fn.Name(),"init#"); index > -1 {
+		if index := strings.Index(fn.Name(), "init#"); index > -1 {
 			name_after := fn.Name()[index+5:]
-			_,err := strconv.Atoi(name_after)
+			_, err := strconv.Atoi(name_after)
 			if err == nil { // successfully converted, meaning the function name is like init#123
 				continue
 			}
@@ -1294,11 +1294,11 @@ func (a *analysis) genFunc(cgn *cgnode) {
 	// If we have the Known_callgraph and Recv_to_methods_map
 	// If this function is a non-synthetic non-anonymous exported (starting with an Uppercase letter) method
 	if Known_callgraph != nil && Recv_to_methods_map != nil {
-		if fn.Signature.Recv() == nil || fn.Synthetic != "" || strings.Contains(fn.String(),"$") {
+		if fn.Signature.Recv() == nil || fn.Synthetic != "" || strings.Contains(fn.String(), "$") {
 			goto Normal
 		}
 		is_exported := false // In Go, a function whose name starts with an Uppercase is exported
-		for _,r := range fn.Name() {
+		for _, r := range fn.Name() {
 			if unicode.IsUpper(r) {
 				is_exported = true
 			} else {
@@ -1314,36 +1314,35 @@ func (a *analysis) genFunc(cgn *cgnode) {
 			goto Normal
 		}
 
-
 		// Now record all other non-synthetic methods non-anonymous methods that have no caller
 		no_caller_methods := []*callgraph.Node{}
 		recv := fn.Params[0]
 		all_methods := Recv_to_methods_map[recv.Type().String()]
 		for _, other_method := range all_methods {
-			if other_method == method || other_method.Func.Synthetic != "" || strings.Contains(other_method.Func.String(),"$") {
+			if other_method == method || other_method.Func.Synthetic != "" || strings.Contains(other_method.Func.String(), "$") {
 				continue
 			}
 			if len(other_method.In) > 0 {
 				continue
 			}
 
-			no_caller_methods = append(no_caller_methods,other_method)
+			no_caller_methods = append(no_caller_methods, other_method)
 		}
 		// As if fn will call all functions in no_caller_methods
 		for _, other_method := range no_caller_methods {
-			a.genFakeCall(fn,other_method.Func)
+			a.genFakeCall(fn, other_method.Func)
 		}
 
 	}
 
-	Normal:
+Normal:
 
 	a.localval = nil
 	a.localobj = nil
 }
 
 // genFakeCall generates constraints for a fake call between caller and callee.
-func (a *analysis) genFakeCall(caller,callee *ssa.Function) {
+func (a *analysis) genFakeCall(caller, callee *ssa.Function) {
 
 	// Ascertain the context (contour/cgnode) for a particular call.
 	var obj nodeid
@@ -1353,17 +1352,17 @@ func (a *analysis) genFakeCall(caller,callee *ssa.Function) {
 	params := a.funcParams(obj)
 	caller_param0 := caller.Params[0]
 	var param0_arg ssa.Value
-	outer:
-	for _,bb := range caller.Blocks {
-		for _,inst := range bb.Instrs {
-			if v,ok := inst.(ssa.Value); ok {
+outer:
+	for _, bb := range caller.Blocks {
+		for _, inst := range bb.Instrs {
+			if v, ok := inst.(ssa.Value); ok {
 				if v.Type().String() == caller_param0.Type().String() && v != caller_param0 {
 					param0_arg = v
 					break outer
 				}
 			}
 			operands := inst.Operands([]*ssa.Value{})
-			for _,operand := range operands {
+			for _, operand := range operands {
 				if operand == nil {
 					continue
 				}
@@ -1425,7 +1424,6 @@ func (a *analysis) generate() {
 	}
 
 	root := a.genRootCalls()
-
 
 	if a.config.BuildCallGraph {
 		a.result.CallGraph = callgraph.New(root.fn)

@@ -23,8 +23,10 @@ var DependMap map[interface{}]*DPrim
 func BuildGraph(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*instinfo.Locker, DMap map[interface{}]*DPrim) (*SyncGraph, error) {
 
 	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("Recovered in BuildGraph ", r)
+		if config.RecoverFromError {
+			if r := recover(); r != nil {
+				fmt.Println("Recovered in BuildGraph ", r)
+			}
 		}
 	}()
 
@@ -212,13 +214,14 @@ func BuildGraph(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*i
 
 	// check if task is fulfilled
 	newGraph.Task.Update()
-	if newGraph.Task.BoolFinished {
-		//fmt.Println("A graph is finished")
-	} else {
-		err := fmt.Errorf("A graph is not finished")
-		return nil, err
+	if config.ReportSyncGraphNotFinished {
+		if newGraph.Task.BoolFinished {
+			//fmt.Println("A graph is finished")
+		} else {
+			err := fmt.Errorf("A graph is not finished")
+			return nil, err
+		}
 	}
-
 	// Some remaining fields to fill
 	newGraph.fillSyncOp()
 	newGraph.BuildNodeInOut()

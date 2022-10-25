@@ -496,7 +496,7 @@ func (g *SyncGraph) PrintAllPathCombinations() {
 			}
 		}
 	}
-	output.WaitForInput()
+	//output.WaitForInput()
 }
 
 // Walk the whole graph, print type of node on path
@@ -780,11 +780,12 @@ func fnsForInstsNoDupli(insts []ssa.Instruction) []*ssa.Function {
 
 	mapFns := make(map[*ssa.Function]struct{})
 	for _, inst := range insts {
-		util.Debugfln("inst = %s, inst.Parent = %s\n", inst, inst.Parent())
+		util.Debugfln("inst = %s, inst.Parent = %s", inst, inst.Parent())
 		mapFns[inst.Parent()] = struct{}{}
 	}
 
 	for fn, _ := range mapFns {
+		util.Debugfln("fn = %s", fn)
 		result = append(result, fn)
 	}
 

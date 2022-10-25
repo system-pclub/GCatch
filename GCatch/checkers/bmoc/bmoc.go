@@ -6,7 +6,6 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/syncgraph"
-	"strconv"
 )
 
 func Detect() {
@@ -25,7 +24,7 @@ func Detect() {
 
 	vecChannel := []*instinfo.Channel{}
 	for _, ch := range vecChannelOri {
-		if OKToCheck(ch) == true { // some channels may come from SDK like testing. Ignore them
+		if OKToCheck(ch) { // some channels may come from SDK like testing. Ignore them
 			vecChannel = append(vecChannel, ch)
 		}
 	}
@@ -97,22 +96,26 @@ func OKToCheck(ch *instinfo.Channel) (boolCheck bool) {
 		return
 	}
 
-	p := config.Prog.Fset.Position(ch.MakeInst.Pos())
-	strChHash := ch.MakeInst.Parent().String() + ch.MakeInst.String() + ch.MakeInst.Name() + strconv.Itoa(p.Line)
-	if _, checked := config.MapHashOfCheckedCh[strChHash]; checked {
-		return
-	}
+	//p := config.Prog.Fset.Position(ch.MakeInst.Pos())
+	//strChHash := ch.MakeInst.Parent().String() + ch.MakeInst.String() + ch.MakeInst.Name() + strconv.Itoa(p.Line)
+	//util.Debugfln("strChHash = %s", strChHash)
+	//if _, checked := config.MapHashOfCheckedCh[strChHash]; checked {
+	//	util.Debugfln("checked. return.")
+	//	return
+	//}
 
 	boolCheck = true
-	config.MapHashOfCheckedCh[strChHash] = struct{}{}
-	countCh++
+	//config.MapHashOfCheckedCh[strChHash] = struct{}{}
+	//countCh++
 	return
 }
 
 func Check(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*instinfo.Locker, mapDependency map[interface{}]*syncgraph.DPrim) {
 	defer func() {
-		if r := recover(); r != nil {
-			return
+		if config.RecoverFromError {
+			if r := recover(); r != nil {
+				return
+			}
 		}
 	}()
 
@@ -144,6 +147,7 @@ func Check(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*instin
 	}
 
 	if boolSkip == false {
+		syncGraph.PrintAllPathCombinations()
 		foundBug := syncGraph.CheckWithZ3()
 		if foundBug {
 			syncgraph.ReportViolation()

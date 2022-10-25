@@ -147,7 +147,7 @@ func FindLCA(vecTargetFn []*ssa.Function, lcaConfig LcaConfig, intMaxLayer int) 
 		}
 
 		// See if recursive number is reached
-		if countDepth > intMaxLayer && lcaConfig.GiveUpWhenMaxLayerIsReached == true {
+		if countDepth >= intMaxLayer && lcaConfig.GiveUpWhenMaxLayerIsReached == true {
 			result, m, err, done := ReportExistingCallChains(mapTargetFn2workspace, mapNode2NumChain, mapEncode2Chain, countDepth)
 			if done {
 				return m, err
@@ -207,7 +207,7 @@ func FindLCA(vecTargetFn []*ssa.Function, lcaConfig LcaConfig, intMaxLayer int) 
 						//fmt.Println(path)
 						if !config.IsPathIncluded(path) {
 							//fmt.Printf("%s.%s: not included\n", path, in.Caller.Func.Name())
-							//continue
+							continue
 						}
 					}
 					boolInExist := false
@@ -251,20 +251,25 @@ func FindLCA(vecTargetFn []*ssa.Function, lcaConfig LcaConfig, intMaxLayer int) 
 func ContainsValidCaller(lastNode *callgraph.Node) bool {
 	ret := false
 	for _, in := range lastNode.In {
-		if in.Caller.Func.Pkg == nil {
-			//fmt.Printf("func.Pkg == nil, func = %s, func.Signature = %s\n", in.Caller.Func.Name(), in.Caller.Func.Signature)
-		} else {
-			path := in.Caller.Func.Pkg.Pkg.Path()
-			//fmt.Println(path)
-			if !config.IsPathIncluded(path) {
-				//fmt.Printf("%s.%s: not included\n", path, in.Caller.Func.Name())
-				//continue
-			} else {
-				ret = true
-			}
-		}
+		ret = IsFunctionIncludedInAnalysis(in.Caller)
 	}
 	return ret
+}
+
+func IsFunctionIncludedInAnalysis(node *callgraph.Node) bool {
+	if node.Func.Pkg == nil {
+		//fmt.Printf("func.Pkg == nil, func = %s, func.Signature = %s\n", in.Caller.Func.Name(), in.Caller.Func.Signature)
+	} else {
+		path := node.Func.Pkg.Pkg.Path()
+		//fmt.Println(path)
+		if !config.IsPathIncluded(path) {
+			//fmt.Printf("%s.%s: not included\n", path, in.Caller.Func.Name())
+			//continue
+		} else {
+			return true
+		}
+	}
+	return false
 }
 
 func CheckEncodingToAncestorsCorrectness(workspace *LcaFinderWorkspace, mapEncode2Chain map[string]*EdgeChain) error {
@@ -560,10 +565,12 @@ func FindSelectNexts(s *ssa.Select) (map[int]ssa.Instruction, error) {
 			return nil, fmt.Errorf("Warning in find_select_nexts: one of Extract.Referrer is not BinOp")
 		}
 		defer func() {
-			if r := recover(); r != nil {
-				fmt.Println("Warning in find_select_nexts: BinOp.Y can't be converted into int")
-				output.PrintIISrc(s)
-				output.PrintIISrc(binop)
+			if config.RecoverFromError {
+				if r := recover(); r != nil {
+					fmt.Println("Warning in find_select_nexts: BinOp.Y can't be converted into int")
+					output.PrintIISrc(s)
+					output.PrintIISrc(binop)
+				}
 			}
 		}()
 		intCaseIndex := int(binop.Y.(*ssa.Const).Int64()) // This should never panic

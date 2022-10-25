@@ -51,6 +51,11 @@ func mergeAlias(vecinstValue []*instinfo.SyncOpInfo, stPtrResult *mypointer.Resu
 			}
 		}
 		for _, label := range labels {
+			//locString := getFileAndLocString(label.Value())
+			//util.Debugfln("label: %s", locString)
+			//if strings.HasSuffix(locString, ":50:25") {
+			//	util.Debugfln("%+v", label)
+			//}
 			_, ok := result[*label]
 			if ok {
 				result[*label] = append(result[*label], instValue)
@@ -94,6 +99,10 @@ func boolIsInTime(v ssa.Value) bool {
 		return true
 	}
 	return false
+}
+
+func IsEmptyInstinfoChannelEntry(chPrim *instinfo.Channel) bool {
+	return len(chPrim.Closes) == 0 && len(chPrim.Recvs) == 0 && len(chPrim.Sends) == 0
 }
 
 func recordChInstToMap(chPrim *instinfo.Channel) {

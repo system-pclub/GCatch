@@ -8,6 +8,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/path"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/GCatch/util"
 	"strconv"
 )
 
@@ -127,6 +128,7 @@ func (t *Task) Step1AddPrim(newP interface{}, vecChannel []*instinfo.Channel, ve
 var countInaccurateCall, countMaxLayer int
 
 func PrintLCA2PathForDebugging(Lca2Path map[*ssa.Function][]*path.EdgeChain) {
+	util.Debugfln("All Paths found by LCA:")
 	for ssaFunc, edgeChains := range Lca2Path {
 		for _, edgeChain := range edgeChains {
 			fmt.Print(ssaFunc.Name())
@@ -164,7 +166,11 @@ func (t *Task) Step2CompletePrims() error {
 		GiveUpWhenMaxLayerIsReached:     true,
 		SkipExternalFuncs:               true,
 	}
-	LCA2paths, err := path.FindLCA(fnsForInstsNoDupli(vecOpInsts), lcaConfig, 50)
+	instFuncs := fnsForInstsNoDupli(vecOpInsts)
+	//LCA2paths, err := path.FindLCA(instFuncs, lcaConfig, 50)
+	//PrintLCA2PathForDebugging(LCA2paths)
+	LCA2paths, err := path.ComputeScope(instFuncs, &lcaConfig)
+	fmt.Println("new impl:")
 	PrintLCA2PathForDebugging(LCA2paths)
 	if err != nil {
 		//if err == path.ErrInaccurateCallgraph {
