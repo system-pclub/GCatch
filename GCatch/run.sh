@@ -33,9 +33,12 @@ fi
 # turn off go mod before checking
 export GO111MODULE=off
 
-echo "Step 1: setting GOPATH of the checked grpc"
-export GOPATH=$CURDIR/testdata/grpc-buggy
+echo "Step 1: setting GOPATH"
+export GOPATH=$1
 echo "GOPATH is set to $GOPATH"
+echo "Step 1: setting target"
+export TARGET=$2
+echo "GOPATH is set to $TARGET"
 echo ""
 echo "Description of flags of GCatch:"
 echo "Required Flag: -path=Full path of the application to be checked"
@@ -48,4 +51,4 @@ echo ""
 echo "Step 2: running GCatch on a buggy version of grpc in testdata"
 echo "Note: all bugs reported below should be real BMOC bugs"
 echo "GO111MODULE=off $GCATCH -path=$GOPATH/src/google.golang.org/grpc -include=google.golang.org/grpc -checker=BMOC -r"
-GO111MODULE=off $GCATCH -path="$GOPATH"/src/google.golang.org/grpc -include=google.golang.org/grpc -checker=BMOC -r
+GO111MODULE=off $GCATCH -path="$1/src/$2" -include="$2" -checker=BMOC -r
