@@ -28,7 +28,7 @@ import "C"
 // If the exponent field is neither all 0s or all 1s, then the value
 // is a "normal" number, which is interpreted as
 //
-//     (-1)^sign * 2^(exp - bias) * (1 + sig / 2^sbits)
+//	(-1)^sign * 2^(exp - bias) * (1 + sig / 2^sbits)
 //
 // where bias = 2^(ebits - 1) - 1, and exp and sig are interpreted as
 // unsigned binary values. In particular, the significand is extended
@@ -53,11 +53,11 @@ func init() {
 //
 // Common exponent and significand bit counts are:
 //
-//                      ebits sbits
-//     Half precision       5    11
-//     Single precision     8    24  (float32)
-//     Double precision    11    53  (float64)
-//     Quad precision      15   113
+//	                 ebits sbits
+//	Half precision       5    11
+//	Single precision     8    24  (float32)
+//	Double precision    11    53  (float64)
+//	Quad precision      15   113
 func (ctx *Context) FloatSort(ebits, sbits int) Sort {
 	var sort Sort
 	ctx.do(func() {

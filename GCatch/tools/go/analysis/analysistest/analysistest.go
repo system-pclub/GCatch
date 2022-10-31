@@ -28,7 +28,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/diff/myers"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/span"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/testenv"
-	"github.com/system-pclub/GCatch/GCatch/tools/txtar"
+	"golang.org/x/tools/txtar"
 )
 
 // WriteFiles is a helper function that creates a temporary directory
@@ -81,23 +81,24 @@ type Testing interface {
 // Each section in the archive corresponds to a single message.
 //
 // A golden file using txtar may look like this:
-// 	-- turn into single negation --
-// 	package pkg
 //
-// 	func fn(b1, b2 bool) {
-// 		if !b1 { // want `negating a boolean twice`
-// 			println()
-// 		}
-// 	}
+//	-- turn into single negation --
+//	package pkg
 //
-// 	-- remove double negation --
-// 	package pkg
+//	func fn(b1, b2 bool) {
+//		if !b1 { // want `negating a boolean twice`
+//			println()
+//		}
+//	}
 //
-// 	func fn(b1, b2 bool) {
-// 		if b1 { // want `negating a boolean twice`
-// 			println()
-// 		}
-// 	}
+//	-- remove double negation --
+//	package pkg
+//
+//	func fn(b1, b2 bool) {
+//		if b1 { // want `negating a boolean twice`
+//			println()
+//		}
+//	}
 func RunWithSuggestedFixes(t Testing, dir string, a *analysis.Analyzer, patterns ...string) []*Result {
 	r := Run(t, dir, a, patterns...)
 

@@ -19,7 +19,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/diff"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/lsp/protocol"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/span"
-	"github.com/system-pclub/GCatch/GCatch/tools/refactor/satisfy"
+	"golang.org/x/tools/refactor/satisfy"
 	errors "golang.org/x/xerrors"
 )
 

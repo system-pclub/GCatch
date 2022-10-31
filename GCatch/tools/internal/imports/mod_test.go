@@ -19,12 +19,12 @@ import (
 	"sync"
 	"testing"
 
-	"golang.org/x/mod/module"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/gocommand"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/gopathwalk"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/proxydir"
 	"github.com/system-pclub/GCatch/GCatch/tools/internal/testenv"
-	"github.com/system-pclub/GCatch/GCatch/tools/txtar"
+	"golang.org/x/mod/module"
+	"golang.org/x/tools/txtar"
 )
 
 // Tests that we can find packages in the stdlib.
