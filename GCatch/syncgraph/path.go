@@ -9,6 +9,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/output"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/GCatch/util"
 	"strconv"
 	"strings"
 	"time"
@@ -335,22 +336,11 @@ func (g *SyncGraph) EnumerateAllPathCombinations() {
 		indices = append(indices, 0)
 	}
 
-	startPathCombination := time.Now()
-
 	for {
 		if len(g.PathCombinations) > config.Max_PATH_ENUMERATE {
 			if config.Print_Debug_Info {
 				fmt.Println("!!!!")
 				fmt.Println("EnumerateAllPathCombinations: reached max enumerate number")
-			}
-			return
-		}
-
-		since := time.Since(startPathCombination)
-		if since > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
-			if config.Print_Debug_Info {
-				fmt.Println("!!!!")
-				fmt.Println("EnumerateAllPathCombinations: timeout")
 			}
 			return
 		}
@@ -406,7 +396,7 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 	startEnumeAllPaths := time.Now()
 
 	for len(todoFnHeads) > 0 {
-		if time.Since(startEnumeAllPaths) > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
+		if false || time.Since(startEnumeAllPaths) > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
 			if config.Print_Debug_Info {
 				fmt.Println("!!!!")
 				fmt.Println("Warning in EnumeratePathWithGoroutineHead: timeout")
@@ -429,6 +419,7 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 			}
 		}
 		for _, path := range mapHash2Map {
+			util.Debugfln("path in mapHash2Map: %s", path)
 			if enumeConfigure.FlagIgnoreNormal {
 				path = deleteNormalFromPath(path)
 			}
@@ -436,6 +427,9 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 		}
 
 		delete(todoFnHeads, thisCallerCallee)
+	}
+	for _, path := range caller2paths {
+		util.Debugfln("path in caller2paths: %s", path)
 	}
 	mapHash2Map = nil
 	todoFnHeads = nil // Not useful anymore
@@ -483,13 +477,6 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 	}
 
 	for len(worklistPaths) > 0 {
-		if time.Since(startEnumeAllPaths) > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
-			if config.Print_Debug_Info {
-				fmt.Println("!!!!")
-				fmt.Println("Warning in EnumeratePathWithGoroutineHead: timeout")
-			}
-			return nil
-		}
 		thisUnfinish := worklistPaths[0]
 		if len(thisUnfinish.vecUnfinishCallsIndex) == 0 {
 			newLocalPath := &LocalPath{
@@ -578,7 +565,7 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 	return result
 }
 
-func enumeratePathBreadthFirst(head Node, unfold int, todo_fn_heads map[tupleCallerCallee]struct{}) {
+func enumeratePathBreadthFirst(head Node, LoopUnfoldBound int, todo_fn_heads map[tupleCallerCallee]struct{}) {
 	worklist := []*LocalPath{}
 
 	head_path := []Node{head}
@@ -640,16 +627,20 @@ func enumeratePathBreadthFirst(head Node, unfold int, todo_fn_heads map[tupleCal
 			}
 			valid_outs = append(valid_outs, out)
 		}
-
 		if len(valid_outs) == 0 {
+			util.Debugfln("fn = %s, valid_outs = %s, len = %d", fn.Name(), valid_outs, len(valid_outs))
+			util.Debugfln("path = %s", current_local_path)
 			//current_local_path.finished = true
+			if _, ok := mapHash2Map[current_local_path.Hash]; ok {
+				util.Debugfln("update existing path hash: %s", current_local_path.Hash)
+			}
 			mapHash2Map[current_local_path.Hash] = current_local_path
 			continue
 		}
 
 	outLoop:
 		for _, out := range valid_outs {
-			if time.Since(startPathEnume) > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
+			if false && time.Since(startPathEnume) > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
 				if config.Print_Debug_Info {
 					fmt.Println("Warning in enumeratePathBreadthFirst: timeout")
 					for _, prim := range head.Parent().Task.VecTaskPrimitive {
@@ -678,11 +669,11 @@ func enumeratePathBreadthFirst(head Node, unfold int, todo_fn_heads map[tupleCal
 			// our old implementation
 			if out.IsBackedge {
 				newLoopHeaderVisited[out.Succ]++
-				if newLoopHeaderVisited[out.Succ] > unfold {
+				if newLoopHeaderVisited[out.Succ] > LoopUnfoldBound {
 					continue
 				}
 				new_backedge_visited[out]++
-				if new_backedge_visited[out] > unfold {
+				if new_backedge_visited[out] > LoopUnfoldBound {
 					continue
 				}
 			}
@@ -694,14 +685,14 @@ func enumeratePathBreadthFirst(head Node, unfold int, todo_fn_heads map[tupleCal
 			if bbPrev != bbSucc {
 				if _, ok := mapLoopHeader2Visited[bbSucc]; ok {
 					mapLoopHeader2Visited[bbSucc]++
-					if mapLoopHeader2Visited[bbSucc] > unfold {
+					if mapLoopHeader2Visited[bbSucc] > LoopUnfoldBound {
 						continue
 					}
 				}
 				for backedge, _ := range mapBackedge2Visited {
 					if backedge.Pred == bbPrev && backedge.Succ == bbSucc {
 						mapBackedge2Visited[backedge]++
-						if mapBackedge2Visited[backedge] > unfold {
+						if mapBackedge2Visited[backedge] > LoopUnfoldBound {
 							continue outLoop
 						}
 					}
