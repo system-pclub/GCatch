@@ -666,33 +666,21 @@ func enumeratePathBreadthFirst(head Node, LoopUnfoldBound int, todo_fn_heads map
 
 			// update the counter on backedges and loop headers
 
-			// our old implementation
-			if out.IsBackedge {
-				newLoopHeaderVisited[out.Succ]++
-				if newLoopHeaderVisited[out.Succ] > LoopUnfoldBound {
-					continue
-				}
-				new_backedge_visited[out]++
-				if new_backedge_visited[out] > LoopUnfoldBound {
-					continue
-				}
-			}
-
 			// new implementation
 			// check if BB has changed
 			bbPrev := last_node.Instruction().Block()
 			bbSucc := out.Succ.Instruction().Block()
 			if bbPrev != bbSucc {
 				if _, ok := mapLoopHeader2Visited[bbSucc]; ok {
-					mapLoopHeader2Visited[bbSucc]++
-					if mapLoopHeader2Visited[bbSucc] > LoopUnfoldBound {
+					newLoopHeaderVisited[out.Succ]++
+					if newLoopHeaderVisited[out.Succ] > LoopUnfoldBound {
 						continue
 					}
 				}
 				for backedge, _ := range mapBackedge2Visited {
 					if backedge.Pred == bbPrev && backedge.Succ == bbSucc {
-						mapBackedge2Visited[backedge]++
-						if mapBackedge2Visited[backedge] > LoopUnfoldBound {
+						new_backedge_visited[out]++
+						if new_backedge_visited[out] > LoopUnfoldBound {
 							continue outLoop
 						}
 					}
