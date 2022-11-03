@@ -10,6 +10,8 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/output"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"github.com/system-pclub/GCatch/GCatch/util"
+	"go/constant"
+	"go/token"
 	"strconv"
 	"strings"
 	"time"
@@ -423,6 +425,9 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 			if enumeConfigure.FlagIgnoreNormal {
 				path = deleteNormalFromPath(path)
 			}
+			if notCorrectUnroll(path) {
+				continue
+			}
 			caller2paths[thisCallerCallee.caller] = append(caller2paths[thisCallerCallee.caller], copyLocalPath(path))
 		}
 
@@ -662,7 +667,7 @@ func enumeratePathBreadthFirst(head Node, LoopUnfoldBound int, todo_fn_heads map
 			new_path = append(new_path, out.Succ)
 			hash_new_path := hashOfPath(new_path)
 			new_backedge_visited := copyBackedgeMap(current_local_path.mapNodeEdge2IntVisited)
-			newLoopHeaderVisited := copyHeaderMap(current_local_path.mapLoopHead2Visited)
+			//newLoopHeaderVisited := copyHeaderMap(current_local_path.mapLoopHead2Visited)
 
 			// update the counter on backedges and loop headers
 
@@ -671,12 +676,6 @@ func enumeratePathBreadthFirst(head Node, LoopUnfoldBound int, todo_fn_heads map
 			bbPrev := last_node.Instruction().Block()
 			bbSucc := out.Succ.Instruction().Block()
 			if bbPrev != bbSucc {
-				if _, ok := mapLoopHeader2Visited[bbSucc]; ok {
-					newLoopHeaderVisited[out.Succ]++
-					if newLoopHeaderVisited[out.Succ] > LoopUnfoldBound {
-						continue
-					}
-				}
 				for backedge, _ := range mapBackedge2Visited {
 					if backedge.Pred == bbPrev && backedge.Succ == bbSucc {
 						new_backedge_visited[out]++
@@ -698,6 +697,70 @@ func enumeratePathBreadthFirst(head Node, LoopUnfoldBound int, todo_fn_heads map
 		}
 	}
 
+}
+
+// For some path, it contains loop whose iteration number is fixed. Check if such a loop exists and return true if
+//the path doesn't unroll it correctly
+func notCorrectUnroll(path *LocalPath) bool {
+	if path.mapNodeEdge2IntVisited == nil {
+		if len(path.Path) != 0 {
+			loopAnalysis := analysis.NewLoopAnalysis(path.Path[0].Instruction().Parent())
+			for headerBB, _ := range loopAnalysis.MapLoopHead2BodyBB {
+				if headerBB_NotCorrectUnroll(headerBB, 0) { // this loop is unrolled 0 times
+					return true
+				}
+			}
+		}
+		return false
+	}
+	for backedge, counter := range path.mapNodeEdge2IntVisited {
+		// see if the backedge's header block ends with something like "if x < 3"
+		//if so, check if the counter == 3
+		headerBB := backedge.Succ.Instruction().Block()
+		if headerBB_NotCorrectUnroll(headerBB, counter) {
+			// detects that a loop's iteration number is different from counter
+			return true
+		}
+	}
+
+	// loop may be unrolled 0 times, then path.mapNodeEdge2IntVisited is nil. Need to find loops first
+	if len(path.mapNodeEdge2IntVisited) == 0 && len(path.Path) != 0 {
+		loopAnalysis := analysis.NewLoopAnalysis(path.Path[0].Instruction().Parent())
+		for headerBB, _ := range loopAnalysis.MapLoopHead2BodyBB {
+			if headerBB_NotCorrectUnroll(headerBB, 0) { // this loop is unrolled 0 times
+				return true
+			}
+		}
+	}
+
+	return false // we are conservative in this function
+}
+
+func headerBB_NotCorrectUnroll(headerBB *ssa.BasicBlock, counter int) bool {
+	lastInst := headerBB.Instrs[len(headerBB.Instrs)-1]
+	if ssaIf, ok := lastInst.(*ssa.If); ok {
+		if ssaBinOp, ok := ssaIf.Cond.(*ssa.BinOp); ok {
+			if ssaBinOp.Op == token.LSS {
+				if ssaConst, ok := ssaBinOp.Y.(*ssa.Const); ok {
+					if ssaConst.Value.Kind() == (constant.Int) {
+						// Now we can tell the loop condition is like "if x < 3"
+
+						// check if the counter == loop_condition, meaning we correctly unrolled the loop
+						strLoopCondition := ssaConst.Value.ExactString() // this is string "3", we can't directly read int value from package constant
+						intLoopCondition, err := strconv.Atoi(strLoopCondition)
+						if err != nil {
+							return false
+						}
+						if intLoopCondition != counter {
+							// we incorrectly unrolled the loop, return true, which will delete this path
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 // With the given paths and goroutines, check some Go rules. If rules passed, return a new pathCombination, else return nil.
