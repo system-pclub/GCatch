@@ -42,17 +42,17 @@ echo "GOPATH is set to $GOPATH"
 echo ""
 echo "Step 2: running GCatch on 7 input programs"
 
-listVar="figure1 figure2 figure2_translate figure12_1 figure12_2 figure12_3 figure13_1 figure13_2"
-# listVar="figure2 figure2_translate"
-for i in $listVar; do
-  echo "========================================================"
-  echo "===============Running GCatch on $i============="
-    echo "========================================================"
-    echo "$GCATCH -path=$GOPATH/src/$i -include=$i -checker=BMOC -compile-error"
-    $GCATCH -path="$GOPATH"/src/$i -include=$i -checker=BMOC -compile-error
-    echo ""
-    echo ""
-done
+# listVar="figure1 figure2 figure2_translate figure12_1 figure12_2 figure12_3 figure13_1 figure13_2"
+# # listVar="figure2 figure2_translate"
+# for i in $listVar; do
+#   echo "========================================================"
+#   echo "===============Running GCatch on $i============="
+#     echo "========================================================"
+#     echo "$GCATCH -path=$GOPATH/src/$i -include=$i -checker=BMOC -compile-error"
+#     $GCATCH -path="$GOPATH"/src/$i -include=$i -checker=BMOC -compile-error
+#     echo ""
+#     echo ""
+# done
 
 echo "Step 1: setting GOPATH"
 export GOPATH=$CURDIR/testdata/gobench

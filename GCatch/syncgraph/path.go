@@ -9,6 +9,9 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/output"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+	"github.com/system-pclub/GCatch/GCatch/util"
+	"go/constant"
+	"go/token"
 	"strconv"
 	"strings"
 	"time"
@@ -336,22 +339,11 @@ func (g *SyncGraph) EnumerateAllPathCombinations() {
 		indices = append(indices, 0)
 	}
 
-	startPathCombination := time.Now()
-
 	for {
 		if len(g.PathCombinations) > config.MAX_PATH_ENUMERATE {
 			fmt.Printf("Warning in EnumerateAllPathCombinations: " +
 				"path combination reached config.MAX_PATH_ENUMERATE (%d)\nNow exiting", config.MAX_PATH_ENUMERATE)
 			os.Exit(1)
-			return
-		}
-
-		since := time.Since(startPathCombination)
-		if since > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
-			if config.Print_Debug_Info {
-				fmt.Println("!!!!")
-				fmt.Println("EnumerateAllPathCombinations: timeout")
-			}
 			return
 		}
 
@@ -427,13 +419,20 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 			}
 		}
 		for _, path := range mapHash2Map {
+			util.Debugfln("path in mapHash2Map: %s", path)
 			if enumeConfigure.FlagIgnoreNormal {
 				path = deleteNormalFromPath(path)
+			}
+			if notCorrectUnroll(path) {
+				continue
 			}
 			caller2paths[thisCallerCallee.caller] = append(caller2paths[thisCallerCallee.caller], copyLocalPath(path))
 		}
 
 		delete(todoFnHeads, thisCallerCallee)
+	}
+	for _, path := range caller2paths {
+		util.Debugfln("path in caller2paths: %s", path)
 	}
 	mapHash2Map = nil
 	todoFnHeads = nil // Not useful anymore
@@ -582,7 +581,7 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 	return result
 }
 
-func enumeratePathBreadthFirst(head Node, unfold int, todo_fn_heads map[tupleCallerCallee]struct{}) {
+func enumeratePathBreadthFirst(head Node, LoopUnfoldBound int, todo_fn_heads map[tupleCallerCallee]struct{}) {
 	worklist := []*LocalPath{}
 
 	head_path := []Node{head}
@@ -643,16 +642,20 @@ func enumeratePathBreadthFirst(head Node, unfold int, todo_fn_heads map[tupleCal
 			}
 			valid_outs = append(valid_outs, out)
 		}
-
 		if len(valid_outs) == 0 {
+			util.Debugfln("fn = %s, valid_outs = %s, len = %d", fn.Name(), valid_outs, len(valid_outs))
+			util.Debugfln("path = %s", current_local_path)
 			//current_local_path.finished = true
+			if _, ok := mapHash2Map[current_local_path.Hash]; ok {
+				util.Debugfln("update existing path hash: %s", current_local_path.Hash)
+			}
 			mapHash2Map[current_local_path.Hash] = current_local_path
 			continue
 		}
 
 	outLoop:
 		for _, out := range valid_outs {
-			if time.Since(startPathEnume) > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
+			if false && time.Since(startPathEnume) > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
 				if config.Print_Debug_Info {
 					fmt.Println("Warning in enumeratePathBreadthFirst: timeout")
 					for _, prim := range head.Parent().Task.VecTaskPrimitive {
@@ -674,37 +677,19 @@ func enumeratePathBreadthFirst(head Node, unfold int, todo_fn_heads map[tupleCal
 			new_path = append(new_path, out.Succ)
 			hash_new_path := hashOfPath(new_path)
 			new_backedge_visited := copyBackedgeMap(current_local_path.mapNodeEdge2IntVisited)
-			newLoopHeaderVisited := copyHeaderMap(current_local_path.mapLoopHead2Visited)
+			//newLoopHeaderVisited := copyHeaderMap(current_local_path.mapLoopHead2Visited)
 
 			// update the counter on backedges and loop headers
-
-			// our old implementation
-			if out.IsBackedge {
-				newLoopHeaderVisited[out.Succ]++
-				if newLoopHeaderVisited[out.Succ] > unfold {
-					continue
-				}
-				new_backedge_visited[out]++
-				if new_backedge_visited[out] > unfold {
-					continue
-				}
-			}
 
 			// new implementation
 			// check if BB has changed
 			bbPrev := last_node.Instruction().Block()
 			bbSucc := out.Succ.Instruction().Block()
 			if bbPrev != bbSucc {
-				if _, ok := mapLoopHeader2Visited[bbSucc]; ok {
-					mapLoopHeader2Visited[bbSucc]++
-					if mapLoopHeader2Visited[bbSucc] > unfold {
-						continue
-					}
-				}
 				for backedge, _ := range mapBackedge2Visited {
 					if backedge.Pred == bbPrev && backedge.Succ == bbSucc {
-						mapBackedge2Visited[backedge]++
-						if mapBackedge2Visited[backedge] > unfold {
+						new_backedge_visited[out]++
+						if new_backedge_visited[out] > LoopUnfoldBound {
 							continue outLoop
 						}
 					}
@@ -722,6 +707,70 @@ func enumeratePathBreadthFirst(head Node, unfold int, todo_fn_heads map[tupleCal
 		}
 	}
 
+}
+
+// For some path, it contains loop whose iteration number is fixed. Check if such a loop exists and return true if
+//the path doesn't unroll it correctly
+func notCorrectUnroll(path *LocalPath) bool {
+	if path.mapNodeEdge2IntVisited == nil {
+		if len(path.Path) != 0 {
+			loopAnalysis := analysis.NewLoopAnalysis(path.Path[0].Instruction().Parent())
+			for headerBB, _ := range loopAnalysis.MapLoopHead2BodyBB {
+				if headerBB_NotCorrectUnroll(headerBB, 0) { // this loop is unrolled 0 times
+					return true
+				}
+			}
+		}
+		return false
+	}
+	for backedge, counter := range path.mapNodeEdge2IntVisited {
+		// see if the backedge's header block ends with something like "if x < 3"
+		//if so, check if the counter == 3
+		headerBB := backedge.Succ.Instruction().Block()
+		if headerBB_NotCorrectUnroll(headerBB, counter) {
+			// detects that a loop's iteration number is different from counter
+			return true
+		}
+	}
+
+	// loop may be unrolled 0 times, then path.mapNodeEdge2IntVisited is nil. Need to find loops first
+	if len(path.mapNodeEdge2IntVisited) == 0 && len(path.Path) != 0 {
+		loopAnalysis := analysis.NewLoopAnalysis(path.Path[0].Instruction().Parent())
+		for headerBB, _ := range loopAnalysis.MapLoopHead2BodyBB {
+			if headerBB_NotCorrectUnroll(headerBB, 0) { // this loop is unrolled 0 times
+				return true
+			}
+		}
+	}
+
+	return false // we are conservative in this function
+}
+
+func headerBB_NotCorrectUnroll(headerBB *ssa.BasicBlock, counter int) bool {
+	lastInst := headerBB.Instrs[len(headerBB.Instrs)-1]
+	if ssaIf, ok := lastInst.(*ssa.If); ok {
+		if ssaBinOp, ok := ssaIf.Cond.(*ssa.BinOp); ok {
+			if ssaBinOp.Op == token.LSS {
+				if ssaConst, ok := ssaBinOp.Y.(*ssa.Const); ok {
+					if ssaConst.Value.Kind() == (constant.Int) {
+						// Now we can tell the loop condition is like "if x < 3"
+
+						// check if the counter == loop_condition, meaning we correctly unrolled the loop
+						strLoopCondition := ssaConst.Value.ExactString() // this is string "3", we can't directly read int value from package constant
+						intLoopCondition, err := strconv.Atoi(strLoopCondition)
+						if err != nil {
+							return false
+						}
+						if intLoopCondition != counter {
+							// we incorrectly unrolled the loop, return true, which will delete this path
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 // With the given paths and goroutines, check some Go rules. If rules passed, return a new pathCombination, else return nil.

@@ -208,6 +208,7 @@ func GetChanOps(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.SyncOpIn
 				}
 				chPrim.Closes = append(chPrim.Closes, newClose)
 			default:
+				util.Debugfln("chOp.Comment = %s, pos = %s \n", chOp.Comment, PosToFileAndLocString(chOp.Inst.Pos()))
 				//Select
 				if i := strings.Index(chOp.Comment, "Select_Send_"); i > -1 {
 					var boolIsBlocking bool

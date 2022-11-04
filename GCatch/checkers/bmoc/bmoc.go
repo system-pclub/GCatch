@@ -132,7 +132,7 @@ func Check(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*instin
 	syncGraph.ComputeFnOnOpPath()
 	syncGraph.OptimizeBB_V1()
 
-	syncGraph.SetEnumCfg(1, false, true)
+	syncGraph.SetEnumCfg(2, false, true)
 
 	syncGraph.EnumerateAllPathCombinations()
 
