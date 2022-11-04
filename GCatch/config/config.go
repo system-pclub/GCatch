@@ -5,7 +5,7 @@ package config
 const MAX_GCATCH_DDL_SECOND = 360000 // 100 h
 const MAX_LCA_LAYER = 7              // The maximum caller-callee layers when updating dependency map and finding LCA (Lowest Common Ancester)
 const MAX_INST_IN_SYNCGRAPH = 10000
-const Max_PATH_ENUMERATE int = 1000000000
+const MAX_PATH_ENUMERATE int = 10000
 const MAX_PATH_ENUMERATE_SECOND = 60
 
 // End of Dangerous thresholds
