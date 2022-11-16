@@ -32,7 +32,7 @@ func BuildWholeProgramTrad(strPath string, boolForce bool, boolShowError bool) (
 
 	// Create SSA packages for all well-typed packages.
 	//fmt.Println("build_mode:", "NaiveForm")                   //|BuildSerially|PrintPackage
-	prog, pkgs := ssautil.AllPackages(initialPackage, ssa.NaiveForm) //|ssa.BuildSerially|ssa.PrintPackages
+	prog, pkgs := ssautil.AllPackages(initialPackage, ssa.NaiveForm|ssa.InstantiateGenerics) //|ssa.BuildSerially|ssa.PrintPackages
 
 	// Build SSA code for the whole program.
 	prog.Build()
