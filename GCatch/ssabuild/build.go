@@ -16,19 +16,14 @@ func BuildWholeProgramTrad(strPath string, boolForce bool, boolShowError bool) (
 	initialPackage, err := packages.Load(cfg, strPath) // you can put multiple paths here, but it is unnecessary if you only want one program
 	if err != nil {
 		strMsg = "load_err"
-		if boolShowError {
-			fmt.Println(err)
-		}
+		fmt.Println(err)
 
 		return nil, nil, false, strMsg
 	}
 
-	if packages.PrintErrors(initialPackage, boolShowError) > 0 { //To ignore building errors, you can comment out a line in this function
+	if packages.PrintErrors(initialPackage) > 0 { //To ignore building errors, you can comment out a line in this function
 		strMsg = "type_err"
-
-		if boolForce == false {
-			return nil, nil, false, strMsg
-		}
+		return nil, nil, false, strMsg
 	}
 
 	//if packages.PrintErrors(initialPackage, boolShowError) > 0 && boolForce == false {
@@ -63,19 +58,14 @@ func BuildWholeProgramGoMod(strModulePath string, boolForce bool, boolShowError 
 	initialPackage, err := packages.Load(cfg, strModulePath) // you can put multiple paths here, but it is unnecessary if you only want one program
 	if err != nil {
 		strMsg = "load_err"
-		if boolShowError {
-			fmt.Println(err)
-		}
+		fmt.Println(err)
 
 		return nil, nil, false, strMsg
 	}
 
-	if packages.PrintErrors(initialPackage, boolShowError) > 0 { //To ignore building errors, you can comment out a line in this function
+	if packages.PrintErrors(initialPackage) > 0 { //To ignore building errors, you can comment out a line in this function
 		strMsg = "type_err"
-
-		if boolForce == false {
-			return nil, nil, false, strMsg
-		}
+		return nil, nil, false, strMsg
 	}
 
 	//if packages.PrintErrors(initialPackage, boolShowError) > 0 && boolForce == false {
