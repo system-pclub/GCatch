@@ -1,6 +1,6 @@
 package util
 
-import "github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+import "golang.org/x/tools/go/ssa"
 
 func IsFirstDefer(ii ssa.Instruction) bool {
 
@@ -15,7 +15,7 @@ func IsFirstDefer(ii ssa.Instruction) bool {
 	}
 
 	for _, i := range bb.Instrs {
-		if _, ok := i.(* ssa.Defer); ok {
+		if _, ok := i.(*ssa.Defer); ok {
 			if i == ii {
 				return true
 			}

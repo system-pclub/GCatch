@@ -2,22 +2,23 @@ package util
 
 import (
 	"fmt"
-	"github.com/system-pclub/GCatch/GCatch/config"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"go/token"
 	"go/types"
 	"reflect"
 	"strings"
+
+	"github.com/system-pclub/GCatch/GCatch/config"
+	"golang.org/x/tools/go/ssa"
 )
 
-var mapStruct2Pointer map[* types.Struct] * types.Pointer
+var mapStruct2Pointer map[*types.Struct]*types.Pointer
 
-func GetStructPointerMapping()  {
-	mapStruct2Pointer = make(map[* types.Struct] * types.Pointer)
+func GetStructPointerMapping() {
+	mapStruct2Pointer = make(map[*types.Struct]*types.Pointer)
 	for _, T := range config.Prog.RuntimeTypes() {
-		if pPointer, ok := T.(* types.Pointer); ok {
-			if pNamed, ok := pPointer.Elem().(* types.Named); ok {
-				if pStruct, ok := pNamed.Underlying().(* types.Struct); ok {
+		if pPointer, ok := T.(*types.Pointer); ok {
+			if pNamed, ok := pPointer.Elem().(*types.Named); ok {
+				if pStruct, ok := pNamed.Underlying().(*types.Struct); ok {
 					mapStruct2Pointer[pStruct] = pPointer
 				}
 			}
@@ -85,7 +86,7 @@ func PrintTypes(m map[types.Type] bool) {
 }
 */
 
-func GetTypeMethods(t types.Type, m map[string] bool, mVisited map[types.Type] bool)  {
+func GetTypeMethods(t types.Type, m map[string]bool, mVisited map[types.Type]bool) {
 
 	if _, ok := mVisited[t]; ok {
 		return
@@ -93,11 +94,11 @@ func GetTypeMethods(t types.Type, m map[string] bool, mVisited map[types.Type] b
 
 	mVisited[t] = true
 
-	if pPointer, ok := t.(* types.Pointer); ok {
+	if pPointer, ok := t.(*types.Pointer); ok {
 		GetTypeMethods(pPointer.Elem(), m, mVisited)
-	} else if pNamed, ok := t.(* types.Named); ok {
+	} else if pNamed, ok := t.(*types.Named); ok {
 		GetTypeMethods(pNamed.Underlying(), m, mVisited)
-	} else if pStruct, ok := t.(* types.Struct); ok {
+	} else if pStruct, ok := t.(*types.Struct); ok {
 		if pPointer, ok := mapStruct2Pointer[pStruct]; ok {
 			mset := config.Prog.MethodSets.MethodSet(pPointer)
 			if mset != nil {
@@ -108,14 +109,14 @@ func GetTypeMethods(t types.Type, m map[string] bool, mVisited map[types.Type] b
 				}
 			}
 		}
-		for i := 0; i < pStruct.NumFields(); i ++ {
+		for i := 0; i < pStruct.NumFields(); i++ {
 			GetTypeMethods(pStruct.Field(i).Type(), m, mVisited)
 		}
-	} else if pInterface, ok := t.(* types.Interface); ok {
-		for i := 0; i < pInterface.NumMethods(); i ++ {
+	} else if pInterface, ok := t.(*types.Interface); ok {
+		for i := 0; i < pInterface.NumMethods(); i++ {
 			m[pInterface.Method(i).FullName()] = true
 		}
-		for i := 0; i < pInterface.NumEmbeddeds(); i ++ {
+		for i := 0; i < pInterface.NumEmbeddeds(); i++ {
 			GetTypeMethods(pInterface.EmbeddedType(i), m, mVisited)
 		}
 
@@ -125,14 +126,14 @@ func GetTypeMethods(t types.Type, m map[string] bool, mVisited map[types.Type] b
 	} else if _, ok := t.(*types.Chan); ok {
 	} else if _, ok := t.(*types.Array); ok {
 	} else if _, ok := t.(*types.Signature); ok {
-	}else {
+	} else {
 		fmt.Println("not handle", reflect.TypeOf(t), t)
 		panic("in GetTypeMethods()")
 	}
 }
 
-func DecoupleTypeMethods(m map[string] bool) map[string] map[string] bool {
-	mapResult := make(map[string] map[string] bool)
+func DecoupleTypeMethods(m map[string]bool) map[string]map[string]bool {
+	mapResult := make(map[string]map[string]bool)
 	for strFunName, _ := range m {
 		var strStructName string
 		var strFName string
@@ -141,11 +142,11 @@ func DecoupleTypeMethods(m map[string] bool) map[string] map[string] bool {
 			strFName = strFunName
 		} else {
 			strStructName = strFunName[:strings.LastIndex(strFunName, ".")]
-			strFName = strFunName[strings.LastIndex(strFunName, ".") + 1:]
+			strFName = strFunName[strings.LastIndex(strFunName, ".")+1:]
 		}
 
 		if _, ok := mapResult[strStructName]; !ok {
-			mapResult[strStructName] = make(map[string] bool)
+			mapResult[strStructName] = make(map[string]bool)
 		}
 
 		mapResult[strStructName][strFName] = true
@@ -154,7 +155,7 @@ func DecoupleTypeMethods(m map[string] bool) map[string] map[string] bool {
 	return mapResult
 }
 
-func PrintTypeMethods(m map[string] map[string] bool) {
+func PrintTypeMethods(m map[string]map[string]bool) {
 	for sPackage, mapMethods := range m {
 		fmt.Println(sPackage)
 		for sFuncName, _ := range mapMethods {
@@ -165,9 +166,9 @@ func PrintTypeMethods(m map[string] map[string] bool) {
 
 func GetBaseType(v ssa.Value) types.Type {
 	if i, ok := v.(ssa.Instruction); ok {
-		if f, ok := i.(* ssa.FieldAddr); ok {
+		if f, ok := i.(*ssa.FieldAddr); ok {
 			return GetBaseType(f.X)
-		} else if u, ok := i.(* ssa.UnOp); ok {
+		} else if u, ok := i.(*ssa.UnOp); ok {
 			switch u.Op {
 			case token.MUL:
 				return GetBaseType(u.X)
@@ -178,7 +179,3 @@ func GetBaseType(v ssa.Value) types.Type {
 
 	return v.Type()
 }
-
-
-
-

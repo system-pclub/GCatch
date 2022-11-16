@@ -2,11 +2,12 @@ package instinfo
 
 import (
 	"fmt"
-	"github.com/system-pclub/GCatch/GCatch/config"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
-	"github.com/system-pclub/GCatch/GCatch/util"
 	"go/types"
 	"strings"
+
+	"github.com/system-pclub/GCatch/GCatch/config"
+	"github.com/system-pclub/GCatch/GCatch/util"
+	"golang.org/x/tools/go/ssa"
 )
 
 /*
@@ -51,8 +52,7 @@ func GetMutexName1(inputInst ssa.Instruction) string {
 	return strMutexName
 }
 
- */
-
+*/
 
 func GetMutexName(inputInst ssa.Instruction) string {
 	instLoc := (config.Prog.Fset).Position(inputInst.Pos())
@@ -65,20 +65,20 @@ func GetMutexName(inputInst ssa.Instruction) string {
 	strCodeLine, err := util.ReadFileLine(strFileName, numLine)
 
 	if err != nil {
-		fmt.Println("Error: during read file:", strFileName,"\tline:", numLine,"\tfor inst:", inputInst)
+		fmt.Println("Error: during read file:", strFileName, "\tline:", numLine, "\tfor inst:", inputInst)
 		return ""
 	}
 
-	if numCommentStart := strings.Index(strCodeLine,"//"); numCommentStart > -1 {
+	if numCommentStart := strings.Index(strCodeLine, "//"); numCommentStart > -1 {
 		strCodeLine = strCodeLine[:numCommentStart]
 	}
 
 	numDotIndex := -1
 
-	numLockIndex := strings.LastIndex(strCodeLine,".Lock")
-	numRLockIndex := strings.LastIndex(strCodeLine,".RLock")
-	numUnlockIndex := strings.LastIndex(strCodeLine,".Unlock")
-	numRUnlockIndex := strings.LastIndex(strCodeLine,".RUnlock")
+	numLockIndex := strings.LastIndex(strCodeLine, ".Lock")
+	numRLockIndex := strings.LastIndex(strCodeLine, ".RLock")
+	numUnlockIndex := strings.LastIndex(strCodeLine, ".Unlock")
+	numRUnlockIndex := strings.LastIndex(strCodeLine, ".RUnlock")
 	switch {
 	case numLockIndex > 0:
 		numDotIndex = numLockIndex
@@ -95,17 +95,15 @@ func GetMutexName(inputInst ssa.Instruction) string {
 	}
 
 	strMutexName := strCodeLine[:numDotIndex]
-	splits := strings.Split(strMutexName," ")
-	strMutexName = splits[len(splits) - 1]
+	splits := strings.Split(strMutexName, " ")
+	strMutexName = splits[len(splits)-1]
 	strMutexName = strings.TrimSpace(strMutexName)
-	strMutexName = strings.ReplaceAll(strMutexName,"case ","")
-	strMutexName = strings.ReplaceAll(strMutexName,"\t","")
+	strMutexName = strings.ReplaceAll(strMutexName, "case ", "")
+	strMutexName = strings.ReplaceAll(strMutexName, "\t", "")
 	strMutexName = strings.TrimSpace(strMutexName)
-
 
 	return strMutexName
 }
-
 
 func IsMutexMake(inputInst ssa.Instruction) bool {
 	instAlloc, ok := inputInst.(*ssa.Alloc)
@@ -122,7 +120,7 @@ func IsMutexMake(inputInst ssa.Instruction) bool {
 }
 
 func IsMutexLock(inputInst ssa.Instruction) bool {
-	var fnCall * ssa.CallCommon
+	var fnCall *ssa.CallCommon
 	instCall, ok := inputInst.(*ssa.Call)
 
 	if ok {
@@ -187,4 +185,3 @@ func IsMutexUnlock(inputInst ssa.Instruction) bool {
 func IsMutexOperation(inputInst ssa.Instruction) bool {
 	return IsMutexLock(inputInst) || IsMutexUnlock(inputInst)
 }
-

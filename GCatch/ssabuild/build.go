@@ -2,16 +2,17 @@ package ssabuild
 
 import (
 	"fmt"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/packages"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa/ssautil"
 	"os"
+
+	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 // Our traditional way to build a program. Here strPath should be what's after "/src/", like "github.com/docker/docker"
 func BuildWholeProgramTrad(strPath string, boolForce bool, boolShowError bool) (*ssa.Program, []*ssa.Package, bool, string) {
 	strMsg := "suc"
-	cfg := &packages.Config{Mode: packages.LoadAllSyntax, Tests: true, }
+	cfg := &packages.Config{Mode: packages.LoadAllSyntax, Tests: true}
 	initialPackage, err := packages.Load(cfg, strPath) // you can put multiple paths here, but it is unnecessary if you only want one program
 	if err != nil {
 		strMsg = "load_err"

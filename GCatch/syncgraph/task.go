@@ -2,12 +2,13 @@ package syncgraph
 
 import (
 	"fmt"
+
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/output"
 	"github.com/system-pclub/GCatch/GCatch/path"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+	"golang.org/x/tools/go/callgraph"
+	"golang.org/x/tools/go/ssa"
 )
 
 type Task struct {
@@ -27,10 +28,12 @@ type TaskPrimitive struct {
 
 // Operation of a primitive, context-sensitive
 // E.g. func send() { ch <- 1}
-//		func main() {
-//			send() // Line 3
-//			send() // Line 4
-//		}
+//
+//	func main() {
+//		send() // Line 3
+//		send() // Line 4
+//	}
+//
 // There are 2 operations, called by two paths: main() ---Line3---> send(); main() ---Line4---> send()
 type ChainsToReachOp struct {
 	Op                     interface{}

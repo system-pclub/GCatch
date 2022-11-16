@@ -2,24 +2,25 @@ package instinfo
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/output"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
-	"strconv"
+	"golang.org/x/tools/go/ssa"
 )
 
 // This file defines primitive channel and its operations
 
 // Define Channel
 type Channel struct {
-	Name string
+	Name     string
 	MakeInst *ssa.MakeChan
-	Make *ChMake
-	Pkg string
-	Buffer int
+	Make     *ChMake
+	Pkg      string
+	Buffer   int
 
-	Sends []*ChSend
-	Recvs []*ChRecv
+	Sends  []*ChSend
+	Recvs  []*ChRecv
 	Closes []*ChClose
 
 	Status string
@@ -48,7 +49,7 @@ type ChanOp interface {
 
 type ChOp struct {
 	Parent *Channel
-	Inst ssa.Instruction
+	Inst   ssa.Instruction
 }
 
 func (op *ChOp) Prim() *Channel {
@@ -59,39 +60,39 @@ func (op *ChOp) Instr() ssa.Instruction {
 	return op.Inst
 }
 
-// 		Define operation ChMake, a concrete implementation of ChanOp
+// Define operation ChMake, a concrete implementation of ChanOp
 type ChMake struct {
 	ChOp // inst can only be MakeChan
 }
 
-// 		Define operation ChSend, a concrete implementation of ChanOp
+// Define operation ChSend, a concrete implementation of ChanOp
 type ChSend struct {
 	Name           string
 	CaseIndex      int // If Inst is *ssa.Send, CaseIndex = -1; else CaseIndex is the index of case of *ssa.Select
 	IsCaseBlocking bool
-	WholeLine     string // Used for debug
+	WholeLine      string // Used for debug
 	Status         string
 
 	ChOp // this can be *ssa.Send or *ssa.Select
 }
 
-// 		Define operation ChRecv, a concrete implementation of ChanOp
+// Define operation ChRecv, a concrete implementation of ChanOp
 type ChRecv struct {
-	Name string
-	CaseIndex int // If Inst is *ssa.UnOp, CaseIndex = -1; else CaseIndex is the index of case of *ssa.Select
+	Name           string
+	CaseIndex      int // If Inst is *ssa.UnOp, CaseIndex = -1; else CaseIndex is the index of case of *ssa.Select
 	IsCaseBlocking bool
-	WholeLine string // Used for debug
-	Status string
+	WholeLine      string // Used for debug
+	Status         string
 
 	ChOp // inst can be *ssa.UnOp or *ssa.Select
 }
 
-// 		Define operation ChClose, a concrete implementation of ChanOp
+// Define operation ChClose, a concrete implementation of ChanOp
 type ChClose struct {
-	Name string
-	IsDefer bool
+	Name      string
+	IsDefer   bool
 	WholeLine string
-	Status string // Used for debug
+	Status    string // Used for debug
 
 	ChOp // inst can be *ssa.Call or *ssa.Defer
 }
@@ -119,7 +120,7 @@ var ChanNotDepend Channel
 // Fields like Case_index need to be updated
 func AddNotDependSend(inst ssa.Instruction) *ChSend {
 	newSend := &ChSend{
-		ChOp:            ChOp{
+		ChOp: ChOp{
 			Parent: &ChanNotDepend,
 			Inst:   inst,
 		},
@@ -133,7 +134,7 @@ func AddNotDependSend(inst ssa.Instruction) *ChSend {
 // Fields like Case_index need to be updated
 func AddNotDependRecv(inst ssa.Instruction) *ChRecv {
 	newRecv := &ChRecv{
-		ChOp:            ChOp{
+		ChOp: ChOp{
 			Parent: &ChanNotDepend,
 			Inst:   inst,
 		},
@@ -146,7 +147,7 @@ func AddNotDependRecv(inst ssa.Instruction) *ChRecv {
 // No sync constraint will be generated for this operation.
 func AddNotDependClose(inst ssa.Instruction) *ChClose {
 	newClose := &ChClose{
-		ChOp:            ChOp{
+		ChOp: ChOp{
 			Parent: &ChanNotDepend,
 			Inst:   inst,
 		},
@@ -157,35 +158,35 @@ func AddNotDependClose(inst ssa.Instruction) *ChClose {
 
 func (ch *Channel) DebugPrintChan() {
 
-	fmt.Println("------Chan:", ch.Name,"\tIn", ch.Pkg)
+	fmt.Println("------Chan:", ch.Name, "\tIn", ch.Pkg)
 	fmt.Println("---Buffer:", ch.Buffer)
 
 	if ch.MakeInst != nil {
 		m_p := (config.Prog.Fset).Position(ch.MakeInst.Pos())
-		fmt.Println("---Make:", ch.MakeInst,"\tat:",m_p.Filename+":"+strconv.Itoa(m_p.Line))
+		fmt.Println("---Make:", ch.MakeInst, "\tat:", m_p.Filename+":"+strconv.Itoa(m_p.Line))
 	}
 
 	fmt.Println("---Send:", len(ch.Sends))
 	for i, send := range ch.Sends {
 		p := (config.Prog.Fset).Position(send.Inst.Pos())
-		fmt.Print("--",i,":",p.Filename+":"+strconv.Itoa(p.Line))
+		fmt.Print("--", i, ":", p.Filename+":"+strconv.Itoa(p.Line))
 		output.PrintIISrc(send.Inst)
 		fmt.Println()
-		fmt.Println(" In case:",send.CaseIndex," Select_blocking:", send.IsCaseBlocking)
+		fmt.Println(" In case:", send.CaseIndex, " Select_blocking:", send.IsCaseBlocking)
 
 	}
 	fmt.Println("---Recv:", len(ch.Recvs))
 	for i, recv := range ch.Recvs {
 		p := (config.Prog.Fset).Position(recv.Inst.Pos())
-		fmt.Println("--",i,":",p.Filename+":"+strconv.Itoa(p.Line))
+		fmt.Println("--", i, ":", p.Filename+":"+strconv.Itoa(p.Line))
 		output.PrintIISrc(recv.Inst)
 		fmt.Println()
-		fmt.Println(" In case:",recv.CaseIndex," Select_blocking:", recv.IsCaseBlocking)
+		fmt.Println(" In case:", recv.CaseIndex, " Select_blocking:", recv.IsCaseBlocking)
 	}
 	fmt.Println("---Close:", len(ch.Closes))
 	for i, aClose := range ch.Closes {
 		p := (config.Prog.Fset).Position(aClose.Inst.Pos())
-		fmt.Println("--",i,":",p.Filename+":"+strconv.Itoa(p.Line)," In defer:", aClose.IsDefer)
+		fmt.Println("--", i, ":", p.Filename+":"+strconv.Itoa(p.Line), " In defer:", aClose.IsDefer)
 		output.PrintIISrc(aClose.Inst)
 		fmt.Println()
 	}

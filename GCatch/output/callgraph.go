@@ -2,11 +2,12 @@ package output
 
 import (
 	"fmt"
+
 	"github.com/system-pclub/GCatch/GCatch/config"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
+	"golang.org/x/tools/go/callgraph"
 )
 
-func PrintCallGraph(graph * callgraph.Graph) {
+func PrintCallGraph(graph *callgraph.Graph) {
 	for fn, node := range graph.Nodes {
 
 		if fn.Pkg == nil || fn.Pkg.Pkg == nil {

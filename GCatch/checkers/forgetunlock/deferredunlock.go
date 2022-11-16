@@ -2,7 +2,7 @@ package forgetunlock
 
 import (
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+	"golang.org/x/tools/go/ssa"
 )
 
 func SearchDeferredUnlock(inputInst ssa.Instruction) []string {

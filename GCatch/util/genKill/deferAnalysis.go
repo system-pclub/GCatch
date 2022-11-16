@@ -2,17 +2,18 @@ package genKill
 
 import (
 	"fmt"
+
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/output"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa/ssautil"
 	"github.com/system-pclub/GCatch/GCatch/util"
+	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 func ComputeDeferMap() (map[ssa.Instruction][]*ssa.Defer, map[*ssa.Defer][]ssa.Instruction) {
 	Inst2Defers := make(map[ssa.Instruction][]*ssa.Defer)
 	Defer2Insts := make(map[*ssa.Defer][]ssa.Instruction)
-	for fn,_ := range ssautil.AllFunctions(config.Prog) {
+	for fn, _ := range ssautil.AllFunctions(config.Prog) {
 		computeDeferMapInFunc(fn, Inst2Defers)
 	}
 
@@ -25,7 +26,7 @@ func ComputeDeferMap() (map[ssa.Instruction][]*ssa.Defer, map[*ssa.Defer][]ssa.I
 		}
 		reverse := []*ssa.Defer{}
 		for i := len(defers) - 1; i >= 0; i-- {
-			reverse = append(reverse,defers[i])
+			reverse = append(reverse, defers[i])
 		}
 		Inst2Defers[inst] = reverse
 		defers = nil
@@ -36,28 +37,28 @@ func ComputeDeferMap() (map[ssa.Instruction][]*ssa.Defer, map[*ssa.Defer][]ssa.I
 	}
 
 	for R, Ds := range Inst2Defers {
-		for _,D := range Ds {
-			Defer2Insts[D] = append(Defer2Insts[D],R)
+		for _, D := range Ds {
+			Defer2Insts[D] = append(Defer2Insts[D], R)
 		}
 	}
 
 	return Inst2Defers, Defer2Insts
 }
 
-type deferTask struct{
-	fnTarget *ssa.Function // the fn we are analyzing
-	mapGen map[ssa.Instruction] *ssa.Defer
-	mapKill map[ssa.Instruction] *ssa.Defer // always empty
-	mapBefore map[ssa.Instruction] []*ssa.Defer
-	mapAfter map[ssa.Instruction] []*ssa.Defer
+type deferTask struct {
+	fnTarget    *ssa.Function // the fn we are analyzing
+	mapGen      map[ssa.Instruction]*ssa.Defer
+	mapKill     map[ssa.Instruction]*ssa.Defer // always empty
+	mapBefore   map[ssa.Instruction][]*ssa.Defer
+	mapAfter    map[ssa.Instruction][]*ssa.Defer
 	vecWorkList []ssa.Instruction
 }
 
 func (task *deferTask) InitMaps() {
-	task.mapGen = make(map[ssa.Instruction] *ssa.Defer)
-	task.mapKill = make(map[ssa.Instruction] *ssa.Defer)
-	task.mapBefore = make(map[ssa.Instruction] []*ssa.Defer)
-	task.mapAfter = make(map[ssa.Instruction] []*ssa.Defer)
+	task.mapGen = make(map[ssa.Instruction]*ssa.Defer)
+	task.mapKill = make(map[ssa.Instruction]*ssa.Defer)
+	task.mapBefore = make(map[ssa.Instruction][]*ssa.Defer)
+	task.mapAfter = make(map[ssa.Instruction][]*ssa.Defer)
 }
 
 func (task *deferTask) Clear() {
@@ -135,11 +136,11 @@ func (task *deferTask) appendNextInstInOrder(instTarget ssa.Instruction) (result
 	for _, notHeadInst := range notHeadOfBbInsts {
 		result = append(result, notHeadInst)
 	}
-	for _,old_inst := range task.vecWorkList {
-		result = append(result,old_inst)
+	for _, old_inst := range task.vecWorkList {
+		result = append(result, old_inst)
 	}
-	for _,head_inst := range headOfBbInsts {
-		result = append(result,head_inst)
+	for _, head_inst := range headOfBbInsts {
+		result = append(result, head_inst)
 	}
 
 	return
@@ -158,7 +159,7 @@ func (task *deferTask) computePrevDefers(instTarget ssa.Instruction) []*ssa.Defe
 				vecResult = append(vecResult, _defer)
 			}
 		} // if !ok, then mapAfter is empty, do nothing
-	} else {					//Union the mapAfter of all previous inst
+	} else { //Union the mapAfter of all previous inst
 		mapPrevDefer := make(map[*ssa.Defer]struct{})
 		for _, prevInst := range vecPrevInsts {
 			vecDefers, ok := task.mapAfter[prevInst]
@@ -170,7 +171,7 @@ func (task *deferTask) computePrevDefers(instTarget ssa.Instruction) []*ssa.Defe
 			}
 		}
 		for _defer, _ := range mapPrevDefer {
-			vecResult = append(vecResult,_defer)
+			vecResult = append(vecResult, _defer)
 		}
 		mapPrevDefer = nil
 	}
@@ -200,8 +201,7 @@ func (task *deferTask) computeAfter(instTarget ssa.Instruction, newBefore []*ssa
 	}
 }
 
-
-func computeDeferMapInFunc(fn *ssa.Function, R2D map[ssa.Instruction] []*ssa.Defer) {
+func computeDeferMapInFunc(fn *ssa.Function, R2D map[ssa.Instruction][]*ssa.Defer) {
 	var task deferTask
 	task.fnTarget = fn
 
@@ -225,14 +225,14 @@ func computeDeferMapInFunc(fn *ssa.Function, R2D map[ssa.Instruction] []*ssa.Def
 func printDeferMap(Inst2Defers map[ssa.Instruction][]*ssa.Defer) {
 	count := 0
 	for rundefer, defers := range Inst2Defers {
-		fmt.Println("--------NO.",count)
+		fmt.Println("--------NO.", count)
 		fmt.Println("----Location of rundefer")
 		output.PrintIISrc(rundefer)
 		fmt.Println("----Location of defer")
 		for _, _defer := range defers {
 			output.PrintIISrc(_defer)
 			if _defer.Call.IsInvoke() {
-				fmt.Println("\tDefering:", _defer.Call.Method.String()," of interface ", _defer.Call.Value.Type().String())
+				fmt.Println("\tDefering:", _defer.Call.Method.String(), " of interface ", _defer.Call.Value.Type().String())
 			} else {
 				fmt.Println("\tDefering:", _defer.Call.Value.String())
 			}

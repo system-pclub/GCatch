@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/system-pclub/GCatch/GCatch/analysis"
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/output"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
-	"strconv"
-	"strings"
-	"time"
+	"golang.org/x/tools/go/ssa"
 )
 
 type tupleGoroutinePath struct {

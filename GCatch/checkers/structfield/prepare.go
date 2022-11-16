@@ -2,13 +2,14 @@ package structfield
 
 import (
 	"fmt"
-	"github.com/system-pclub/GCatch/GCatch/config"
-	"github.com/system-pclub/GCatch/GCatch/instinfo"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa/ssautil"
-	"github.com/system-pclub/GCatch/GCatch/util"
 	"go/types"
 	"strings"
+
+	"github.com/system-pclub/GCatch/GCatch/config"
+	"github.com/system-pclub/GCatch/GCatch/instinfo"
+	"github.com/system-pclub/GCatch/GCatch/util"
+	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 type MyStruct struct {
@@ -417,8 +418,8 @@ func Alive_mutexs(target_inst ssa.Instruction) []string {
 
 }
 
-//Alive_unlock is an inverse version of alive_mutexs. It's aimed to find functions that contains a mutex that is only Unlocked, not Locked
-//this function has limitations: it can only return one mutex that is only Unlocked; it will fail when the function is like "mu.Unlock(); mu.Lock(); mu.Unlock()"
+// Alive_unlock is an inverse version of alive_mutexs. It's aimed to find functions that contains a mutex that is only Unlocked, not Locked
+// this function has limitations: it can only return one mutex that is only Unlocked; it will fail when the function is like "mu.Unlock(); mu.Lock(); mu.Unlock()"
 func Alive_unlock(target_inst ssa.Instruction) string {
 
 	map1_gen = make(map[ssa.Instruction]string)
@@ -911,7 +912,7 @@ func find_head_inst(target_inst ssa.Instruction) *ssa.Instruction {
 	return nil
 }
 
-//If target_inst is a ssa.Call and it is calling a method or function containing string "lock", we believe it is calling a function containing a lock
+// If target_inst is a ssa.Call and it is calling a method or function containing string "lock", we believe it is calling a function containing a lock
 func Is_self_lock_brutal(target_inst ssa.Instruction) bool {
 	inst_as_call, ok := target_inst.(*ssa.Call)
 	if !ok {
@@ -937,7 +938,8 @@ func case_insensitive_contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
 
-//If target_inst is a ssa.Call and it is calling a method naming "*.Lock()", we believe it is calling a function containing a lock
+// If target_inst is a ssa.Call and it is calling a method naming "*.Lock()", we believe it is calling a function containing a lock
+//
 //	If it is calling a function that has a Mis-Unlock behavior, we believe it is calling a function containing a lock
 func Is_self_lock(target_inst ssa.Instruction) bool {
 	inst_as_call, ok := target_inst.(*ssa.Call)
@@ -970,7 +972,7 @@ func Is_self_lock(target_inst ssa.Instruction) bool {
 	return false
 }
 
-//If target_inst is a ssa.Call and it is calling a method or function containing "unlock", we believe it is calling a function containing a Unlock
+// If target_inst is a ssa.Call and it is calling a method or function containing "unlock", we believe it is calling a function containing a Unlock
 func Is_self_unlock_brutal(target_inst ssa.Instruction) bool {
 	inst_as_call, ok := target_inst.(*ssa.Call)
 	if !ok {
@@ -991,7 +993,7 @@ func Is_self_unlock_brutal(target_inst ssa.Instruction) bool {
 	return false
 }
 
-//If target_inst is a ssa.Call and it is calling something naming "*.Unlock()", we believe it is calling a function containing a Unlock
+// If target_inst is a ssa.Call and it is calling something naming "*.Unlock()", we believe it is calling a function containing a Unlock
 func Is_self_unlock(target_inst ssa.Instruction) bool {
 	inst_as_call, ok := target_inst.(*ssa.Call)
 	if !ok {

@@ -1,7 +1,10 @@
 package util
 
-import "strings"
-import "github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+import (
+	"strings"
+
+	"golang.org/x/tools/go/ssa"
+)
 
 func GetValueName(v ssa.Value) string {
 	var strFnName string
@@ -9,10 +12,10 @@ func GetValueName(v ssa.Value) string {
 	if fn == nil {
 		strFnName = "Unknown_fn"
 	} else {
-		strFnName = strings.ReplaceAll(fn.String(),"(","")
-		strFnName = strings.ReplaceAll(strFnName,")","")
-		strFnName = strings.ReplaceAll(strFnName,"*","Ptr_")
-		strFnName = strings.ReplaceAll(strFnName,"/","_Of_")
+		strFnName = strings.ReplaceAll(fn.String(), "(", "")
+		strFnName = strings.ReplaceAll(strFnName, ")", "")
+		strFnName = strings.ReplaceAll(strFnName, "*", "Ptr_")
+		strFnName = strings.ReplaceAll(strFnName, "/", "_Of_")
 	}
 	result := strFnName + "_" + v.Name()
 	return result

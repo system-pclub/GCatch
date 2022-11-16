@@ -1,11 +1,12 @@
 package forgetunlock
 
 import (
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
-	"github.com/system-pclub/GCatch/GCatch/util"
 	"go/token"
 	"strconv"
 	"strings"
+
+	"github.com/system-pclub/GCatch/GCatch/util"
+	"golang.org/x/tools/go/ssa"
 )
 
 type stDecSort struct {

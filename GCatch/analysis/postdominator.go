@@ -2,22 +2,21 @@ package analysis
 
 import (
 	"fmt"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+
+	"golang.org/x/tools/go/ssa"
 )
 
 type PostDominator struct {
-	FN * ssa.Function
-	mapBefore map[*ssa.BasicBlock] map[*ssa.BasicBlock] bool
-	mapAfter map[*ssa.BasicBlock] map[*ssa.BasicBlock] bool
+	FN        *ssa.Function
+	mapBefore map[*ssa.BasicBlock]map[*ssa.BasicBlock]bool
+	mapAfter  map[*ssa.BasicBlock]map[*ssa.BasicBlock]bool
 }
 
-
-
-func NewPostDominator(fn * ssa.Function) * PostDominator {
+func NewPostDominator(fn *ssa.Function) *PostDominator {
 	pd := new(PostDominator)
 	pd.FN = fn
-	pd.mapBefore = make(map[* ssa.BasicBlock] map[*ssa.BasicBlock] bool)
-	pd.mapAfter = make(map[* ssa.BasicBlock] map[*ssa.BasicBlock] bool)
+	pd.mapBefore = make(map[*ssa.BasicBlock]map[*ssa.BasicBlock]bool)
+	pd.mapAfter = make(map[*ssa.BasicBlock]map[*ssa.BasicBlock]bool)
 
 	pd.initBeforeAfterMap()
 	pd.conductAnalysis()
@@ -25,15 +24,15 @@ func NewPostDominator(fn * ssa.Function) * PostDominator {
 	return pd
 }
 
-func (pd * PostDominator) initBeforeAfterMap() {
+func (pd *PostDominator) initBeforeAfterMap() {
 	for _, bb := range pd.FN.Blocks {
-		pd.mapBefore[bb] = make(map[* ssa.BasicBlock] bool)
-		pd.mapAfter[bb] = make(map[* ssa.BasicBlock] bool)
+		pd.mapBefore[bb] = make(map[*ssa.BasicBlock]bool)
+		pd.mapAfter[bb] = make(map[*ssa.BasicBlock]bool)
 	}
 }
 
-func intersectMap(m1 map[* ssa.BasicBlock] bool, m2 map[* ssa.BasicBlock] bool) map[* ssa.BasicBlock] bool {
-	mapResult := map[* ssa.BasicBlock] bool {}
+func intersectMap(m1 map[*ssa.BasicBlock]bool, m2 map[*ssa.BasicBlock]bool) map[*ssa.BasicBlock]bool {
+	mapResult := map[*ssa.BasicBlock]bool{}
 
 	for bb, _ := range m1 {
 		if _, ok := m2[bb]; ok {
@@ -44,7 +43,7 @@ func intersectMap(m1 map[* ssa.BasicBlock] bool, m2 map[* ssa.BasicBlock] bool) 
 	return mapResult
 }
 
-func compareMap(m1 map[* ssa.BasicBlock] bool, m2 map[* ssa.BasicBlock] bool ) bool {
+func compareMap(m1 map[*ssa.BasicBlock]bool, m2 map[*ssa.BasicBlock]bool) bool {
 	if len(m1) != len(m2) {
 		return false
 	}
@@ -58,17 +57,17 @@ func compareMap(m1 map[* ssa.BasicBlock] bool, m2 map[* ssa.BasicBlock] bool ) b
 	return true
 }
 
-func (pd * PostDominator) conductAnalysis() {
-	vecWorkList := []* ssa.BasicBlock {}
+func (pd *PostDominator) conductAnalysis() {
+	vecWorkList := []*ssa.BasicBlock{}
 	for _, bb := range pd.FN.Blocks {
 		vecWorkList = append(vecWorkList, bb)
 	}
 
 	for len(vecWorkList) > 0 {
-		bb := vecWorkList[len(vecWorkList) - 1]
+		bb := vecWorkList[len(vecWorkList)-1]
 		vecWorkList = vecWorkList[:len(vecWorkList)-1]
 
-		newAfter := make(map[* ssa.BasicBlock] bool)
+		newAfter := make(map[*ssa.BasicBlock]bool)
 
 		if len(bb.Succs) > 0 {
 			for b, _ := range pd.mapBefore[bb.Succs[0]] {
@@ -79,7 +78,7 @@ func (pd * PostDominator) conductAnalysis() {
 			}
 		}
 
-		pd.mapAfter[bb] = make(map[* ssa.BasicBlock] bool)
+		pd.mapAfter[bb] = make(map[*ssa.BasicBlock]bool)
 		for b, _ := range newAfter {
 			pd.mapAfter[bb][b] = true
 		}
@@ -96,8 +95,7 @@ func (pd * PostDominator) conductAnalysis() {
 	}
 }
 
-
-func (pd * PostDominator) Print() {
+func (pd *PostDominator) Print() {
 	for _, bb := range pd.FN.Blocks {
 		fmt.Printf("%d: ", bb.Index)
 
@@ -108,14 +106,10 @@ func (pd * PostDominator) Print() {
 	}
 }
 
-
-
-func (pd * PostDominator) Dominate(b1 * ssa.BasicBlock, b2 * ssa.BasicBlock) bool {
+func (pd *PostDominator) Dominate(b1 *ssa.BasicBlock, b2 *ssa.BasicBlock) bool {
 	if _, ok := pd.mapAfter[b2][b1]; ok {
 		return true
 	}
 
 	return false
 }
-
-

@@ -1,10 +1,10 @@
 package analysis
 
-import "github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+import "golang.org/x/tools/go/ssa"
 
 type LoopAnalysis struct {
-	FN *ssa.Function
-	VecBackedge []*Edge
+	FN                 *ssa.Function
+	VecBackedge        []*Edge
 	MapLoopHead2BodyBB map[*ssa.BasicBlock][]*ssa.BasicBlock
 	MapBodyBb2LoopHead map[*ssa.BasicBlock][]*ssa.BasicBlock
 }
@@ -44,7 +44,7 @@ func NewLoopAnalysis(fn *ssa.Function) *LoopAnalysis {
 		// A loop (called a natural loop) is identified for every backedge from a node Y to a node X such that X dominates Y
 		var header, aNode *ssa.BasicBlock
 		header = backedge.Succ // X
-		aNode = backedge.Pred // Y
+		aNode = backedge.Pred  // Y
 		if header.Dominates(aNode) == false {
 			// Not a loop
 			continue

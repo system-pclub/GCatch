@@ -2,16 +2,17 @@ package forgetunlock
 
 import (
 	"fmt"
+	"go/token"
+	"go/types"
+	"strings"
+
 	"github.com/system-pclub/GCatch/GCatch/analysis"
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/output"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa/ssautil"
 	"github.com/system-pclub/GCatch/GCatch/util"
-	"go/token"
-	"go/types"
-	"strings"
+	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 type stCond struct {

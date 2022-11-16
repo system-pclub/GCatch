@@ -2,9 +2,10 @@ package structfield
 
 import (
 	"fmt"
-	"github.com/system-pclub/GCatch/GCatch/config"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"strconv"
+
+	"github.com/system-pclub/GCatch/GCatch/config"
+	"golang.org/x/tools/go/ssa"
 )
 
 var C3_all_structs []*C3_struct
@@ -165,11 +166,12 @@ outer:
 
 }
 
-//A strategy to reduce FP: if the unprotected instruction meets one of the following contitions, then it is a FP:
-//(1) Its parent function contains a key word in config.C3ExcludeSlice
-//(2) When its parent is called, there is a mutex alive
-//(3) call_inst is the instruction in another function that calls its parent. Recursively inspect (1) and (2) of all call_inst.
-// 		The layer of inspecting and the ratio is determined by config.STRUCT_FP_LAYER and config.STRUCT_FP_RATIO
+// A strategy to reduce FP: if the unprotected instruction meets one of the following contitions, then it is a FP:
+// (1) Its parent function contains a key word in config.C3ExcludeSlice
+// (2) When its parent is called, there is a mutex alive
+// (3) call_inst is the instruction in another function that calls its parent. Recursively inspect (1) and (2) of all call_inst.
+//
+//	The layer of inspecting and the ratio is determined by config.STRUCT_FP_LAYER and config.STRUCT_FP_RATIO
 func is_FP(target_inst ssa.Instruction, type_name string, field_name string) bool {
 	target_position := (config.Prog.Fset).Position(target_inst.Pos())
 	_ = target_position

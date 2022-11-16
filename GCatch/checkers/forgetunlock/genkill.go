@@ -2,8 +2,8 @@ package forgetunlock
 
 import (
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"github.com/system-pclub/GCatch/GCatch/util"
+	"golang.org/x/tools/go/ssa"
 )
 
 var mapGen map[ssa.Instruction]string

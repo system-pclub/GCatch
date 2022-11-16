@@ -1,6 +1,6 @@
 package instinfo
 
-import "github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+import "golang.org/x/tools/go/ssa"
 
 // This file defines primitive Locker and its operations
 // Locker has similar definitions to Channel in channel.go
@@ -8,13 +8,13 @@ import "github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 // Locker includes Mutex and RWMutex, and doesn't handle RLock and RUnlock of RWMutex
 
 // Define Locker
-type Locker struct{
-	Name string
-	Type string
-	Locks []*LockOp
+type Locker struct {
+	Name    string
+	Type    string
+	Locks   []*LockOp
 	Unlocks []*UnlockOp
-	Pkg string // Don't use *ssa.Package here! It's not reliable
-	Value ssa.Value
+	Pkg     string // Don't use *ssa.Package here! It's not reliable
+	Value   ssa.Value
 
 	Status string
 }
@@ -35,13 +35,14 @@ func (l *Locker) ModifyStatus(str string) {
 }
 
 // Define interface LockerOp and its two implementations
-//		Define LockerOp
+//
+//	Define LockerOp
 type LockerOp interface {
 	Instr() ssa.Instruction
 	Prim() *Locker
 }
 
-//		Define LockOp
+// Define LockOp
 type LockOp struct {
 	Name    string
 	Inst    ssa.Instruction
@@ -59,12 +60,12 @@ func (l *LockOp) Prim() *Locker {
 	return l.Parent
 }
 
-//		Define UnlockOp
+// Define UnlockOp
 type UnlockOp struct {
-	Name string
-	Inst ssa.Instruction
+	Name      string
+	Inst      ssa.Instruction
 	IsRUnlock bool
-	IsDefer bool
+	IsDefer   bool
 
 	Parent *Locker
 }
@@ -72,7 +73,6 @@ type UnlockOp struct {
 func (u *UnlockOp) Instr() ssa.Instruction {
 	return u.Inst
 }
-
 
 func (u *UnlockOp) Prim() *Locker {
 	return u.Parent

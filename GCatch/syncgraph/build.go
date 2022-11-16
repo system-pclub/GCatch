@@ -2,16 +2,17 @@ package syncgraph
 
 import (
 	"fmt"
-	"github.com/system-pclub/GCatch/GCatch/config"
-	"github.com/system-pclub/GCatch/GCatch/instinfo"
-	"github.com/system-pclub/GCatch/GCatch/output"
-	"github.com/system-pclub/GCatch/GCatch/path"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"go/token"
 	"go/types"
 	"sort"
 	"strings"
+
+	"github.com/system-pclub/GCatch/GCatch/config"
+	"github.com/system-pclub/GCatch/GCatch/instinfo"
+	"github.com/system-pclub/GCatch/GCatch/output"
+	"github.com/system-pclub/GCatch/GCatch/path"
+	"golang.org/x/tools/go/callgraph"
+	"golang.org/x/tools/go/ssa"
 )
 
 var recursiveCount int

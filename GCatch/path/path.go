@@ -2,11 +2,12 @@ package path
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/output"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
-	"strconv"
+	"golang.org/x/tools/go/callgraph"
+	"golang.org/x/tools/go/ssa"
 )
 
 var LcaErrReachedMax = fmt.Errorf("Reached max layer number")

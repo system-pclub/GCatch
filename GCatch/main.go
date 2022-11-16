@@ -3,24 +3,25 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/system-pclub/GCatch/GCatch/checkers/bmoc"
 	"github.com/system-pclub/GCatch/GCatch/checkers/conflictinglock"
 	"github.com/system-pclub/GCatch/GCatch/checkers/doublelock"
 	"github.com/system-pclub/GCatch/GCatch/checkers/fatal"
 	"github.com/system-pclub/GCatch/GCatch/checkers/structfield"
 	"github.com/system-pclub/GCatch/GCatch/ssabuild"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/mypointer"
 	"github.com/system-pclub/GCatch/GCatch/util"
 	"github.com/system-pclub/GCatch/GCatch/util/genKill"
-	"os"
-	"strings"
-	"time"
+	"golang.org/x/tools/go/callgraph"
+	"golang.org/x/tools/go/pointer"
+	"golang.org/x/tools/go/ssa/ssautil"
 
 	"github.com/system-pclub/GCatch/GCatch/checkers/forgetunlock"
 	"github.com/system-pclub/GCatch/GCatch/config"
 )
-
 
 func main() {
 
@@ -30,8 +31,8 @@ func main() {
 		fmt.Println("\n\nTime of main(): seconds", mainDur.Seconds())
 	}()
 
-	pProjectPath := flag.String("path","","Full path of the target project")
-	pRelativePath := flag.String("include","","Relative path (what's after /src/) of the target project")
+	pProjectPath := flag.String("path", "", "Full path of the target project")
+	pRelativePath := flag.String("include", "", "Relative path (what's after /src/) of the target project")
 	pCheckerName := flag.String("checker", "BMOC", "the checker to be used, divided by \":\"")
 	pShowCompileError := flag.Bool("compile-error", false, "If fail to compile a package, show the errors of compilation")
 	pExcludePath := flag.String("exclude", "vendor", "Name of directories that you want to ignore, divided by \":\"")
@@ -39,7 +40,7 @@ func main() {
 	pFnPointerAlias := flag.Bool("pointer", true, "Whether alias analysis is used to figure out function pointers")
 	pSkipPkg := flag.Int("skip", -1, "Skip the first N packages")
 	pExitPkg := flag.Int("exit", 99999, "Exit when meet the Nth packages")
-	pPrintMod := flag.String( "print-mod", "", "Print information like the number of channels, divided by \":\"")
+	pPrintMod := flag.String("print-mod", "", "Print information like the number of channels, divided by \":\"")
 	pGoMod := flag.Bool("mod", false, "Beta functionality: Use this flag to indicate GCatch to build a program (and only it) by go.mod")
 	pGoModulePath := flag.String("mod-module-path", "", "Beta functionality: The module path of the program you want to check, like google.golang.org/grpc")
 	pGoModAbsPath := flag.String("mod-abs-path", "", "Beta functionality: The absolute path of the program you want to check, which contains go.mod")
@@ -55,17 +56,19 @@ func main() {
 	intSkipPkg := *pSkipPkg
 	intExitPkg := *pExitPkg
 
-	go func(){
+	go func() {
 		time.Sleep(time.Duration(config.MAX_GCATCH_DDL_SECOND) * time.Second)
 		fmt.Println("!!!!")
-		fmt.Println("The checker has been running for", config.MAX_GCATCH_DDL_SECOND,"seconds. Now force exit")
+		fmt.Println("The checker has been running for", config.MAX_GCATCH_DDL_SECOND, "seconds. Now force exit")
 		os.Exit(1)
 	}()
 
 	for strCheckerName, _ := range mapCheckerName {
 		switch strCheckerName {
-		case "unlock": forgetunlock.Initialize()
-		case "double": doublelock.Initialize()
+		case "unlock":
+			forgetunlock.Initialize()
+		case "double":
+			doublelock.Initialize()
 		case "conflict", "structfield", "fatal", "BMOC": // no need to initialize these checkers
 		case "NBMOC":
 			config.BoolChSafety = true
@@ -103,7 +106,7 @@ func main() {
 		// (4) config.StrAbsolutePath: used in multiple functions in config/path.go, but all can be avoided by disabling the -r flag
 		//
 		// (5) config.BoolDisableFnPointer: should be fine to just use the legacy code
-		config.BoolDisableFnPointer = ! boolFnPointerAlias
+		config.BoolDisableFnPointer = !boolFnPointerAlias
 		// (6) config.MapPrintMod:			should be fine to just use the legacy code
 		config.MapPrintMod = util.SplitStr2Map(*pPrintMod, ":")
 		// (7) config.MapHashOfCheckedCh:			should be fine to just use the legacy code
@@ -122,7 +125,7 @@ func main() {
 		config.StrRelativePath = strRelativePath
 		config.StrAbsolutePath = strProjectPath[:numIndex+5]
 		config.StrAbsolutePath = strings.ReplaceAll(config.StrAbsolutePath, "//", "/")
-		config.BoolDisableFnPointer = ! boolFnPointerAlias
+		config.BoolDisableFnPointer = !boolFnPointerAlias
 		config.MapPrintMod = util.SplitStr2Map(*pPrintMod, ":")
 		config.MapHashOfCheckedCh = make(map[string]struct{})
 
@@ -132,7 +135,6 @@ func main() {
 			fmt.Println("relative", config.StrRelativePath)
 			fmt.Println("absolute", config.StrAbsolutePath)
 		*/
-
 
 		if strings.Contains(config.StrGOPATH, strProjectPath[:numIndex]) == false {
 			fmt.Println("The input path doesn't match GOPATH. GOPATH of target project:", strProjectPath[:numIndex], "\tGOPATH:", os.Getenv("GOPATH"))
@@ -160,13 +162,12 @@ func main() {
 		return
 	}
 
-	if ! boolRobustMod {
+	if !boolRobustMod {
 		fmt.Println("Exit. If you want to scan subdirectories and use -race, please use -r")
 		return
 	}
 
 	fmt.Println("Now trying to build unchecked packages separately...")
-
 
 	// Step 2.3: List paths of packages that contain "Lock" or "<-" in source code, and rank the paths with the number of "Lock" or "<-"
 	wPaths := config.ListWorthyPaths()
@@ -175,7 +176,7 @@ func main() {
 
 		//fmt.Println(wpath.StrPath)
 
-		if wpath.NumLock + wpath.NumSend == 0 {
+		if wpath.NumLock+wpath.NumSend == 0 {
 			break
 		}
 
@@ -183,30 +184,29 @@ func main() {
 			continue
 		}
 
-
 		config.Prog, config.Pkgs, bSucc, errMsg = ssabuild.BuildWholeProgramTrad(wpath.StrPath, false, boolShowCompileError) // Create SSA packages for the whole program including the dependencies.
 		if bSucc {
-			fmt.Println("Successful. Package NO.", index, ":", wpath.StrPath, " Num of Lock & <-:", wpath.NumLock + wpath.NumSend)
+			fmt.Println("Successful. Package NO.", index, ":", wpath.StrPath, " Num of Lock & <-:", wpath.NumLock+wpath.NumSend)
 			detect(mapCheckerName)
 			mainDur := time.Since(mainStart)
 			fmt.Println("\n\nTime passed for seconds", mainDur.Seconds())
 		} else {
 			// Step 2.4, Case 2 : building SSA failed; build its children packages
-			fmt.Println("Fail. Package NO.", index, ":", wpath.StrPath, " Num of Lock & <-:", wpath.NumLock + wpath.NumSend, " error:", errMsg)
+			fmt.Println("Fail. Package NO.", index, ":", wpath.StrPath, " Num of Lock & <-:", wpath.NumLock+wpath.NumSend, " error:", errMsg)
 			for j, child := range wpath.VecChildrenPath {
 
-				if child.NumLock + child.NumSend == 0 {
+				if child.NumLock+child.NumSend == 0 {
 					break
 				}
 
 				config.Prog, config.Pkgs, bSucc, errMsg = ssabuild.BuildWholeProgramTrad(child.StrPath, true, boolShowCompileError) // Force the package to build, at least some dependencies of it are being built and checked
 				if bSucc {
-					fmt.Println("\tSuccessfully built sub-Package NO.",j,":\t",child.StrPath, " Num of Lock & <-:", child.NumLock + child.NumSend)
+					fmt.Println("\tSuccessfully built sub-Package NO.", j, ":\t", child.StrPath, " Num of Lock & <-:", child.NumLock+child.NumSend)
 					detect(mapCheckerName)
 				} else if errMsg == "load_err" {
-					fmt.Println("\tFailed to build sub-Package NO.",j,":\t",child.StrPath, " Num of Lock & <-:", child.NumLock + child.NumSend)
+					fmt.Println("\tFailed to build sub-Package NO.", j, ":\t", child.StrPath, " Num of Lock & <-:", child.NumLock+child.NumSend)
 				} else if errMsg == "type_err" {
-					fmt.Println("\tPartially built sub-Package NO.",j,":\t",child.StrPath, " Num of Lock & <-:", child.NumLock + child.NumSend)
+					fmt.Println("\tPartially built sub-Package NO.", j, ":\t", child.StrPath, " Num of Lock & <-:", child.NumLock+child.NumSend)
 					detect(mapCheckerName)
 
 				}
@@ -220,8 +220,8 @@ func detect(mapCheckerName map[string]bool) {
 
 	config.Inst2Defers, config.Defer2Insts = genKill.ComputeDeferMap()
 
-	boolNeedCallGraph := mapCheckerName["double"] || mapCheckerName["conflict"] || mapCheckerName["structfield"]  ||
-		mapCheckerName["fatal"]  || mapCheckerName["BMOC"]
+	boolNeedCallGraph := mapCheckerName["double"] || mapCheckerName["conflict"] || mapCheckerName["structfield"] ||
+		mapCheckerName["fatal"] || mapCheckerName["BMOC"]
 	if boolNeedCallGraph {
 		config.CallGraph = BuildCallGraph()
 		if config.CallGraph == nil {
@@ -247,18 +247,16 @@ func detect(mapCheckerName map[string]bool) {
 	}
 }
 
-
-func BuildCallGraph() * callgraph.Graph {
-	cfg := & mypointer.Config{
-		OLDMains:        nil,
-		Prog:            config.Prog,
+func BuildCallGraph() *callgraph.Graph {
+	cfg := &pointer.Config{
+		Mains:           ssautil.MainPackages(config.Prog.AllPackages()),
 		Reflection:      config.POINTER_CONSIDER_REFLECTION,
 		BuildCallGraph:  true,
 		Queries:         nil,
 		IndirectQueries: nil,
 		Log:             nil,
 	}
-	result, err := mypointer.Analyze(cfg, nil)
+	result, err := pointer.Analyze(cfg)
 	defer func() {
 		cfg = nil
 		result = nil

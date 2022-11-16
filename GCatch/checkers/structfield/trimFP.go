@@ -1,9 +1,10 @@
 package structfield
 
 import (
-	"github.com/system-pclub/GCatch/GCatch/config"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"strings"
+
+	"github.com/system-pclub/GCatch/GCatch/config"
+	"golang.org/x/tools/go/ssa"
 )
 
 func FP_loop_pkg(call_insts []ssa.Instruction, target_inst ssa.Instruction) []ssa.Instruction {

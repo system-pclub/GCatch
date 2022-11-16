@@ -2,30 +2,30 @@ package util
 
 import (
 	"fmt"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+
+	"golang.org/x/tools/go/ssa"
 )
 
-func GetFirstInst(bb * ssa.BasicBlock)  ssa.Instruction {
+func GetFirstInst(bb *ssa.BasicBlock) ssa.Instruction {
 	if len(bb.Instrs) == 0 {
 		return nil
 	}
 	return bb.Instrs[0]
 }
 
-func GetLastInst(bb * ssa.BasicBlock) ssa.Instruction {
+func GetLastInst(bb *ssa.BasicBlock) ssa.Instruction {
 
 	if len(bb.Instrs) == 0 {
 		return nil
 	}
 
-	return bb.Instrs[len(bb.Instrs) -1]
+	return bb.Instrs[len(bb.Instrs)-1]
 }
 
 func IsFnBegin(ii ssa.Instruction) bool {
 	bb := *ii.Parent().Blocks[0]
 	return bb.Instrs[0] == ii
 }
-
 
 func IsFnEnd(ii ssa.Instruction) bool {
 	fn := ii.Parent()
@@ -46,9 +46,9 @@ func IsFnEnd(ii ssa.Instruction) bool {
 
 // according to the annotation of ssa.Function, a function only has one normal entry BB and one optional recover BB.
 // There is no need to analyze the recover BB. No BB can reach it and it reaches no BB
-func GetEntryInsts(fn *ssa.Function) [] ssa.Instruction {
+func GetEntryInsts(fn *ssa.Function) []ssa.Instruction {
 
-	vecResult := make([] ssa.Instruction, 0)
+	vecResult := make([]ssa.Instruction, 0)
 
 	for _, bb := range fn.Blocks {
 		if bb.Comment == "recover" {
@@ -65,8 +65,8 @@ func GetEntryInsts(fn *ssa.Function) [] ssa.Instruction {
 	return vecResult
 }
 
-func GetExitInsts(fn * ssa.Function) [] ssa.Instruction {
-	vecResult := make([] ssa.Instruction, 0)
+func GetExitInsts(fn *ssa.Function) []ssa.Instruction {
+	vecResult := make([]ssa.Instruction, 0)
 	for _, bb := range fn.Blocks {
 		if len(bb.Succs) == 0 {
 			if len(bb.Instrs) > 0 {
@@ -78,10 +78,9 @@ func GetExitInsts(fn * ssa.Function) [] ssa.Instruction {
 	return vecResult
 }
 
+func GetPrevInsts(inputInst ssa.Instruction) []ssa.Instruction {
 
-func GetPrevInsts(inputInst ssa.Instruction) [] ssa.Instruction {
-
-	vecResult := make([] ssa.Instruction, 0)
+	vecResult := make([]ssa.Instruction, 0)
 
 	if IsFnBegin(inputInst) {
 		return vecResult
@@ -106,14 +105,14 @@ func GetPrevInsts(inputInst ssa.Instruction) [] ssa.Instruction {
 		}
 	}
 
-	fmt.Println("Error when calculating previous insts for inst:",inputInst)
+	fmt.Println("Error when calculating previous insts for inst:", inputInst)
 	panic(inputInst)
 
 }
 
-func GetSuccInsts(inputInst ssa.Instruction) [] ssa.Instruction {
+func GetSuccInsts(inputInst ssa.Instruction) []ssa.Instruction {
 
-	vecResult := make([] ssa.Instruction, 0)
+	vecResult := make([]ssa.Instruction, 0)
 
 	if IsFnEnd(inputInst) {
 		return vecResult

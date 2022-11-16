@@ -2,11 +2,12 @@ package forgetunlock
 
 import (
 	"fmt"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"go/token"
 	"reflect"
 	"sort"
 	"strconv"
+
+	"golang.org/x/tools/go/ssa"
 )
 
 func HandleCall(pCall *ssa.Call) string {

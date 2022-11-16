@@ -1,13 +1,14 @@
 package instinfo
 
 import (
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"go/types"
 	"strings"
+
+	"golang.org/x/tools/go/ssa"
 )
 
 func IsRwmutexMake(inputInst ssa.Instruction) bool {
-	instAlloc,ok := inputInst.(*ssa.Alloc)
+	instAlloc, ok := inputInst.(*ssa.Alloc)
 
 	if ok {
 		typeInst := instAlloc.Type().Underlying().(*types.Pointer).Elem()
@@ -18,7 +19,6 @@ func IsRwmutexMake(inputInst ssa.Instruction) bool {
 
 	return false
 }
-
 
 func IsRwmutexLock(inputInst ssa.Instruction) bool {
 	var fnCall *ssa.CallCommon
@@ -37,13 +37,12 @@ func IsRwmutexLock(inputInst ssa.Instruction) bool {
 	if fnCall != nil {
 		callName := GetCallName(fnCall)
 		if callName == "(*sync.RWMutex).Lock" {
-			return  true
+			return true
 		}
 	}
 
 	return false
 }
-
 
 func IsRwmutexUnlock(inputInst ssa.Instruction) bool {
 	var fnCall *ssa.CallCommon
@@ -68,7 +67,6 @@ func IsRwmutexUnlock(inputInst ssa.Instruction) bool {
 
 	return false
 }
-
 
 func IsRwmutexRlock(inputInst ssa.Instruction) bool {
 	var fnCall *ssa.CallCommon

@@ -1,14 +1,15 @@
 package pointer
 
 import (
-	"github.com/system-pclub/GCatch/GCatch/instinfo"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/mypointer"
-	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"strings"
+
+	"github.com/system-pclub/GCatch/GCatch/instinfo"
+	"golang.org/x/tools/go/pointer"
+	"golang.org/x/tools/go/ssa"
 )
 
-func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *mypointer.Result) (result map[mypointer.Label][]*instinfo.StOpValue) {
-	result = make(map[mypointer.Label][]*instinfo.StOpValue)
+func mergeAlias(vecinstValue []*instinfo.StOpValue, stPtrResult *pointer.Result) (result map[pointer.Label][]*instinfo.StOpValue) {
+	result = make(map[pointer.Label][]*instinfo.StOpValue)
 	for _, instValue := range vecinstValue {
 		labels := stPtrResult.Queries[instValue.Value].PointsTo().Labels()
 		for _, label := range labels {
@@ -29,7 +30,7 @@ func boolIsInContext(v ssa.Value) bool {
 		return false
 	}
 	strPkg := v.Parent().Pkg.Pkg.Path()
-	if strPkg == "context" || strings.Contains(strPkg,"golang.org/x/net/context") { // some people still
+	if strPkg == "context" || strings.Contains(strPkg, "golang.org/x/net/context") { // some people still
 		// import golang.org/x/net/context
 		return true
 	}
