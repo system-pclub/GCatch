@@ -99,7 +99,47 @@ func (g *SyncGraph) CheckWithZ3() bool {
 			}
 		}
 
-		//g.CheckLockSafety(paths)
+		// Check Lock safety problem: if unlock is called when no one is holding a lock, report a bug
+		//g.CheckLockSafety(paths) // A naive way to check lock safety. Can't detect cases like `Lock(); Unlock(); Unlock()`
+
+		// Find all unlock
+		vecAllUnlock := []blockingPos{}
+		for i, pPath := range paths {
+			for j, pNode := range pPath.Path {
+				if lockerOp, ok := pNode.Node.(*LockerOp); ok {
+					if _, ok2 := lockerOp.Op.(*instinfo.UnlockOp); ok2 {
+						newBlockPos := blockingPos{
+							pathId:  i,
+							pNodeId: j,
+						}
+						vecAllUnlock = append(vecAllUnlock, newBlockPos)
+					}
+				}
+			}
+		}
+
+		// For each unlock, check if it can be called when no goroutine is holding the lock
+		for _, unLock := range vecAllUnlock {
+			z3Sys_lockSafety := NewZ3ForGl()
+			z3Sat_lockSafety := z3Sys_lockSafety.Z3Main(paths, []blockingPos{unLock}, false, true) // check safety problem
+			if z3Sat_lockSafety {
+				config.BugIndexMu.Lock()
+				config.BugIndex++
+				fmt.Print("----------Bug[")
+				fmt.Print(config.BugIndex)
+				config.BugIndexMu.Unlock()
+				fmt.Print("]----------\n\tType: Lock Safety \tReason: Unlock when no goroutine is holding a lock.\n")
+				fmt.Println("-----Blocking/unsafe at:")
+				inst := paths[unLock.pathId].Path[unLock.pNodeId].Node.Instruction()
+				str := output.StringIISrc(inst)
+				fmt.Print(str)
+				PrintedBlockPosStr[str] = struct{}{}
+
+				fmt.Println()
+
+				break // One Unlock safety bug often have multiple Unlocks that can go wrong, just report one place is enough.
+			}
+		}
 
 		// List all blocking op of target prim on any path
 		pathId2AllBlockPos := make(map[int][]blockingPos)
@@ -336,7 +376,7 @@ func (g *SyncGraph) CheckWithZ3() bool {
 	return false
 }
 
-func (g *SyncGraph) CheckLockSafety(paths []*PPath) {
+func (g *SyncGraph) CheckLockSafety_OutOfDate(paths []*PPath) {
 	// check if this program has unlock safety problem
 	// check lock safety problem
 	for _, path := range paths {

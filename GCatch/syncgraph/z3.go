@@ -66,7 +66,7 @@ func (b *ZNodeBasic) UpdateOrder(i z3.Int) {
 type ZNodeNbSend struct {
 	ZNodeBasic
 	Closes []*ZNodeClose
-	Pairs []*ZSendRecvPair
+	Pairs  []*ZSendRecvPair
 }
 
 type ZNodeNbRecv struct {
@@ -167,7 +167,13 @@ func (z *Z3System) Z3Main(p_paths []*PPath, block_poses []blockingPos, boolCheck
 		}
 	}()
 
-	err := z.Prepare(p_paths, block_poses, boolCheckChSafety, boolCheckLockSafety)
+	var err error
+	if boolCheckLockSafety {
+		err = z.PrepareLockSafety(p_paths, block_poses[0]) // if boolCheckLockSafety is true, block_poses must have one and only one element
+	} else {
+		err = z.Prepare(p_paths, block_poses, boolCheckChSafety)
+	}
+
 	if err != nil {
 		return false
 	}
@@ -201,8 +207,7 @@ func (z *Z3System) Z3Main(p_paths []*PPath, block_poses []blockingPos, boolCheck
 }
 
 // Initialize z.vecZGoroutines; generate ZNodes on each ZGoroutine from p_paths; generate constraints
-func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolCheckChSafety bool, boolCheckLockSafety bool) error {
-
+func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolCheckChSafety bool) error {
 
 	// init z.vecZGoroutines
 	for _, path := range vecPPath {
@@ -230,9 +235,12 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 		flagMetBlocking := false
 		for _, pNode := range Zthread.PtrPPath.Path {
 
-			// probably not useful
 			if pNode.Executed == false && pNode.Blocked == false {
-				continue
+				if _, isGo := pNode.Node.(*Go); isGo {
+					// we must put a *Go node into the Path, or we will have FP caused by: an op is blocking, and after the op there is a Go, we should know that goroutine is not created
+				} else {
+					continue
+				}
 			}
 
 			var isBlocking, isOriginBlocking bool
@@ -299,7 +307,7 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 							newZnode = &ZNodeBSend{
 								Buffer:     buffer,
 								ZNodeBasic: newBasic,
-								IsLock: false,
+								IsLock:     false,
 							}
 						case *instinfo.ChRecv:
 							newZnode = &ZNodeBRecv{
@@ -325,13 +333,13 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 						newZnode = &ZNodeBSend{
 							Buffer:     buffer,
 							ZNodeBasic: newBasic,
-							IsLock: true,
+							IsLock:     true,
 						}
 					case *instinfo.UnlockOp:
 						newZnode = &ZNodeBRecv{
 							Buffer:     buffer,
 							ZNodeBasic: newBasic,
-							IsUnlock: true,
+							IsUnlock:   true,
 						}
 					}
 				default: // TODO: add other primitives
@@ -367,10 +375,8 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 		}
 	}
 
-
 	// For a ch panic bug, we need at least one panic
 	ZBoolHasChPanic := z.Z3Ctx.FromBool(false)
-
 
 	// fill Pairs for some ZNodes
 	// each blocking sync op need a list of pairing ops
@@ -615,7 +621,6 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 		z.Constraints.SyncOfOp = append(z.Constraints.SyncOfOp, ZBoolHasChPanic)
 	}
 
-
 	for _, SRpair := range z.vecZSendRecvPairs {
 		// pair.Sync is true ==> (send.Order == recv.Order) && (send.Value == recv.Value)
 		infer := SRpair.boolUseThisPair.Implies(SRpair.Send.Order.Eq(SRpair.Recv.Order))
@@ -655,6 +660,406 @@ func (z *Z3System) Prepare(vecPPath []*PPath, vecBlockPos []blockingPos, boolChe
 			anyCloseAlreadyHappen := z.anyNodeInListHappenBefore(allCloses, concrete)
 			allCloseNotHappen := anyCloseAlreadyHappen.Not()
 			z.Constraints.Blocking = append(z.Constraints.Blocking, allCloseNotHappen)
+		}
+	}
+
+	// no need to generate blocking constraints (two blocking ops can't unlock each other)
+	return nil
+}
+
+// Similar to Prepare(), but only checks Unlock's safety.
+// Here, we don't suppose all other goroutines have returned
+func (z *Z3System) PrepareLockSafety(vecPPath []*PPath, targetUnlockPos blockingPos) error {
+
+	// init z.vecZGoroutines
+	for _, path := range vecPPath {
+		Zpath := &ZGoroutine{
+			PtrPPath:     path,
+			Nodes:        nil,
+			IsTerminated: true,
+			BlockAt:      -1,
+			Z3Sys:        z,
+		}
+		z.vecZGoroutines = append(z.vecZGoroutines, Zpath)
+	}
+
+	// Record which PNode are blocking. Later we will calculate ZGoroutine's BlockAt
+	blockingPNodes := make(map[*PNode]struct{})
+	z.vecZGoroutines[targetUnlockPos.pathId].IsTerminated = false
+	blockingPNodes[vecPPath[targetUnlockPos.pathId].Path[targetUnlockPos.pNodeId]] = struct{}{}
+
+	// from PNode in PPath, init ZNode. Ignore useless nodes according to z.Config
+	// Calculate ZNode.IsBlocking
+	var numZNode int64 = 0
+	for _, Zthread := range z.vecZGoroutines {
+		flagMetBlocking := false
+		for _, pNode := range Zthread.PtrPPath.Path {
+
+			var isBlocking, isOriginBlocking bool
+			_, isOriginBlocking = blockingPNodes[pNode]
+			// This node is blocking if it is the target unlock or the same goroutine and after the target unlock
+			isBlocking = isOriginBlocking || flagMetBlocking
+
+			var newZnode ZNode
+			newBasic := ZNodeBasic{
+				ZGoroutine:     Zthread,
+				PtrPNode:       pNode,
+				boolIsBlocking: isBlocking,
+			}
+
+			switch n := pNode.Node.(type) {
+			case *Go:
+				newZnode = &newBasic
+			case SyncOp:
+				if select_case, ok := n.(*SelectCase); ok {
+					if select_case.BoolIsDefault {
+						continue
+					}
+				}
+				switch prim := n.Primitive().(type) {
+				case *instinfo.Channel:
+					//check if this channel is nil
+					var nilChan *instinfo.Channel
+					nilChan = nil
+					if prim == nilChan {
+						z.Warnings = append(z.Warnings, WARNING_met_nil_chan)
+						continue
+					}
+
+					// check if this is a special channel
+					if prim == &instinfo.ChanNotDepend || prim == &instinfo.ChanTimer || prim == &instinfo.ChanContext {
+						continue
+					}
+
+					if prim.Buffer == 0 { // unbuffered channel
+						switch n.Operation().(type) {
+						case *instinfo.ChSend:
+							newZnode = &ZNodeNbSend{
+								ZNodeBasic: newBasic,
+								Pairs:      nil,
+								Closes:     nil,
+							}
+						case *instinfo.ChRecv:
+							newZnode = &ZNodeNbRecv{
+								ZNodeBasic: newBasic,
+								Pairs:      nil,
+								Closes:     nil,
+							}
+						case *instinfo.ChClose:
+							newZnode = &ZNodeClose{
+								newBasic,
+							}
+						case *instinfo.ChMake:
+							continue
+						}
+					} else if prim.Buffer != instinfo.DynamicSize { // buffered channel, buffer is constant
+						buffer := z.Z3Ctx.FromInt(int64(prim.Buffer), z.Z3Ctx.IntSort()).(z3.Int)
+						switch n.Operation().(type) {
+						case *instinfo.ChSend:
+							newZnode = &ZNodeBSend{
+								Buffer:     buffer,
+								ZNodeBasic: newBasic,
+								IsLock:     false,
+							}
+						case *instinfo.ChRecv:
+							newZnode = &ZNodeBRecv{
+								Buffer:     buffer,
+								ZNodeBasic: newBasic,
+								IsUnlock:   false,
+							}
+						case *instinfo.ChClose:
+							newZnode = &ZNodeClose{
+								newBasic,
+							}
+						case *instinfo.ChMake: // TODO: maybe we should check the buffer size again here
+							continue
+						}
+					} else { // buffered channel, buffer is a variable that we can't analyze, we don't gen constraint for it
+						z.Warnings = append(z.Warnings, WARNING_met_chan_var_buf)
+						continue
+					}
+				case *instinfo.Locker:
+					buffer := z.Z3Ctx.FromInt(int64(1), z.Z3Ctx.IntSort()).(z3.Int)
+					switch n.Operation().(type) {
+					case *instinfo.LockOp:
+						newZnode = &ZNodeBSend{
+							Buffer:     buffer,
+							ZNodeBasic: newBasic,
+							IsLock:     true,
+						}
+					case *instinfo.UnlockOp:
+						newZnode = &ZNodeBRecv{
+							Buffer:     buffer,
+							ZNodeBasic: newBasic,
+							IsUnlock:   true,
+						}
+					}
+				default: // TODO: add other primitives
+					if prim == nil {
+						continue
+					}
+					continue
+				}
+			default:
+				continue
+
+			}
+
+			Zthread.Nodes = append(Zthread.Nodes, newZnode)
+			if isOriginBlocking {
+				z.mapOriginBlockingNodes[newZnode] = struct{}{}
+				flagMetBlocking = true
+				Zthread.BlockAt = len(Zthread.Nodes) - 1
+			}
+		}
+		numZNode += int64(len(Zthread.Nodes))
+	}
+
+	// set id of vecZGoroutines and ZNodes
+	for i, Zthread := range z.vecZGoroutines {
+		Zthread.ID = i
+		for j, znode := range Zthread.Nodes {
+			if znode == nil {
+				fmt.Println("warning in z.Prepare: Nil ZNode when set id")
+				continue
+			}
+			znode.SetId(j)
+		}
+	}
+
+	// fill Pairs for some ZNodes
+	// each blocking sync op need a list of pairing ops
+	for _, Zthread := range z.vecZGoroutines {
+		for _, znode := range Zthread.Nodes {
+			switch concrete := znode.(type) {
+			case *ZNodeNbSend:
+				// get recv of the same channel on other threads
+				vecOtherThreadRecvs := concrete.findOtherThreadRecvs()
+				for _, recv := range vecOtherThreadRecvs {
+					// see if send already has the pair to recv
+					if concrete.hasPairWith(recv) == false {
+						// create *Pair for this send and recv
+						boolUseThisPair := z.Z3Ctx.BoolConst("Pair_" + znode_name(concrete) + znode_name(recv) + "_use")
+						newPair := &ZSendRecvPair{
+							boolUseThisPair: boolUseThisPair,
+							Send:            concrete,
+							Recv:            recv,
+						}
+						// add Pair to send and recv, and record in z
+						concrete.Pairs = append(concrete.Pairs, newPair)
+						recv.Pairs = append(recv.Pairs, newPair)
+						z.vecZSendRecvPairs = append(z.vecZSendRecvPairs, newPair)
+					}
+				}
+			case *ZNodeNbRecv:
+				// get sends of the same channel on other threads
+				vecOtherThreadSends := concrete.findOtherThreadSends()
+				for _, send := range vecOtherThreadSends {
+					// see if recv already has the pair to send
+					if concrete.hasPairWith(send) == false {
+						// create *Pair for this send and recv
+						useThisPair := z.Z3Ctx.BoolConst("Pair_" + znode_name(send) + znode_name(concrete) + "_use")
+						newPair := &ZSendRecvPair{
+							boolUseThisPair: useThisPair,
+							Send:            send,
+							Recv:            concrete,
+						}
+						// add Pair to send and recv
+						concrete.Pairs = append(concrete.Pairs, newPair)
+						send.Pairs = append(send.Pairs, newPair)
+						z.vecZSendRecvPairs = append(z.vecZSendRecvPairs, newPair)
+					}
+				}
+				// get closes of the same channel on any threads. Note that receive will be influenced by close on the same thread
+				vecAllThreadCloses := concrete.findAllThreadCloses()
+				for _, zclose := range vecAllThreadCloses {
+					concrete.Closes = append(concrete.Closes, zclose)
+				}
+			case *ZNodeBSend:
+				// get all other send and recv of the same channel/locker on all threads
+				concrete.Other_SR = concrete.findAllThreadOtherSendRecv()
+			case *ZNodeBRecv:
+				// get all other send and recv of the same channel/locker on all threads
+				concrete.Other_SR = concrete.findAllThreadOtherSendRecv()
+				concrete.Closes = concrete.findAllThreadCloses()
+			}
+		}
+	}
+
+	// generate order constraints
+	// Order constraints: 1. order should in [0, numZNode). This is not mandatory, but may make Z3 search space smaller.
+	//	However, blocking nodes will have Order numZNode, meaning they are still blocking after all other nodes are executed
+	//						2. for node sequence ABCD, Order of B is greater than Order of A
+	//						3. The first node should happen after the *Go that creates this thread
+	Z3NumZNode := z.Z3Ctx.FromInt(numZNode, z.Z3Ctx.IntSort()).(z3.Int)
+	for _, Zthread := range z.vecZGoroutines {
+		// for each ZNode, encode the order
+		for j, znode := range Zthread.Nodes {
+			if znode == nil {
+				fmt.Println("warning in z.Prepare: Nil ZNode when generate order constraints")
+				continue
+			}
+			a := z.Z3Ctx.IntConst(znode_name(znode) + "_Order")
+			znode.UpdateOrder(a)
+			//if _, isOriBlocking := z.mapOriginBlockingNodes[znode]; isOriBlocking {
+			//	aEqNumZNode := a.Eq(Z3NumZNode)
+			//	z.Constraints.Order = append(z.Constraints.Order, aEqNumZNode)
+			//} else {
+			//	aGe0 := a.GE(Z3Zero)
+			//	aLtNumZNode := a.LT(Z3NumZNode)
+			//	z.Constraints.Order = append(z.Constraints.Order, aGe0, aLtNumZNode)
+			//}
+			aGe0 := a.GE(Z3Zero)
+			aLtNumZNode := a.LT(Z3NumZNode)
+			z.Constraints.Order = append(z.Constraints.Order, aGe0, aLtNumZNode)
+
+			if j > 0 {
+				prevNode := Zthread.Nodes[j-1]
+				if prevNode == nil {
+					continue
+				}
+				aGtPrev := a.GT(prevNode.TraceOrder())
+				z.Constraints.Order = append(z.Constraints.Order, aGtPrev)
+			}
+		}
+
+		// encode the order of *Go
+		if len(Zthread.Nodes) > 0 {
+			firstZN := Zthread.Nodes[0]
+			creatorN := firstZN.PNode().Node.CallCtx().Goroutine.Creator
+			if creatorN != nil { // this thread has creator
+				// find the creator ZNode
+				creatorZNode := z.findZNodeMatchNode(creatorN)
+				if creatorZNode != nil {
+					if creatorZNode.IsBlocking() {
+						return fmt.Errorf("Illegal combination: a goroutine's creator is not reached")
+					}
+					spawnOrder := firstZN.TraceOrder().GT(creatorZNode.TraceOrder())
+					z.Constraints.Order = append(z.Constraints.Order, spawnOrder)
+				} else {
+					fmt.Println("Warning in Z3System.Prepare: failed to find the creator ZNode of a thread")
+				}
+			}
+		}
+	}
+
+	// generate sync constraints
+	// unbuffered channel:
+	// 					send.Sync == one and only one of pair.Sync is true
+	//					pair.Sync is true ==> (send.Order == recv.Order) && (send.Value == recv.Value)
+	//					recv.Sync == (one and ...) XOR recv.from_close
+	// 					recv.from_close == (close1.Order < recv.Order || close2.Order < recv.Order ...)
+	//					recv.from_close is true ==> none of pair.Sync is true
+	//					recv.from_close is true ==> recv.Value == default_value // TODO: value rules are not encoded
+	// buffer channel:
+	//					For each send of ch, consider all operations that happen earlier than send, then (Num_sends - Num_recvs) should be less than ch.Buffer_size
+	//					For each recv of ch, …, then {(Num_sends - Num_recvs) should be larger than 0} or recv.from_close
+	// 					recv.from_close == (close1.Order < recv.Order || close2.Order < recv.Order ...)
+	for _, zthread := range z.vecZGoroutines {
+		for _, znode := range zthread.Nodes {
+			if snode, ok := znode.PNode().Node.(SyncOp); ok {
+				if znode.PNode().Node.Parent().Task.IsPrimATarget(snode.Primitive()) == false {
+					// This is a Sync Op of a primitive not in Task, meaning we don't have full information of this primitive, we should ignore it
+					continue
+				}
+			}
+
+			// TODO: some ZNode belong to primitives that we don't know all information about, and should be ignored
+			switch concrete := znode.(type) {
+			case *ZNodeNbSend:
+				allPairChosen := []z3.Bool{}
+				for _, pair := range concrete.Pairs {
+					allPairChosen = append(allPairChosen, pair.boolUseThisPair)
+				}
+				var syncOfThisSend z3.Bool
+				if znode.IsBlocking() {
+					// a blocking op is not executed and can't sync with anyone
+					syncOfThisSend = z.noneIsTrue(allPairChosen)
+				} else {
+					// sync of send == one and only one of pair.Sync is true
+					syncOfThisSend = z.onlyOneTrue(allPairChosen)
+				}
+				z.Constraints.SyncOfOp = append(z.Constraints.SyncOfOp, syncOfThisSend)
+
+			case *ZNodeNbRecv:
+				// sync of recv = XOR(with_send, from_close)
+				// with_send: one and only one of pair.Sync is true
+				// from_close: none is true && (close1.Order < recv.Order || close2.Order < recv.Order ...)
+				allPairChosen := []z3.Bool{}
+				for _, pair := range concrete.Pairs {
+					allPairChosen = append(allPairChosen, pair.boolUseThisPair)
+				}
+				var syncOfThisRecv z3.Bool
+
+				if znode.IsBlocking() { // a blocking op is not executed, and can't sync with anyone
+					syncOfThisRecv = z.noneIsTrue(allPairChosen)
+				} else {
+					syncWithSend := z.onlyOneTrue(allPairChosen)
+
+					var allCloses []ZNode
+					for _, zclose := range concrete.Closes {
+						allCloses = append(allCloses, zclose)
+					}
+					anyCloseAlreadyHappen := z.anyNodeInListHappenBefore(allCloses, concrete)
+					concrete.FromClose = anyCloseAlreadyHappen
+
+					syncOfThisRecv = syncWithSend.Xor(concrete.FromClose)
+
+					noneIsTrue := z.noneIsTrue(allPairChosen)
+					fromCloseImpliesNoneIsTrue := anyCloseAlreadyHappen.Implies(noneIsTrue)
+					z.Constraints.SyncOfOp = append(z.Constraints.SyncOfOp, fromCloseImpliesNoneIsTrue)
+				}
+				z.Constraints.SyncOfOp = append(z.Constraints.SyncOfOp, syncOfThisRecv)
+
+			case *ZNodeBSend:
+				if znode.IsBlocking() {
+					continue
+				} else {
+					// consider all operations that happen earlier than send, then (Num_sends - Num_recvs) should be less than ch.Buffer_size
+					nowBuffer := z.nowBuffer(concrete)
+
+					lessThanBufferSize := nowBuffer.LT(concrete.Buffer)
+					z.Constraints.SyncOfOp = append(z.Constraints.SyncOfOp, lessThanBufferSize)
+				}
+
+			case *ZNodeBRecv:
+				if znode.IsBlocking() {
+					continue
+
+				} else {
+					// consider all operations that happen earlier than recv,
+					// 	then [(Num_sends - Num_recvs) should be less than ch.Buffer_size] or [recv.FromClose == true]
+					nowBuffer := z.nowBuffer(concrete)
+					largerThanZero := nowBuffer.GT(Z3Zero)
+
+					var allCloses []ZNode
+					for _, zclose := range concrete.Closes {
+						allCloses = append(allCloses, zclose)
+					}
+					anyCloseAlreadyHappen := z.anyNodeInListHappenBefore(allCloses, concrete)
+					concrete.From_close = anyCloseAlreadyHappen
+
+					syncOfThisRecv := largerThanZero.Or(anyCloseAlreadyHappen)
+					z.Constraints.SyncOfOp = append(z.Constraints.SyncOfOp, syncOfThisRecv)
+				}
+			}
+		}
+	}
+
+	for _, SRpair := range z.vecZSendRecvPairs {
+		// pair.Sync is true ==> (send.Order == recv.Order) && (send.Value == recv.Value)
+		infer := SRpair.boolUseThisPair.Implies(SRpair.Send.Order.Eq(SRpair.Recv.Order))
+		z.Constraints.PairInferRule = append(z.Constraints.PairInferRule, infer)
+	}
+
+	// Unsafe constraint: there is no goroutine holding the mutex before this node, which means buffer is zero
+	for bNode, _ := range z.mapOriginBlockingNodes { // this loop actually only executes once
+		switch concrete := bNode.(type) {
+		case *ZNodeBRecv:
+			// Buffer must be zero
+			nowBuffer := z.nowBuffer(concrete)
+			bufferEmpty := nowBuffer.Eq(Z3Zero)
+			z.Constraints.Blocking = append(z.Constraints.Blocking, bufferEmpty)
 		}
 	}
 
