@@ -12,10 +12,10 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/util"
 	"go/constant"
 	"go/token"
+	"os"
 	"strconv"
 	"strings"
 	"time"
-	"os"
 )
 
 type tupleGoroutinePath struct {
@@ -341,7 +341,7 @@ func (g *SyncGraph) EnumerateAllPathCombinations() {
 
 	for {
 		if len(g.PathCombinations) > config.MAX_PATH_ENUMERATE {
-			fmt.Printf("Warning in EnumerateAllPathCombinations: " +
+			fmt.Printf("Warning in EnumerateAllPathCombinations: "+
 				"path combination reached config.MAX_PATH_ENUMERATE (%d)\nNow exiting", config.MAX_PATH_ENUMERATE)
 			os.Exit(1)
 			return
@@ -481,16 +481,19 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 
 	for len(worklistPaths) > 0 {
 		if len(worklistPaths) > config.MAX_PATH_ENUMERATE {
-			fmt.Printf("Warning in EnumeratePathWithGoroutineHead: " +
+			fmt.Printf("Warning in EnumeratePathWithGoroutineHead: "+
 				"goroutine path reached config.MAX_PATH_ENUMERATE (%d)\nNow exiting...\n", config.MAX_PATH_ENUMERATE)
 			os.Exit(1)
 			return nil
 		}
 		if time.Since(startEnumeAllPaths) > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
-			if config.Print_Debug_Info {
-				fmt.Println("!!!!")
-				fmt.Println("Warning in EnumeratePathWithGoroutineHead: timeout")
-			}
+			//if config.Print_Debug_Info {
+			//	fmt.Println("!!!!")
+			//	fmt.Println("Warning in EnumeratePathWithGoroutineHead: timeout")
+			//}
+			fmt.Printf("Warning in EnumeratePathWithGoroutineHead: "+
+				"goroutine path reached config.MAX_PATH_ENUMERATE_SECOND (%d)\nNow exiting...\n", config.MAX_PATH_ENUMERATE)
+			os.Exit(1)
 			return nil
 		}
 		thisUnfinish := worklistPaths[0]
@@ -612,7 +615,7 @@ func enumeratePathBreadthFirst(head Node, LoopUnfoldBound int, todo_fn_heads map
 	for len(worklist) != 0 {
 		count++
 		if count > config.MAX_PATH_ENUMERATE {
-			fmt.Printf("Warning in enumeratePathBreadthFirst: " +
+			fmt.Printf("Warning in enumeratePathBreadthFirst: "+
 				"local path reached config.MAX_PATH_ENUMERATE (%d)\nNow exiting...", config.MAX_PATH_ENUMERATE)
 			os.Exit(1)
 			return
@@ -758,6 +761,12 @@ func headerBB_NotCorrectUnroll(headerBB *ssa.BasicBlock, counter int) bool {
 						// check if the counter == loop_condition, meaning we correctly unrolled the loop
 						strLoopCondition := ssaConst.Value.ExactString() // this is string "3", we can't directly read int value from package constant
 						intLoopCondition, err := strconv.Atoi(strLoopCondition)
+						if intLoopCondition > 10 {
+							fmt.Printf("Warning in headerBB_NotCorrectUnroll: " +
+								"contains a loop that we can't unfold enough times\nNow exiting...\n")
+							os.Exit(1)
+							return true
+						}
 						if err != nil {
 							return false
 						}

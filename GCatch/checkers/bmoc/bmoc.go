@@ -6,6 +6,8 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/syncgraph"
+	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
+	"strings"
 )
 
 func Detect() {
@@ -136,24 +138,69 @@ func Check(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*instin
 
 	syncGraph.EnumerateAllPathCombinations()
 
-	boolSkip := false
-	if primCh, ok := prim.(*instinfo.Channel); ok {
-		if primCh.Buffer == instinfo.DynamicSize {
+	for _, ch := range vecChannel {
+		// 1. Abort when the channel has dynamic buffer size that we don't know during compile
+		if ch.Buffer == instinfo.DynamicSize {
 			// If this is a buffered channel with dynamic size and no critical section is found, skip this channel
-			fmt.Println("Contains dynamic sized buffered channel.")
+			fmt.Println("Warning: Contains dynamic sized buffered channel.")
 			syncgraph.ReportNotSure()
-			boolSkip = true
+			return
+		}
+		//// 2. (Deprecated: this is too conservative and may through away bugs we could detect)
+		////Abort if the channel is used in a such a loop that we can't analyze the loop condition
+		//for _, recv := range ch.Recvs {
+		//	if recvInstUnOp, ok := recv.ChOp.Inst.(*ssa.UnOp); ok {
+		//		if recvInstUnOp.Block().Comment == "rangechan.loop" {
+		//			fmt.Println("Warning: Contains channel used in such a loop that we can't analyze how many iterations will be executed.")
+		//			syncgraph.ReportNotSure()
+		//			return
+		//		}
+		//	}
+		//}
+		// 3. Abort if any related channel (in select) is from time.Ticker, since developers may not think this is blocking
+		// iterate over ops because the ticker.C may not be in vecChannel
+		for _, send := range ch.Sends {
+			if IsChOpInvolveTime(send) {
+				fmt.Println("Warning: Contains channel from time.Ticker, so they may not be considered blocking.")
+				syncgraph.ReportNotSure()
+				return
+			}
+		}
+		for _, recv := range ch.Recvs {
+			if IsChOpInvolveTime(recv) {
+				fmt.Println("Warning: Contains channel from time.Ticker, so they may not be considered blocking.")
+				syncgraph.ReportNotSure()
+				return
+			}
 		}
 	}
 
-	if boolSkip == false {
-		syncGraph.PrintAllPathCombinations()
-		foundBug := syncGraph.CheckWithZ3()
-		if foundBug {
-			syncgraph.ReportViolation()
-		} else {
-			syncgraph.ReportNoViolation()
+	//syncGraph.PrintAllPathCombinations()
+	foundBug := syncGraph.CheckWithZ3()
+	if foundBug {
+		syncgraph.ReportViolation()
+	} else {
+		syncgraph.ReportNoViolation()
+	}
+}
+
+func IsChOpInvolveTime(op instinfo.ChanOp) bool {
+	if instSelect, ok := op.Instr().(*ssa.Select); ok {
+		for _, state := range instSelect.States {
+			// Loop for state.Chan to be (*A.C), where A's type is time.Ticker
+			if chUnOp, ok := state.Chan.(*ssa.UnOp); ok {
+				if field, ok := chUnOp.X.(*ssa.FieldAddr); ok {
+					if fieldUnOp, ok := field.X.(*ssa.UnOp); ok {
+						if structAlloc, ok := fieldUnOp.X.(*ssa.Alloc); ok {
+							strType := structAlloc.Type().String()
+							if strings.Contains(strType, "time.") {
+								return true
+							}
+						}
+					}
+				}
+			}
 		}
 	}
-	return
+	return false
 }
