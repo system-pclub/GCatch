@@ -258,6 +258,9 @@ func ContainsValidCaller(lastNode *callgraph.Node) bool {
 
 func IsFunctionIncludedInAnalysis(node *callgraph.Node) bool {
 	if node.Func.Pkg == nil {
+		if strings.HasPrefix(node.Func.Synthetic, "bound method wrapper for") {
+			return true
+		}
 		//fmt.Printf("func.Pkg == nil, func = %s, func.Signature = %s\n", in.Caller.Func.Name(), in.Caller.Func.Signature)
 	} else {
 		path := node.Func.Pkg.Pkg.Path()
