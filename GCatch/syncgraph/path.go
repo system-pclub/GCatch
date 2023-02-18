@@ -87,6 +87,13 @@ func (p PPath) SetAllReached() {
 	}
 }
 
+func (p PPath) SetAllUnexecuted() {
+	for _, n := range p.Path {
+		n.Blocked = false
+		n.Executed = false
+	}
+}
+
 func (p PPath) SetBlockAt(index int) {
 	for i, n := range p.Path {
 		if i < index {
@@ -98,6 +105,16 @@ func (p PPath) SetBlockAt(index int) {
 		} else {
 			n.Executed = false
 			n.Blocked = false
+		}
+	}
+}
+
+func (p PPath) FindUnexecutedGo(m map[*Go]struct{}) {
+	for _, n := range p.Path {
+		if g, ok := n.Node.(*Go); ok {
+			if n.Executed == false {
+				m[g] = struct{}{}
+			}
 		}
 	}
 }
@@ -601,7 +618,10 @@ func enumeratePathBreadthFirst(head Node, LoopUnfoldBound int, todo_fn_heads map
 	fn := head.Instruction().Parent()
 	loopAnalysis := analysis.NewLoopAnalysis(fn)
 	mapBackedge2Visited := make(map[*analysis.Edge]int)
-	mapLoopHeader2Visited := make(map[*ssa.BasicBlock]int)
+	mapLoopHeader2Visited := make(map[*ssa.BasicBlock]int) // This map is now deprecated
+	mapSelectCase2Visited := make(map[*SelectCase]int)     // This map is to handle a special scenario when the backedge
+	// is from an empty selectcase to the head of loop, for which our backedge doesn't work since SelectCase.Next may
+	//be an instruction in loop head. See cockroach/24808 line 51
 	for _, edge := range loopAnalysis.VecBackedge {
 		mapBackedge2Visited[edge] = 0
 	}
@@ -695,6 +715,15 @@ func enumeratePathBreadthFirst(head Node, LoopUnfoldBound int, todo_fn_heads map
 						if new_backedge_visited[out] > LoopUnfoldBound {
 							continue outLoop
 						}
+					}
+				}
+			} else {
+				if selectCase, ok := last_node.(*SelectCase); ok { // handle a special scenario: selectCase leads back
+					// to the head of loop. Here last_node.Instruction(), which is a select,  and out.Succ.Instruction()
+					//are in the same bb
+					mapSelectCase2Visited[selectCase]++
+					if mapSelectCase2Visited[selectCase] > LoopUnfoldBound {
+						continue outLoop
 					}
 				}
 			}

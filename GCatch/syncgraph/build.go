@@ -641,10 +641,6 @@ func ProcessInstGetNode(targetInst ssa.Instruction, ctx *CallCtx) Node {
 		return newGo
 
 	case *ssa.Select:
-		///DELETE
-		if inst.Block().Index == 4 && inst.Parent().Name() == "TestPipeListener" {
-			fmt.Print()
-		}
 		newSelect := &Select{
 			Inst:           inst,
 			Cases:          make(map[int]*SelectCase),
