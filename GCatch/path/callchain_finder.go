@@ -2,6 +2,7 @@ package path
 
 import (
 	"fmt"
+	"github.com/system-pclub/GCatch/GCatch/analysis/pointer"
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/callgraph"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
@@ -54,7 +55,11 @@ func ComputeScope(funcs []*ssa.Function, lcaConfig *LcaConfig) (map[*ssa.Functio
 // function, it stops search and returns.
 func ComputeCallChain(sink *callgraph.Node, config *LcaConfig) (result *EdgeChain, err error) {
 	// key is the node id in source, value is the predecessor in the call chain.
-	err = fmt.Errorf("Call chain not found for " + sink.Func.Name())
+	err = fmt.Errorf("Call chain not found for " + sink.Func.Name() +
+		" (" + sink.Func.Pkg.Pkg.Path() + ":" + pointer.PosToFileAndLocString(sink.Func.Pos()))
+	if strings.HasPrefix(sink.Func.Name(), "addCluster") || strings.HasPrefix(sink.Func.Name(), "Pop") {
+		println("debug breakpoint")
+	}
 	visited := make(map[int]*callgraph.Edge)
 	queue := make([]*callgraph.Node, 1)
 	queue[0] = sink
