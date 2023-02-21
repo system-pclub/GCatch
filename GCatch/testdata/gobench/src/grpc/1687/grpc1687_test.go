@@ -39,7 +39,7 @@ func (ht *serverHandlerTransport) WriteStatus() {
 	close(ht.writes)
 }
 
-func (ht *serverHandlerTransport) Write() {
+func (ht *serverHandlerTransport) Write() { // TODO: GCatch's problem is that Write is not on MapFnOnOpPath
 	ht.do(func() {})
 }
 

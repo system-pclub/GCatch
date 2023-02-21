@@ -261,12 +261,31 @@ func (g *SyncGraph) CheckWithZ3() bool {
 				}
 			}
 			// Make some paths block and other paths exit
+			// However, when a path's creator Go is not executed, this path shouldn't be executed
+			mapUnexecutedGo := make(map[*Go]struct{})
 			for j, path := range paths {
 				blockPos, exist := blockPosComb[j]
 				if exist && blockPos.pNodeId != emptyPNodeId {
 					path.SetBlockAt(blockPos.pNodeId)
+					path.FindUnexecutedGo(mapUnexecutedGo)
 				} else {
 					path.SetAllReached()
+				}
+			}
+
+			for len(mapUnexecutedGo) > 0 {
+				var unexecutedGo *Go
+				for g, _ := range mapUnexecutedGo {
+					unexecutedGo = g
+					delete(mapUnexecutedGo, g)
+					break
+				}
+				for j, path := range paths {
+					goroutine := goroutines[j]
+					if goroutine.Creator == unexecutedGo {
+						path.SetAllUnexecuted()
+						break
+					}
 				}
 			}
 

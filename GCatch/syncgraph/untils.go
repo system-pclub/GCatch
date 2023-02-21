@@ -7,6 +7,7 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/output"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"github.com/system-pclub/GCatch/GCatch/util"
+	"strconv"
 )
 
 // nextInst mustn't be called upon jump/if/return/panic, which have no or multiple nextInst
@@ -342,6 +343,7 @@ func WalkGenEdge(node Node, mapHeadOfFn map[Node]bool) {
 			IsGo:       false,
 			AddValue:   0,
 		}
+		node.SetString(str + "_caseNO_" + strconv.Itoa(concrete.Index)) // Without this line, all cases in a select would have the same string
 		node.OutAdd(edge)
 		concrete.Next.InAdd(edge)
 		if concrete.BoolIsBackedge == false {
