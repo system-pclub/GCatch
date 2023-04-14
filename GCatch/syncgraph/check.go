@@ -130,6 +130,7 @@ func (g *SyncGraph) CheckWithZ3() bool {
 				config.BugIndexMu.Unlock()
 				fmt.Print("]----------\n\tType: Lock Safety \tReason: Unlock when no goroutine is holding a lock.\n")
 				fmt.Println("-----Blocking/unsafe at:")
+				// TODO: add an exit here.
 				inst := paths[unLock.pathId].Path[unLock.pNodeId].Node.Instruction()
 				str := output.StringIISrc(inst)
 				fmt.Print(str)

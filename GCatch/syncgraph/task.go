@@ -133,8 +133,11 @@ func PrintLCA2PathForDebugging(Lca2Path map[*ssa.Function][]*path.EdgeChain) {
 		for _, edgeChain := range edgeChains {
 			fmt.Print(ssaFunc.Name())
 			for _, edge := range edgeChain.Chain {
-				p := config.Prog.Fset.Position(edge.Site.Pos())
-				lineNo := strconv.Itoa(p.Line)
+				lineNo := "0"
+				if edge.Site != nil {
+					p := config.Prog.Fset.Position(edge.Site.Pos())
+					lineNo = strconv.Itoa(p.Line)
+				}
 				fmt.Printf("--%s-->%s", lineNo, edge.Callee.Func.Name())
 			}
 			fmt.Println()
