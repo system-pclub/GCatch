@@ -7,7 +7,6 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/analysis"
 	"github.com/system-pclub/GCatch/GCatch/config"
 	"github.com/system-pclub/GCatch/GCatch/instinfo"
-	"github.com/system-pclub/GCatch/GCatch/output"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"github.com/system-pclub/GCatch/GCatch/util"
 	"go/constant"
@@ -161,37 +160,41 @@ func debugPrintEnumeratedPaths(path_map map[string]*LocalPath) {
 	count := 0
 	fmt.Println("In total:", len(path_map))
 	for _, path := range path_map {
-		fmt.Println("-----Path:", count)
-		//fmt.Println(path.mapNodeEdge2IntVisited)
-		fmt.Println(path.mapLoopHead2Visited)
-		count++
-		for i, n := range path.Path {
-			str := TypeMsgForNode(n)
-			if str == "Normal_inst" {
-				continue
+		printLocalPath(count, path)
+	}
+}
+
+func printLocalPath(count int, path *LocalPath) {
+	fmt.Println("-----Path:", count)
+	//fmt.Println(path.mapNodeEdge2IntVisited)
+	fmt.Println(path.mapLoopHead2Visited)
+	count++
+	for i, n := range path.Path {
+		str := TypeMsgForNode(n)
+		if str == "Normal_inst" {
+			continue
+		}
+		fmt.Println(str)
+		if i < len(path.Path)-1 {
+			var flag_backedge bool
+			next := path.Path[i+1]
+			for _, out := range n.Out() {
+				if out.Succ == next {
+					flag_backedge = out.IsBackedge
+					break
+				}
 			}
-			fmt.Println(str)
-			if i < len(path.Path)-1 {
-				var flag_backedge bool
-				next := path.Path[i+1]
-				for _, out := range n.Out() {
-					if out.Succ == next {
-						flag_backedge = out.IsBackedge
-						break
-					}
-				}
-				if flag_backedge {
-					fmt.Println("--Backedge")
-				}
-			}
-			if i == len(path.Path)-1 {
-				if TypeMsgForNode(n) != "Return" {
-					output.WaitForInput()
-				}
+			if flag_backedge {
+				fmt.Println("--Backedge")
 			}
 		}
-		output.WaitForInput()
+		if i == len(path.Path)-1 {
+			if TypeMsgForNode(n) != "Return" {
+				//output.WaitForInput()
+			}
+		}
 	}
+	//output.WaitForInput()
 }
 
 func copyBackedgeMap(old map[*NodeEdge]int) map[*NodeEdge]int {
@@ -367,11 +370,13 @@ func (g *SyncGraph) EnumerateAllPathCombinations() {
 		// store the current combination. During store, do some checks, and may add extra goroutine and path
 		goroutines := []*Goroutine{}
 		paths := []*LocalPath{}
+		util.Debugfln("printing LocalPaths:")
 		for i := 0; i < n; i++ {
 			goroutine := g.Goroutines[i]
 			goroutines = append(goroutines, goroutine)
 			path := possiblePaths[i][indices[i]]
 			paths = append(paths, path)
+			printLocalPath(i, path)
 		}
 		g.generateNewPathCombinations(goroutines, paths, possiblePaths) // in this function, g.PathCombinations will be added
 
@@ -436,7 +441,7 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 			}
 		}
 		for _, path := range mapHash2Map {
-			util.Debugfln("path in mapHash2Map: %s", path)
+			//util.Debugfln("path in mapHash2Map: %s", path)
 			if enumeConfigure.FlagIgnoreNormal {
 				path = deleteNormalFromPath(path)
 			}
@@ -597,6 +602,7 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 		}
 		worklistPaths = newList
 	}
+	debugPrintEnumeratedPaths(result)
 
 	return result
 }
@@ -670,7 +676,7 @@ func enumeratePathBreadthFirst(head Node, LoopUnfoldBound int, todo_fn_heads map
 			util.Debugfln("path = %s", current_local_path)
 			//current_local_path.finished = true
 			if _, ok := mapHash2Map[current_local_path.Hash]; ok {
-				util.Debugfln("update existing path hash: %s", current_local_path.Hash)
+				//util.Debugfln("update existing path hash: %s", current_local_path.Hash)
 			}
 			mapHash2Map[current_local_path.Hash] = current_local_path
 			continue

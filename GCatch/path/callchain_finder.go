@@ -81,9 +81,9 @@ func ComputeCallChain(sink *callgraph.Node, config *LcaConfig) (result *EdgeChai
 		}
 		for _, calleeEdge := range headNode.In {
 			caller := calleeEdge.Caller
-			if !IsFunctionIncludedInAnalysis(caller) {
-				continue
-			}
+			//if !IsFunctionIncludedInAnalysis(caller) {
+			//	continue
+			//}
 			if _, ok := visited[caller.ID]; !ok {
 				visited[caller.ID] = calleeEdge
 				queue = append(queue, caller)

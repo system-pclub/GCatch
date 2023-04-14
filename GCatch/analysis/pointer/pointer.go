@@ -9,7 +9,6 @@ import (
 	"github.com/system-pclub/GCatch/GCatch/tools/go/mypointer"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa/ssautil"
-	"github.com/system-pclub/GCatch/GCatch/util"
 	"strconv"
 	"strings"
 )
@@ -107,7 +106,7 @@ func GetChanOps(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.SyncOpIn
 
 	label2ChOp := mergeAlias(vecStChanOpAndValue, stPtrResult)
 	for label, chOps := range label2ChOp {
-		util.Debugfln("label: type = %s, loc = %s value = %s", label.String(), PosToFileAndLocString(label.Pos()), label.Value())
+		//util.Debugfln("label: type = %s, loc = %s value = %s", label.String(), PosToFileAndLocString(label.Pos()), label.Value())
 		boolInContext := boolIsInContext(label.Value())
 		boolInTime := boolIsInTime(label.Value())
 
@@ -130,7 +129,7 @@ func GetChanOps(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.SyncOpIn
 		}
 
 		for _, chOp := range chOps {
-			util.Debugfln("\t(%s %s %s) %s", chOp.Inst, chOp.Comment, chOp.Value, getFileAndLocString(chOp.Value))
+			//util.Debugfln("\t(%s %s %s) %s", chOp.Inst, chOp.Comment, chOp.Value, getFileAndLocString(chOp.Value))
 			switch chOp.Comment {
 			case instinfo.MakeChan:
 				new_make := &instinfo.ChMake{
@@ -208,7 +207,7 @@ func GetChanOps(stPtrResult *mypointer.Result, vecStOpValue []*instinfo.SyncOpIn
 				}
 				chPrim.Closes = append(chPrim.Closes, newClose)
 			default:
-				util.Debugfln("chOp.Comment = %s, pos = %s \n", chOp.Comment, PosToFileAndLocString(chOp.Inst.Pos()))
+				//util.Debugfln("chOp.Comment = %s, pos = %s \n", chOp.Comment, PosToFileAndLocString(chOp.Inst.Pos()))
 				//Select
 				if i := strings.Index(chOp.Comment, "Select_Send_"); i > -1 {
 					var boolIsBlocking bool

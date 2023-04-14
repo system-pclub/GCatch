@@ -2,6 +2,7 @@ package conflictinglock
 
 import (
 	"fmt"
+	"github.com/system-pclub/GCatch/GCatch/instinfo"
 	"github.com/system-pclub/GCatch/GCatch/tools/go/ssa"
 	"github.com/system-pclub/GCatch/GCatch/util"
 )
@@ -87,7 +88,7 @@ func InitGenKillMap(inputFn *ssa.Function) {
 				mapGen[ii] = mapIIStLockingOp[ii]
 			}
 
-			if _, ok := mapIIStUnlockingOp[ii]; ok {
+			if _, ok := mapIIStUnlockingOp[ii]; ok && !instinfo.IsDefer(ii) {
 				mapKill[ii] = mapIIStUnlockingOp[ii]
 			}
 		}
