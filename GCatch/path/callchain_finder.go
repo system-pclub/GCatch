@@ -37,7 +37,10 @@ func ComputeScope(funcs []*ssa.Function, lcaConfig *LcaConfig) (map[*ssa.Functio
 	for _, targetFunc := range funcs {
 		if _, ok := visitedFuncs[targetFunc]; !ok {
 			var callchain *EdgeChain
-			callchain, err = ComputeCallChain(config.CallGraph.Nodes[targetFunc], lcaConfig)
+			callchain, err = ComputeCallChainReversed(config.CallGraph.Nodes[targetFunc], lcaConfig)
+			if ExistsAlternativeCallChain(config.CallGraph.Nodes[targetFunc], callchain, lcaConfig) {
+				config.FoundAlternativeCallChain = true
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -51,9 +54,9 @@ func ComputeScope(funcs []*ssa.Function, lcaConfig *LcaConfig) (map[*ssa.Functio
 	return ret, err
 }
 
-// ComputeCallChain computes the shortest call chain starting from an entry function to the sink. Once it finds an entry
-// function, it stops search and returns.
-func ComputeCallChain(sink *callgraph.Node, config *LcaConfig) (result *EdgeChain, err error) {
+// ComputeCallChainReversed computes the shortest call chain starting from the sink to an entry function. Once it finds
+// an entry function, it stops search and returns.
+func ComputeCallChainReversed(sink *callgraph.Node, config *LcaConfig) (result *EdgeChain, err error) {
 	// key is the node id in source, value is the predecessor in the call chain.
 	err = fmt.Errorf("Call chain not found for " + sink.Func.Name() +
 		" (" + sink.Func.Pkg.Pkg.Path() + ":" + pointer.PosToFileAndLocString(sink.Func.Pos()))
@@ -85,6 +88,55 @@ func ComputeCallChain(sink *callgraph.Node, config *LcaConfig) (result *EdgeChai
 			//	continue
 			//}
 			if _, ok := visited[caller.ID]; !ok {
+				visited[caller.ID] = calleeEdge
+				queue = append(queue, caller)
+			}
+		}
+	}
+	return
+}
+
+func ExistsAlternativeCallChain(sink *callgraph.Node, callchain *EdgeChain, config *LcaConfig) bool {
+	for _, edge := range callchain.Chain {
+		if _, err := ComputeCallChainReversedWithOneEdgeJumped(sink, edge.Caller.ID, config); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func ComputeCallChainReversedWithOneEdgeJumped(sink *callgraph.Node, jumpedCallerID int, config *LcaConfig) (result *EdgeChain, err error) {
+	// key is the node id in source, value is the predecessor in the call chain.
+	err = fmt.Errorf("Call chain not found for " + sink.Func.Name() +
+		" (" + sink.Func.Pkg.Pkg.Path() + ":" + pointer.PosToFileAndLocString(sink.Func.Pos()))
+	if strings.HasPrefix(sink.Func.Name(), "addCluster") || strings.HasPrefix(sink.Func.Name(), "Pop") {
+		println("debug breakpoint")
+	}
+	visited := make(map[int]*callgraph.Edge)
+	queue := make([]*callgraph.Node, 1)
+	queue[0] = sink
+	visited[sink.ID] = nil
+	head := -1
+	for head < len(queue)-1 {
+		head += 1
+		headNode := queue[head]
+		if IsCallGraphAccurateOnNode(headNode) {
+			if config.GiveUpWhenCallGraphIsInaccurate {
+				return nil, ErrInaccurateCallgraph
+			}
+			//fmt.Println(ErrInaccurateCallgraph)
+		}
+		if headNode.Func.Name() == "main" ||
+			(strings.HasPrefix(headNode.Func.Name(), "Test") &&
+				!strings.Contains(headNode.Func.Name(), "$")) {
+			return BacktraceCallChain(headNode, visited), nil
+		}
+		for _, calleeEdge := range headNode.In {
+			caller := calleeEdge.Caller
+			//if !IsFunctionIncludedInAnalysis(caller) {
+			//	continue
+			//}
+			if _, ok := visited[caller.ID]; !ok && caller.ID != jumpedCallerID {
 				visited[caller.ID] = calleeEdge
 				queue = append(queue, caller)
 			}

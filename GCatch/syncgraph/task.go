@@ -176,10 +176,6 @@ func (t *Task) Step2CompletePrims() error {
 	fmt.Println("new impl:")
 	PrintLCA2PathForDebugging(LCA2paths)
 	if err != nil {
-		//if err == path.ErrInaccurateCallgraph {
-		//	fmt.Println("Task: Give up LCA because callgraph is inaccurate. Count:", countInaccurateCall)
-		//	countInaccurateCall++
-		//}
 		if err == path.LcaErrReachedMax {
 			if config.Print_Debug_Info {
 				fmt.Println("!!!!")

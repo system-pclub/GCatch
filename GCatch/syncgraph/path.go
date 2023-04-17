@@ -360,12 +360,12 @@ func (g *SyncGraph) EnumerateAllPathCombinations() {
 	}
 
 	for {
-		if len(g.PathCombinations) > config.MAX_PATH_ENUMERATE {
-			fmt.Printf("Warning in EnumerateAllPathCombinations: "+
-				"path combination reached config.MAX_PATH_ENUMERATE (%d)\nNow exiting", config.MAX_PATH_ENUMERATE)
-			os.Exit(1)
-			return
-		}
+		//if len(g.PathCombinations) > config.MAX_PATH_ENUMERATE {
+		//	fmt.Printf("Warning in EnumerateAllPathCombinations: "+
+		//		"path combination reached config.MAX_PATH_ENUMERATE (%d)\nNow exiting", config.MAX_PATH_ENUMERATE)
+		//	os.Exit(1)
+		//	return
+		//}
 
 		// store the current combination. During store, do some checks, and may add extra goroutine and path
 		goroutines := []*Goroutine{}
@@ -502,12 +502,12 @@ func EnumeratePathWithGoroutineHead(head Node, enumeConfigure *EnumeConfigure) m
 	}
 
 	for len(worklistPaths) > 0 {
-		if len(worklistPaths) > config.MAX_PATH_ENUMERATE {
-			fmt.Printf("Warning in EnumeratePathWithGoroutineHead: "+
-				"goroutine path reached config.MAX_PATH_ENUMERATE (%d)\nNow exiting...\n", config.MAX_PATH_ENUMERATE)
-			os.Exit(1)
-			return nil
-		}
+		//if len(worklistPaths) > config.MAX_PATH_ENUMERATE {
+		//	fmt.Printf("Warning in EnumeratePathWithGoroutineHead: "+
+		//		"goroutine path reached config.MAX_PATH_ENUMERATE (%d)\nNow exiting...\n", config.MAX_PATH_ENUMERATE)
+		//	os.Exit(1)
+		//	return nil
+		//}
 		if time.Since(startEnumeAllPaths) > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
 			//if config.Print_Debug_Info {
 			//	fmt.Println("!!!!")
@@ -640,12 +640,12 @@ func enumeratePathBreadthFirst(head Node, LoopUnfoldBound int, todo_fn_heads map
 
 	for len(worklist) != 0 {
 		count++
-		if count > config.MAX_PATH_ENUMERATE {
-			fmt.Printf("Warning in enumeratePathBreadthFirst: "+
-				"local path reached config.MAX_PATH_ENUMERATE (%d)\nNow exiting...", config.MAX_PATH_ENUMERATE)
-			os.Exit(1)
-			return
-		}
+		//if count > config.MAX_PATH_ENUMERATE {
+		//	fmt.Printf("Warning in enumeratePathBreadthFirst: "+
+		//		"local path reached config.MAX_PATH_ENUMERATE (%d)\nNow exiting...", config.MAX_PATH_ENUMERATE)
+		//	os.Exit(1)
+		//	return
+		//}
 
 		current_local_path := worklist[0]
 		worklist = worklist[1:]
@@ -684,7 +684,7 @@ func enumeratePathBreadthFirst(head Node, LoopUnfoldBound int, todo_fn_heads map
 
 	outLoop:
 		for _, out := range valid_outs {
-			if false && time.Since(startPathEnume) > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
+			if time.Since(startPathEnume) > config.MAX_PATH_ENUMERATE_SECOND*time.Second {
 				if config.Print_Debug_Info {
 					fmt.Println("Warning in enumeratePathBreadthFirst: timeout")
 					for _, prim := range head.Parent().Task.VecTaskPrimitive {

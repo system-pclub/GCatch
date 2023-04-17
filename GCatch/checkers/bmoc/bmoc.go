@@ -179,6 +179,9 @@ func Check(prim interface{}, vecChannel []*instinfo.Channel, vecLocker []*instin
 	foundBug := syncGraph.CheckWithZ3()
 	if foundBug {
 		syncgraph.ReportViolation()
+	} else if config.FoundAlternativeCallChain {
+		fmt.Println("Warning: Not all possible call chains are enumerated.")
+		syncgraph.ReportNotSure()
 	} else {
 		syncgraph.ReportNoViolation()
 	}
